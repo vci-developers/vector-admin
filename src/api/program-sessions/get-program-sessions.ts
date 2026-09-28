@@ -3,19 +3,18 @@ import 'server-only';
 import { loadProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import { loadPrograms } from '@/api/admin/load-programs';
 import type {
-    GetProgramMonthSessionsQuery,
-    ProgramMonthSessions,
-} from '@/api/program-month-sessions/validation/program-month-sessions-schema';
-import { buildProgramMonthSessions } from '@/features/dashboard/utils/build-program-month-sessions';
+    GetProgramSessionsQuery,
+    ProgramSessions,
+} from '@/api/program-sessions/validation/program-sessions-schema';
+import { buildProgramSessions } from '@/features/dashboard/utils/build-program-sessions';
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, ok, type Result } from '@/lib/result/result';
 
-export async function getProgramMonthSessions({
+export async function getProgramSessions({
     programId,
-    month,
-}: GetProgramMonthSessionsQuery): Promise<
-    Result<ProgramMonthSessions, NetworkError>
-> {
+    from,
+    to,
+}: GetProgramSessionsQuery): Promise<Result<ProgramSessions, NetworkError>> {
     const programs = await loadPrograms();
     if (!programs.ok) return programs;
 
@@ -27,11 +26,11 @@ export async function getProgramMonthSessions({
 
     return ok({
         programId,
-        month,
-        sessions: buildProgramMonthSessions(
-            snapshot.data,
-            program.country,
-            month,
-        ),
+        from,
+        to,
+        sessions: buildProgramSessions(snapshot.data, program.country, {
+            from,
+            to,
+        }),
     });
 }

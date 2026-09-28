@@ -1,6 +1,6 @@
 'use client';
 
-import type { MonthMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
+import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,11 +22,11 @@ import MetricValue from './metric-value';
 
 type SummaryTableProps = {
     rows: SummaryRow[];
-    total: MonthMetricsDto | null;
+    total: PeriodMetricsDto | null;
     totalIncomplete: boolean;
 };
 
-function FieldBreakdown({ metrics }: { metrics: MonthMetricsDto }) {
+function FieldBreakdown({ metrics }: { metrics: PeriodMetricsDto }) {
     const t = useTranslations('Fields');
     return (
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">

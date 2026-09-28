@@ -1,6 +1,6 @@
 'use client';
 
-import type { MonthMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
+import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import { Card } from '@/components/ui/card';
 import { METRICS } from '@/features/dashboard/utils/metric-definitions';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
@@ -8,16 +8,17 @@ import { useFormatter, useTranslations } from 'next-intl';
 import MetricValue from './metric-value';
 
 type KpiTilesProps = {
-    current: MonthMetricsDto | null;
-    previous: MonthMetricsDto | null;
-    previousMonthLabel: string | null;
+    current: PeriodMetricsDto | null;
+    previous: PeriodMetricsDto | null;
+    /** e.g. "Oct" or "previous 3 months"; null when there is no previous period. */
+    previousLabel: string | null;
     incomplete: boolean;
 };
 
 export default function KpiTiles({
     current,
     previous,
-    previousMonthLabel,
+    previousLabel,
     incomplete,
 }: KpiTilesProps) {
     const t = useTranslations('Metrics');
@@ -61,7 +62,7 @@ export default function KpiTiles({
                             )}
                         </p>
                         <p className="text-muted-foreground flex items-center gap-1 text-xs">
-                            {delta !== null && previousMonthLabel ? (
+                            {delta !== null && previousLabel ? (
                                 <>
                                     <DeltaIcon
                                         className="size-3"
@@ -76,7 +77,7 @@ export default function KpiTiles({
                                                       signDisplay: 'exceptZero',
                                                   },
                                               ),
-                                              month: previousMonthLabel,
+                                              month: previousLabel,
                                           })
                                         : tKpi('delta', {
                                               delta: formatter.number(delta, {
@@ -87,7 +88,7 @@ export default function KpiTiles({
                                                           : 0,
                                                   signDisplay: 'exceptZero',
                                               }),
-                                              month: previousMonthLabel,
+                                              month: previousLabel,
                                           })}
                                 </>
                             ) : (

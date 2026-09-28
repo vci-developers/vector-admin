@@ -19,11 +19,11 @@ program 5, Johns Hopkins University, whose nature is unconfirmed); a hidden
 Program can still be selected. New Programs appear selected automatically.
 _Avoid_: all programs (means the default selection, not literally every Program)
 
-**Reporting Month**: The calendar month every metric is bucketed by, evaluated
-in the Program's timezone. Used for all programs alike so programs are
-comparable side by side. A Session with no `collectionDate` is bucketed by its
-`submittedAt` instead, so its Records still appear (failing capture date).
-_Avoid_: period, cycle (when meaning a month)
+**Reporting Month**: The calendar month a Session belongs to, evaluated in the
+Program's timezone, so programs are comparable side by side. A Session with no
+`collectionDate` uses its `submittedAt` instead, so its Records still appear
+(failing capture date). Periods are made of whole Reporting Months. _Avoid_:
+cycle (when meaning a month)
 
 **Counted Session**: A `SURVEILLANCE` or `DATA_COLLECTION` Session. `PRACTICE`
 and `CALIBRATION` Sessions are ignored by every metric and by Device Status (a
@@ -35,24 +35,26 @@ the static bounding box behind every GPS check. Boxes exist for Uganda, Kenya,
 Ghana, Cameroon, Colombia and the United States of America (contiguous states
 only). A Program whose country has no box fails every geolocation check.
 
-**Summary Month**: The one Reporting Month the month summary, KPI tiles, map and
-Session panel show. Defaults to the last complete month and always lies inside
-the Reporting Range. _Avoid_: selected month, current month
+**Reporting Period**: The one time filter for the whole page: a span of whole
+Reporting Months chosen from presets (Last month, Last 3 / 6 / 12 months, Year
+to date, All time) or a custom from/to month pair (the same month twice is a
+single month). Defaults to Last month, the unit the team sheet uses. Presets are
+relative, so a bookmarked preset tracks the calendar. The map, KPI tiles,
+summary table, Device Status and Session panel all show this period; there is no
+second month or range control. Counts are summed over the period, Active Devices
+and Unique Users are counted once each, and ratios are recomputed over the
+period, never averaged. KPI tiles compare with the same-length period just
+before (none for All time). _Avoid_: range, summary month, date range
 
-**Reporting Range**: The span of Reporting Months shown. Chosen from presets
-(Last 3 / 6 / 12 months, Year to date, All time) or a custom from/to month pair.
-Defaults to Last 12 months; presets are relative, so a bookmarked preset always
-tracks the current month. _Avoid_: date range (months are the smallest unit)
+**Cycle Label**: The Collection Cycle(s) overlapping the Reporting Period, shown
+beside each Program in the summary so a quiet period can be read against where
+the program is in its cycle. Annotation only; never a bucket. Programs with no
+Collection Schedule show none. _Avoid_: cycle view
 
-**Cycle Label**: The Collection Cycle(s) overlapping a Reporting Month, shown as
-context on that month (e.g. "Cycle 5") beside each Program in the month summary
-and in trend tooltips, so a quiet month can be read against where the program is
-in its cycle. Annotation only; never a bucket. Programs with no Collection
-Schedule show none. _Avoid_: cycle view
-
-**Monthly Active Device**: A Device with ≥1 Session whose `collectionDate` falls
-in the Reporting Month. Distinct from VectorVerify's **Device Activity**
-(cycle-based, as-of-today). _Avoid_: active device (bare)
+**Active Device**: A Device with ≥1 Session in the Reporting Period, counted
+once however many months it was active. Distinct from VectorVerify's **Device
+Activity** (cycle-based, as-of-today). _Avoid_: Monthly Active Device (the
+period is not always a month)
 
 **Scan**: One image of a Specimen (`SpecimenImage`). A Specimen imaged three
 times is three Scans. Counted in the Reporting Month of its Session's
@@ -62,16 +64,14 @@ times is three Scans. Counted in the Reporting Month of its Session's
 Reporting Month of its Session's `collectionDate`. _Avoid_: specimen count
 (ambiguous with Scans)
 
-**Scans per Active Device**: Scans ÷ Monthly Active Devices for the same Program
-and Reporting Month. Undefined (not zero) when there are no Monthly Active
-Devices.
+**Scans per Active Device**: Scans ÷ Active Devices for the same Program and
+Reporting Period. Undefined (not zero) when there are no Active Devices.
 
-**Device Status**: For a selected Reporting Month, every registered Device
-(`GET /devices/?programId`) is **Active** (≥1 Session that month), **Inactive**
-(has Sessions, none that month) or **Never Used** (no Sessions ever). Uses the
-registry, unlike VectorVerify, because VectorAdmin scopes by Program, not
-location, and must surface devices handed out but never used. The map shows
-status for the **Summary Month**.
+**Device Status**: For the Reporting Period, every registered Device
+(`GET /devices/?programId`) is **Active** (≥1 Session in the period),
+**Inactive** (has Sessions, none in the period) or **Never Used** (no Sessions
+ever). Uses the registry, unlike VectorVerify, because VectorAdmin scopes by
+Program, not location, and must surface devices handed out but never used.
 
 **Device Location**: A Device is placed at the GPS `latitude`/`longitude` of its
 latest Session. A point that is null or outside its Program's country is
@@ -82,11 +82,10 @@ _Avoid_: site location (VectorVerify's geocoded position)
 
 **Specimen Location**: Where a Specimen appears on the map: its Session's GPS
 `latitude`/`longitude`, drawn as one point per Session sized by specimen count.
-The map shows the whole Reporting Range by default and the Summary Month on
-request; the Devices layer is always the Summary Month, since Device Status is
-per month. The same in-country rule as Device Location applies; Sessions outside
-it are counted as unplaced with their specimens, never drawn. Recorded at
-upload, not at the trap. _Avoid_: trap location, site location
+The map covers the Reporting Period. The same in-country rule as Device Location
+applies; Sessions outside it are counted as unplaced with their specimens, never
+drawn. Recorded at upload, not at the trap. _Avoid_: trap location, site
+location
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),
@@ -113,7 +112,7 @@ before the first recorded login in the selection are blank, not zero: the
 backend only logs logins from when auth events shipped (test: June 2026). Same
 source and population as VectorVerify's User Analytics (VCV-303), but across all
 Programs via the Program Filter. _Avoid_: Active Users (collides with
-`isActive`), Monthly Active Device (different population)
+`isActive`), Active Device (different population)
 
 **Time to Confirmation**: Elapsed time from a Session's `createdAt` (started on
 the device) to `certifiedAt` (a VCO confirmed it in Review). Uncertified
@@ -122,9 +121,9 @@ _Avoid_: identification time, turnaround
 
 **Projected Devices**: A per-program, per-month device target set by the program
 team. Planning data kept in the team's sheet, not in VectorAdmin; the sheet
-compares it against Monthly Active Devices. Program Potential, program stage,
-updates and opportunities are likewise planning data outside VectorAdmin.
-_Avoid_: expected devices
+compares it against Active Devices. Program Potential, program stage, updates
+and opportunities are likewise planning data outside VectorAdmin. _Avoid_:
+expected devices
 
 ## Flagged ambiguities
 
@@ -132,5 +131,5 @@ _Avoid_: expected devices
   `Device.id` and `ssaid` (Android ID); there is no IMEI. A factory-reset phone
   that re-registers becomes a new Device, so device counts can exceed phones.
 
-- "Active device" means **Monthly Active Device** here, not VectorVerify's
-  cycle-based Device Activity.
+- "Active device" means **Active Device** here, not VectorVerify's cycle-based
+  Device Activity.

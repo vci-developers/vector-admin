@@ -3,8 +3,13 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
 import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
-import { monthStartDate } from '@/features/dashboard/utils/month-key';
+import {
+    addMonths,
+    monthsInRange,
+    monthStartDate,
+} from '@/features/dashboard/utils/month-key';
 import {
     buildSummaryRows,
     summaryToTsv,
@@ -16,9 +21,13 @@ import KpiTiles from './kpi-tiles';
 import SessionPanel from './session-panel';
 import SummaryTable from './summary-table';
 
-type MonthSummaryProps = { dashboard: Dashboard; month: string };
-
-export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
+export default function PeriodSummary({
+    dashboard,
+    period,
+}: {
+    dashboard: Dashboard;
+    period: DisplayPeriod;
+}) {
     const t = useTranslations('Summary');
     const tMetrics = useTranslations('Metrics');
     const tFields = useTranslations('Fields');
@@ -27,26 +36,28 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
         'idle',
     );
 
-    const { months, totals } = dashboard.metrics;
-    const rows = useMemo(
-        () => buildSummaryRows(dashboard, month),
-        [dashboard, month],
-    );
-    const previousMonth = months[months.indexOf(month) - 1] ?? null;
+    const { total, previousTotal } = dashboard.metrics;
+    const rows = useMemo(() => buildSummaryRows(dashboard), [dashboard]);
     const incomplete = dashboard.failedProgramIds.length > 0;
-    const monthLabel = formatter.dateTime(monthStartDate(month), {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-    });
+    const length = monthsInRange(period.from, period.to).length;
+    // A single month compares with the month before ("Oct"); longer periods
+    // with the same-length span before them.
+    const previousLabel = !previousTotal
+        ? null
+        : length === 1
+          ? formatter.dateTime(monthStartDate(addMonths(period.from, -1)), {
+                month: 'short',
+                timeZone: 'UTC',
+            })
+          : t('previousMonths', { count: length });
 
     async function copyTable() {
         const tsv = summaryToTsv(
             rows,
-            { metrics: totals[month] ?? null, incomplete },
+            { metrics: total, incomplete },
             {
                 header: [
-                    `${t('program')} (${monthLabel})`,
+                    `${t('program')} (${period.label})`,
                     ...METRICS.map(metric => tMetrics(`${metric.key}.title`)),
                     ...FIELDS.map(field =>
                         t('fieldColumn', { field: tFields(field) }),
@@ -65,15 +76,12 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
 
     return (
         <section
-            aria-labelledby="month-summary-heading"
+            aria-labelledby="summary-heading"
             className="flex flex-col gap-4"
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2
-                    id="month-summary-heading"
-                    className="text-lg font-semibold"
-                >
-                    {t('heading', { month: monthLabel })}
+                <h2 id="summary-heading" className="text-lg font-semibold">
+                    {t('heading', { period: period.label })}
                 </h2>
                 <div className="flex items-center gap-2">
                     <span
@@ -94,25 +102,16 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
                 </div>
             </div>
             <KpiTiles
-                current={totals[month] ?? null}
-                previous={
-                    previousMonth ? (totals[previousMonth] ?? null) : null
-                }
-                previousMonthLabel={
-                    previousMonth
-                        ? formatter.dateTime(monthStartDate(previousMonth), {
-                              month: 'short',
-                              timeZone: 'UTC',
-                          })
-                        : null
-                }
+                current={total}
+                previous={previousTotal}
+                previousLabel={previousLabel}
                 incomplete={incomplete}
             />
             <Card className="py-2">
                 <CardContent className="px-2">
                     <SummaryTable
                         rows={rows}
-                        total={totals[month] ?? null}
+                        total={total}
                         totalIncomplete={incomplete}
                     />
                 </CardContent>
@@ -121,8 +120,7 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
                 programNames={
                     new Map(dashboard.programs.map(p => [p.programId, p.name]))
                 }
-                month={month}
-                monthLabel={monthLabel}
+                period={period}
             />
         </section>
     );

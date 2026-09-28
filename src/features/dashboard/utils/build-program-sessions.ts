@@ -13,7 +13,7 @@ export type SessionMissingFields = {
     operatorId: boolean;
 };
 
-export type ProgramMonthSession = {
+export type ProgramSession = {
     sessionId: number;
     state: SessionState | null;
     isCertified: boolean;
@@ -29,17 +29,20 @@ export type ProgramMonthSession = {
 
 const CERTIFIED_STATES: SessionState[] = ['CERTIFIED', 'SUBMITTED'];
 
-export function buildProgramMonthSessions(
+export function buildProgramSessions(
     snapshot: ProgramSnapshot,
     country: string,
-    month: MonthKey,
-): ProgramMonthSession[] {
+    period: { from: MonthKey; to: MonthKey },
+): ProgramSession[] {
     const timeZone = programTimeZone(snapshot.collectionCycles);
-    const sessions = snapshot.sessions.filter(
-        session =>
+    const sessions = snapshot.sessions.filter(session => {
+        const month = monthKeyOf(sessionBucketTime(session), timeZone);
+        return (
             isCountedSession(session) &&
-            monthKeyOf(sessionBucketTime(session), timeZone) === month,
-    );
+            month >= period.from &&
+            month <= period.to
+        );
+    });
     const specimensBySession = Map.groupBy(
         snapshot.specimens,
         specimen => specimen.sessionId,
@@ -86,6 +89,6 @@ export function buildProgramMonthSessions(
     );
 }
 
-function sessionSortTime(row: ProgramMonthSession): number {
+function sessionSortTime(row: ProgramSession): number {
     return row.collectionDate ?? row.submittedAt;
 }

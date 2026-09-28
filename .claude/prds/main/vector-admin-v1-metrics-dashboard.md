@@ -12,15 +12,34 @@ across Programs, and no map of where devices are and whether they are working.
 ## Solution
 
 A single-page dashboard in the new vector-admin repo, open to `isDeveloper`
-users only. It shows every Program side by side per Reporting Month: the
-measured and data-quality metrics for a chosen Summary Month (ready to copy into
-the team sheet), trend charts across the Reporting Range, and a map of every
-registered Device with its Device Status. Clicking a Program's summary row opens
-the Sessions behind it. Filters (Program Filter, Reporting Range) live in the
-URL. No backend changes: the BFF reads all Programs with the admin token
-(ADR-0001) and computes everything itself.
+users only. Two filters, both in the URL: the Program Filter and one Reporting
+Period (default Last month). For that period it shows a map of where specimens
+were collected (or, on a switch, every registered Device with its Device
+Status), KPI tiles compared with the previous period, and a Programs × metrics
+summary table ready to copy into the team sheet. Clicking a Program opens the
+Sessions behind it. No backend changes: the BFF reads all Programs with the
+admin token (ADR-0001) and computes everything itself.
 
 Terms below are defined in vector-admin's `CONTEXT.md`.
+
+## Revisions (2026-09-28, after the first build was reviewed)
+
+These supersede anything below that conflicts:
+
+- **One time filter.** The Reporting Range, Summary Month picker and map period
+  switch are replaced by a single Reporting Period (presets Last month, 3M, 6M,
+  12M, YTD, All, Custom from/to; default Last month). Every section follows it.
+  Metrics are computed over the period (sums; Active Devices and Unique Users
+  counted once; ratios recomputed), with KPI deltas against the same-length
+  period before. User stories 7, 9, 11, 19 and 30 read "period" where they say
+  month or range.
+- **Trend charts removed** (hard to read, low value); how to show change over
+  time is open.
+- **Map first, specimens by default** (story 29 as revised), Devices on a
+  switch.
+- **Unique Users and Logins** added (story 15b) from `GET /users/auth-events`.
+- **Still to build:** per-user login tables and the report export, as in
+  VectorVerify PR #197 (VCV-303), following the Reporting Period.
 
 ## User Stories
 

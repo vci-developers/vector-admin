@@ -25,18 +25,18 @@
         "loading": "Loading program data… The first load after a refresh can take up to a minute.",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
-        "noProgramsSelected": "No programs selected. Choose at least one program.",
-        "summaryMonth": "Summary month"
+        "noProgramsSelected": "No programs selected. Choose at least one program."
     },
     "Filters": {
         "programs": "Programs",
         "programsSummary": "{selected} of {total} programs",
         "hiddenByDefault": "(hidden by default)",
         "resetPrograms": "Reset to default",
-        "range": "Reporting range",
+        "range": "Period",
         "from": "From",
         "to": "To",
         "presets": {
+            "last-month": "Last month",
             "3m": "3M",
             "6m": "6M",
             "12m": "12M",
@@ -57,11 +57,11 @@
     "Metrics": {
         "activeDevices": {
             "title": "Active Devices",
-            "description": "Devices with at least one Session collected in the month."
+            "description": "Devices with at least one Session in the period, each counted once."
         },
         "scans": {
             "title": "Scans",
-            "description": "Specimen images, by the month their Session was collected."
+            "description": "Specimen images, by when their Session was collected."
         },
         "uniqueSpecimens": {
             "title": "Unique Specimens",
@@ -69,7 +69,7 @@
         },
         "scansPerActiveDevice": {
             "title": "Scans per Active Device",
-            "description": "Scans ÷ Monthly Active Devices. Blank when no devices were active."
+            "description": "Scans ÷ Active Devices. Blank when no devices were active."
         },
         "metadataCompleteness": {
             "title": "Metadata Completeness",
@@ -81,11 +81,11 @@
         },
         "uniqueUsers": {
             "title": "Unique Users",
-            "description": "VectorVerify users who logged in during the month (UTC). Blank before login tracking began."
+            "description": "VectorVerify users who logged in during the period (UTC months), each counted once. Blank before login tracking began."
         },
         "logins": {
             "title": "Logins",
-            "description": "VectorVerify logins during the month (UTC), all users. Blank before login tracking began."
+            "description": "VectorVerify logins during the period (UTC months), all users. Blank before login tracking began."
         }
     },
     "MonthPicker": {
@@ -98,7 +98,7 @@
         "deltaPoints": "{delta} pts vs {month}"
     },
     "Summary": {
-        "heading": "Summary for {month}",
+        "heading": "Summary, {period}",
         "program": "Program",
         "total": "Total",
         "incomplete": "Incomplete",
@@ -113,7 +113,8 @@
         "copy": "Copy for Excel",
         "copied": "Copied",
         "copyFailed": "Copy failed",
-        "openSessions": "Show {program} Sessions for this month"
+        "openSessions": "Show {program} Sessions for this period",
+        "previousMonths": "previous {count} months"
     },
     "Fields": {
         "species": "Species",
@@ -121,17 +122,11 @@
         "geolocation": "Geolocation",
         "operatorId": "Operator ID"
     },
-    "Trends": {
-        "heading": "Trends",
-        "hint": "Click a month on any chart to show it in the summary.",
-        "legend": "Programs",
-        "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}"
-    },
     "Devices": {
         "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {unplaced} unplaced",
         "legend": "Map colours",
-        "legendActive": "Any device active this month",
-        "legendIdle": "No device active this month",
+        "legendActive": "Any device active in the period",
+        "legendIdle": "No device active in the period",
         "deviceId": "Device ID",
         "ssaid": "Android ID",
         "model": "Model",
@@ -157,12 +152,12 @@
         }
     },
     "Sessions": {
-        "title": "{program} · {month}",
-        "description": "Sessions collected this month.",
+        "title": "{program} · {period}",
+        "description": "Sessions collected in the period.",
         "summary": "{count, plural, one {# Session} other {# Sessions}}, {uncertified} not yet certified. Uncertified first, oldest first.",
         "close": "Close",
         "loadError": "Could not load Sessions. Try again.",
-        "empty": "No Sessions this month.",
+        "empty": "No Sessions in this period.",
         "session": "Session",
         "state": "State",
         "device": "Device",
@@ -207,13 +202,11 @@
         "deviceLabel": "Device {id}",
         "specimenCount": "{count, plural, one {# specimen} other {# specimens}}",
         "lastSubmitted": "last submitted {date}",
-        "emptySpecimens": "No Sessions with an in-country location in {month}. Try a wider range or check the unplaced count above.",
+        "emptySpecimens": "No Sessions with an in-country location in {period}. Try a longer period or check the unplaced count above.",
         "emptyDevices": "No devices with an in-country location.",
-        "headingDevices": "Devices in {month}",
-        "rangeLabel": "{from} – {to}",
-        "period": "Map period",
-        "periods": {
-            "range": "Whole range"
-        }
+        "headingDevices": "Devices, {period}"
+    },
+    "Period": {
+        "range": "{from} – {to}"
     }
 }

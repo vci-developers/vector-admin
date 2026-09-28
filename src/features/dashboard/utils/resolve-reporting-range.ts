@@ -1,6 +1,7 @@
 import type { MonthKey } from './month-key';
 
 export const RANGE_PRESETS = [
+    'last-month',
     '3m',
     '6m',
     '12m',
@@ -39,7 +40,14 @@ export function resolveReportingRange(
         to,
     });
 
+    const lastMonth = () => {
+        const previous = monthKey(year, month - 1);
+        return { from: previous, to: previous };
+    };
+
     switch (preset) {
+        case 'last-month':
+            return lastMonth();
         case '3m':
             return lastMonths(3);
         case '6m':
@@ -56,21 +64,8 @@ export function resolveReportingRange(
             ) {
                 return { from: custom.from, to: custom.to };
             }
-            return lastMonths(12);
+            return lastMonth();
         case '12m':
             return lastMonths(12);
     }
-}
-
-// Defaults to the last complete month; always lands inside the range.
-export function resolveSelectedMonth(
-    month: string | null,
-    range: ResolvedRange,
-    now: Date,
-): MonthKey {
-    const lastComplete = monthKey(now.getFullYear(), now.getMonth() - 1);
-    const wanted = isMonthKey(month) ? month : lastComplete;
-    if (wanted > range.to) return range.to;
-    if (range.from && wanted < range.from) return range.from;
-    return wanted;
 }

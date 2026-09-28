@@ -1,8 +1,8 @@
-import type { MonthMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
+import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import { describe, expect, it } from 'vitest';
 import { summaryToTsv, type SummaryRow } from './summary-rows';
 
-const metrics: MonthMetricsDto = {
+const metrics: PeriodMetricsDto = {
     activeDevices: 4,
     scans: 1234,
     uniqueSpecimens: 1000,
@@ -29,7 +29,10 @@ const metrics: MonthMetricsDto = {
     dhis2UploadRate: null,
 };
 
-const row = (name: string, rowMetrics: MonthMetricsDto | null): SummaryRow => ({
+const row = (
+    name: string,
+    rowMetrics: PeriodMetricsDto | null,
+): SummaryRow => ({
     programId: 1,
     name,
     color: 'var(--series-1)',

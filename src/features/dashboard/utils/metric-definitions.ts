@@ -1,4 +1,4 @@
-import type { MonthMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
+import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 
 export type MetricFormat = 'count' | 'decimal' | 'percent';
 
@@ -12,12 +12,12 @@ export type MetricKey =
     | 'uniqueUsers'
     | 'logins';
 
-export type FieldKey = keyof MonthMetricsDto['fieldCompleteness'];
+export type FieldKey = keyof PeriodMetricsDto['fieldCompleteness'];
 
 export type MetricDefinition = {
     key: MetricKey;
     format: MetricFormat;
-    value: (metrics: MonthMetricsDto) => number | null;
+    value: (metrics: PeriodMetricsDto) => number | null;
 };
 
 export const METRICS: MetricDefinition[] = [

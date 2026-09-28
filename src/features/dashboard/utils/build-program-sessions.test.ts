@@ -1,7 +1,7 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Session } from '@/api/session/validation/session-schema';
 import { describe, expect, it } from 'vitest';
-import { buildProgramMonthSessions } from './build-program-month-sessions';
+import { buildProgramSessions } from './build-program-sessions';
 
 const HOUR = 60 * 60 * 1000;
 const JAN_10 = Date.UTC(2026, 0, 10);
@@ -36,9 +36,9 @@ function snapshot(overrides: Partial<ProgramSnapshot>): ProgramSnapshot {
     };
 }
 
-describe('buildProgramMonthSessions', () => {
+describe('buildProgramSessions', () => {
     it('lists uncertified Sessions first, each group oldest first', () => {
-        const rows = buildProgramMonthSessions(
+        const rows = buildProgramSessions(
             snapshot({
                 sessions: [
                     session(1, { state: 'CERTIFIED', collectionDate: JAN_10 }),
@@ -57,14 +57,14 @@ describe('buildProgramMonthSessions', () => {
                 ],
             }),
             'Uganda',
-            '2026-01',
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(rows.map(row => row.sessionId)).toEqual([3, 2, 4, 1]);
     });
 
     it('keeps only counted Sessions from the requested month', () => {
-        const rows = buildProgramMonthSessions(
+        const rows = buildProgramSessions(
             snapshot({
                 sessions: [
                     session(1),
@@ -73,14 +73,14 @@ describe('buildProgramMonthSessions', () => {
                 ],
             }),
             'Uganda',
-            '2026-01',
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(rows.map(row => row.sessionId)).toEqual([1]);
     });
 
     it('measures Time to Confirmation from createdAt to certifiedAt', () => {
-        const [certified, pending] = buildProgramMonthSessions(
+        const [certified, pending] = buildProgramSessions(
             snapshot({
                 sessions: [
                     session(1, {
@@ -91,7 +91,7 @@ describe('buildProgramMonthSessions', () => {
                 ],
             }),
             'Uganda',
-            '2026-01',
+            { from: '2026-01', to: '2026-01' },
         ).sort((a, b) => a.sessionId - b.sessionId);
 
         expect(certified.timeToConfirmation).toBe(5 * HOUR);
@@ -99,7 +99,7 @@ describe('buildProgramMonthSessions', () => {
     });
 
     it('reports which Required Metadata Fields are missing', () => {
-        const [row] = buildProgramMonthSessions(
+        const [row] = buildProgramSessions(
             snapshot({
                 sessions: [session(1, { collectorName: ' ', latitude: null })],
                 specimens: [
@@ -113,7 +113,7 @@ describe('buildProgramMonthSessions', () => {
                 ],
             }),
             'Uganda',
-            '2026-01',
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(row.specimenCount).toBe(2);

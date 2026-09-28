@@ -2,22 +2,17 @@
 
 import { useGetDashboard } from '@/api/dashboard/hooks/use-get-dashboard';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
-import {
-    resolveReportingRange,
-    resolveSelectedMonth,
-} from '@/features/dashboard/utils/resolve-reporting-range';
+import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
+import { resolveReportingRange } from '@/features/dashboard/utils/resolve-reporting-range';
 import { AlertTriangle } from 'lucide-react';
-import MonthPicker from '@/components/ui/month-picker';
-import { monthStartDate } from '@/features/dashboard/utils/month-key';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import DashboardSkeleton from './dashboard-skeleton';
 import MapSection from './map-section';
-import MonthSummary from './month-summary';
+import PeriodSummary from './period-summary';
 import ProgramFilter from './program-filter';
 import RangePicker from './range-picker';
 import RefreshControl from './refresh-control';
-import TrendCharts from './trend-charts';
 
 function currentMonthKey(now: Date) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -25,26 +20,23 @@ function currentMonthKey(now: Date) {
 
 export default function DashboardView() {
     const t = useTranslations('Dashboard');
-    const formatter = useFormatter();
-    const [filters, setFilters] = useDashboardFilters();
-    const { range, month, currentMonth } = useMemo(() => {
+    const periodLabel = usePeriodLabel();
+    const [filters] = useDashboardFilters();
+    const { range, currentMonth } = useMemo(() => {
         const now = new Date();
-        const resolved = resolveReportingRange(
-            filters.range,
-            { from: filters.from, to: filters.to },
-            now,
-        );
         return {
-            range: resolved,
-            month: resolveSelectedMonth(filters.month, resolved, now),
+            range: resolveReportingRange(
+                filters.range,
+                { from: filters.from, to: filters.to },
+                now,
+            ),
             currentMonth: currentMonthKey(now),
         };
-    }, [filters.range, filters.from, filters.to, filters.month]);
+    }, [filters.range, filters.from, filters.to]);
 
     const dashboardQuery = useGetDashboard({
         exclude: filters.exclude,
         ...range,
-        month,
     });
     const result = dashboardQuery.data;
 
@@ -62,35 +54,20 @@ export default function DashboardView() {
     }
 
     const dashboard = result.data;
+    const { from, to } = dashboard.metrics;
+    const period = { from, to, label: periodLabel(from, to) };
     const failedNames = dashboard.programs
         .filter(program =>
             dashboard.failedProgramIds.includes(program.programId),
         )
         .map(program => program.name);
-    // All time resolves its start on the server; keep the month inside what came back.
-    const summaryMonth = dashboard.metrics.months.includes(month)
-        ? month
-        : (dashboard.metrics.months.at(-1) ?? month);
-
-    const summaryMonthLabel = formatter.dateTime(monthStartDate(summaryMonth), {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-    });
 
     return (
         <div className="flex flex-col gap-8">
             <div className="bg-background/95 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
                     <ProgramFilter programs={dashboard.programs} />
                     <RangePicker range={range} currentMonth={currentMonth} />
-                    <MonthPicker
-                        label={t('summaryMonth')}
-                        value={summaryMonth}
-                        min={dashboard.metrics.months[0]}
-                        max={dashboard.metrics.months.at(-1)}
-                        onChange={nextMonth => setFilters({ month: nextMonth })}
-                    />
                 </div>
                 <RefreshControl
                     lastUpdatedAt={dashboard.lastUpdatedAt}
@@ -117,17 +94,15 @@ export default function DashboardView() {
             ) : (
                 <>
                     <MapSection
-                        key={summaryMonth}
+                        key={`${from}:${to}`}
                         dashboard={dashboard}
-                        month={summaryMonth}
-                        monthLabel={summaryMonthLabel}
+                        period={period}
                     />
-                    <MonthSummary
-                        key={`summary-${summaryMonth}`}
+                    <PeriodSummary
+                        key={`summary-${from}:${to}`}
                         dashboard={dashboard}
-                        month={summaryMonth}
+                        period={period}
                     />
-                    <TrendCharts dashboard={dashboard} month={summaryMonth} />
                 </>
             )}
         </div>

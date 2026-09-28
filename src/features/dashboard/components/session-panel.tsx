@@ -1,7 +1,7 @@
 'use client';
 
-import { useGetProgramMonthSessions } from '@/api/program-month-sessions/hooks/use-get-program-month-sessions';
-import type { ProgramMonthSessions } from '@/api/program-month-sessions/validation/program-month-sessions-schema';
+import { useGetProgramSessions } from '@/api/program-sessions/hooks/use-get-program-sessions';
+import type { ProgramSessions } from '@/api/program-sessions/validation/program-sessions-schema';
 import { Badge } from '@/components/ui/badge';
 import {
     Sheet,
@@ -20,10 +20,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
+import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
 import { Clock } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 
-type SessionRow = ProgramMonthSessions['sessions'][number];
+type SessionRow = ProgramSessions['sessions'][number];
 
 const HOUR = 60 * 60 * 1000;
 
@@ -70,18 +71,19 @@ function MissingFields({ session }: { session: SessionRow }) {
 
 export default function SessionPanel({
     programNames,
-    month,
-    monthLabel,
+    period,
 }: {
     programNames: Map<number, string>;
-    month: string;
-    monthLabel: string;
+    period: DisplayPeriod;
 }) {
     const t = useTranslations('Sessions');
     const formatter = useFormatter();
     const formatDuration = useFormatDuration();
     const [{ sessions: programId }, setFilters] = useDashboardFilters();
-    const query = useGetProgramMonthSessions(programId, month);
+    const query = useGetProgramSessions(programId, {
+        from: period.from,
+        to: period.to,
+    });
     const result = query.data;
     const rows = result?.ok ? result.data.sessions : [];
     const uncertifiedCount = rows.filter(row => !row.isCertified).length;
@@ -103,7 +105,7 @@ export default function SessionPanel({
                     <SheetTitle>
                         {t('title', {
                             program: programNames.get(programId ?? 0) ?? '',
-                            month: monthLabel,
+                            period: period.label,
                         })}
                     </SheetTitle>
                     <SheetDescription>

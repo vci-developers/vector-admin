@@ -39,6 +39,12 @@ export function monthsInRange(from: MonthKey, to: MonthKey): MonthKey[] {
     return months;
 }
 
+export function addMonths(month: MonthKey, delta: number): MonthKey {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const date = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 function isValidTimeZone(timeZone: string): boolean {
     try {
         new Intl.DateTimeFormat('en-CA', { timeZone });

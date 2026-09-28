@@ -1,11 +1,11 @@
-import { getProgramMonthSessions } from '@/api/program-month-sessions/get-program-month-sessions';
-import { getProgramMonthSessionsQuerySchema } from '@/api/program-month-sessions/validation/program-month-sessions-schema';
+import { getProgramSessions } from '@/api/program-sessions/get-program-sessions';
+import { getProgramSessionsQuerySchema } from '@/api/program-sessions/validation/program-sessions-schema';
 import { withViewer } from '@/lib/auth-session/with-viewer';
 import { err } from '@/lib/result/result';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
-    const query = getProgramMonthSessionsQuerySchema.safeParse(
+    const query = getProgramSessionsQuerySchema.safeParse(
         Object.fromEntries(request.nextUrl.searchParams),
     );
     if (!query.success) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const result = await withViewer(() => getProgramMonthSessions(query.data));
+    const result = await withViewer(() => getProgramSessions(query.data));
     return NextResponse.json(result, {
         status: result.ok ? 200 : (result.error.status ?? 500),
     });

@@ -12,20 +12,16 @@ import {
 export const HIDDEN_BY_DEFAULT_PROGRAM_IDS = [5];
 
 const dashboardFilterParsers = {
-    range: parseAsStringLiteral(RANGE_PRESETS).withDefault('12m'),
+    range: parseAsStringLiteral(RANGE_PRESETS).withDefault('last-month'),
     from: parseAsString,
     to: parseAsString,
-    month: parseAsString,
-    // Program whose Session panel is open
-    sessions: parseAsInteger,
-    mapPeriod: parseAsStringLiteral(['range', 'month'] as const).withDefault(
-        'range',
-    ),
-    layer: parseAsStringLiteral(['specimens', 'devices'] as const).withDefault(
-        'specimens',
-    ),
     exclude: parseAsArrayOf(parseAsInteger).withDefault(
         HIDDEN_BY_DEFAULT_PROGRAM_IDS,
+    ),
+    // Program whose Session panel is open
+    sessions: parseAsInteger,
+    layer: parseAsStringLiteral(['specimens', 'devices'] as const).withDefault(
+        'specimens',
     ),
 };
 

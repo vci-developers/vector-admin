@@ -7,9 +7,9 @@ import type {
     GetDashboardQuery,
 } from '@/api/dashboard/validation/dashboard-schema';
 import {
-    buildMonthlyMetrics,
+    buildPeriodMetrics,
     type ProgramData,
-} from '@/features/dashboard/utils/build-monthly-metrics';
+} from '@/features/dashboard/utils/build-period-metrics';
 import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
@@ -38,36 +38,26 @@ export async function getDashboard(
         else failedProgramIds.push(program.programId);
     });
 
-    const metrics = buildMonthlyMetrics(loaded, query);
-    const deviceMonth = query.month;
+    const metrics = buildPeriodMetrics(loaded, query);
+    const period = { from: metrics.from, to: metrics.to };
     const devices = loaded.flatMap(({ program, snapshot }) =>
         classifyDevices(
             snapshot.devices,
             snapshot.sessions,
-            deviceMonth,
+            period,
             program.country,
             programTimeZone(snapshot.collectionCycles),
         ),
     );
     const specimenPoints: Dashboard['specimenPoints'] = {
         placed: [],
-        unplaced: {},
+        unplaced: { sessions: 0, specimens: 0 },
     };
     for (const { program, snapshot } of loaded) {
-        const points = buildSpecimenPoints(
-            snapshot,
-            program.country,
-            metrics.months,
-        );
+        const points = buildSpecimenPoints(snapshot, program.country, period);
         specimenPoints.placed.push(...points.placed);
-        for (const [month, counts] of Object.entries(points.unplaced)) {
-            const total = (specimenPoints.unplaced[month] ??= {
-                sessions: 0,
-                specimens: 0,
-            });
-            total.sessions += counts.sessions;
-            total.specimens += counts.specimens;
-        }
+        specimenPoints.unplaced.sessions += points.unplaced.sessions;
+        specimenPoints.unplaced.specimens += points.unplaced.specimens;
     }
     const fetchTimes = loaded.map(({ snapshot }) => snapshot.fetchedAt);
 
@@ -76,7 +66,6 @@ export async function getDashboard(
         selectedProgramIds: selected.map(program => program.programId),
         failedProgramIds,
         metrics,
-        deviceMonth,
         devices,
         specimenPoints,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,

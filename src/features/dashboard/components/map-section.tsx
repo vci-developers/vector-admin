@@ -4,7 +4,7 @@ import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
-import { monthStartDate } from '@/features/dashboard/utils/month-key';
+import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
 import dynamic from 'next/dynamic';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
@@ -19,34 +19,20 @@ const SurveillanceMap = dynamic(() => import('./surveillance-map'), {
 
 export default function MapSection({
     dashboard,
-    month,
-    monthLabel,
+    period,
 }: {
     dashboard: Dashboard;
-    month: string;
-    monthLabel: string;
+    period: DisplayPeriod;
 }) {
     const t = useTranslations('MapSection');
     const tDevices = useTranslations('Devices');
     const formatter = useFormatter();
-    const [{ layer, mapPeriod }, setFilters] = useDashboardFilters();
-    const showWholeRange = layer === 'specimens' && mapPeriod === 'range';
+    const [{ layer }, setFilters] = useDashboardFilters();
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
     const view = useMemo(() => {
         const used = dashboard.devices.filter(d => d.status !== 'NEVER_USED');
-        const placed = dashboard.specimenPoints.placed.filter(
-            p => showWholeRange || p.month === month,
-        );
-        const unplaced = Object.entries(dashboard.specimenPoints.unplaced)
-            .filter(([pointMonth]) => showWholeRange || pointMonth === month)
-            .reduce(
-                (sum, [, counts]) => ({
-                    sessions: sum.sessions + counts.sessions,
-                    specimens: sum.specimens + counts.specimens,
-                }),
-                { sessions: 0, specimens: 0 },
-            );
+        const { placed, unplaced } = dashboard.specimenPoints;
         return {
             placedDevices: used.flatMap(d =>
                 d.position ? [{ ...d, position: d.position }] : [],
@@ -67,31 +53,23 @@ export default function MapSection({
                 dashboard.programs.map(p => [p.programId, p.name]),
             ),
         };
-    }, [dashboard, month, showWholeRange]);
+    }, [dashboard]);
 
     const n = (value: number) => formatter.number(value);
-    const { months } = dashboard.metrics;
-    const shortMonth = (key: string) =>
-        formatter.dateTime(monthStartDate(key), {
-            month: 'short',
-            year: 'numeric',
-            timeZone: 'UTC',
-        });
-    const periodLabel = showWholeRange
-        ? t('rangeLabel', {
-              from: shortMonth(months[0] ?? month),
-              to: shortMonth(months.at(-1) ?? month),
-          })
-        : monthLabel;
 
     return (
         <section aria-labelledby="map-heading" className="flex flex-col gap-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h2 id="map-heading" className="text-lg font-semibold">
-                        {layer === 'specimens'
-                            ? t('heading', { period: periodLabel })
-                            : t('headingDevices', { month: monthLabel })}
+                        {t(
+                            layer === 'specimens'
+                                ? 'heading'
+                                : 'headingDevices',
+                            {
+                                period: period.label,
+                            },
+                        )}
                     </h2>
                     <p className="text-muted-foreground text-sm">
                         {layer === 'specimens'
@@ -113,50 +91,25 @@ export default function MapSection({
                               })}
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    {layer === 'specimens' && (
-                        <ToggleGroup
-                            type="single"
-                            variant="outline"
-                            size="sm"
-                            value={mapPeriod}
-                            onValueChange={value => {
-                                if (!value) return;
-                                setSelectedIds([]);
-                                setFilters({
-                                    mapPeriod: value as 'range' | 'month',
-                                });
-                            }}
-                            aria-label={t('period')}
-                        >
-                            <ToggleGroupItem value="range" className="px-3">
-                                {t('periods.range')}
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="month" className="px-3">
-                                {monthLabel}
-                            </ToggleGroupItem>
-                        </ToggleGroup>
-                    )}
-                    <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        size="sm"
-                        value={layer}
-                        onValueChange={value => {
-                            if (!value) return;
-                            setSelectedIds([]);
-                            setFilters({ layer: value as MapLayer });
-                        }}
-                        aria-label={t('layer')}
-                    >
-                        <ToggleGroupItem value="specimens" className="px-3">
-                            {t('layers.specimens')}
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="devices" className="px-3">
-                            {t('layers.devices')}
-                        </ToggleGroupItem>
-                    </ToggleGroup>
-                </div>
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={layer}
+                    onValueChange={value => {
+                        if (!value) return;
+                        setSelectedIds([]);
+                        setFilters({ layer: value as MapLayer });
+                    }}
+                    aria-label={t('layer')}
+                >
+                    <ToggleGroupItem value="specimens" className="px-3">
+                        {t('layers.specimens')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="devices" className="px-3">
+                        {t('layers.devices')}
+                    </ToggleGroupItem>
+                </ToggleGroup>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-4">
@@ -167,7 +120,7 @@ export default function MapSection({
                         specimenPoints={view.placedPoints}
                         devices={view.placedDevices}
                         fitKey={dashboard.selectedProgramIds.join(',')}
-                        dataKey={`${month}:${mapPeriod}:${dashboard.selectedProgramIds.join(',')}`}
+                        dataKey={`${period.from}:${period.to}:${dashboard.selectedProgramIds.join(',')}`}
                         selectedIds={selectedIds}
                         onSelect={setSelectedIds}
                     />
@@ -179,9 +132,7 @@ export default function MapSection({
                                 layer === 'specimens'
                                     ? 'emptySpecimens'
                                     : 'emptyDevices',
-                                {
-                                    month: periodLabel,
-                                },
+                                { period: period.label },
                             )}
                         </p>
                     )}

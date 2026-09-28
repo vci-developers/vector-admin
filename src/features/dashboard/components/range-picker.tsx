@@ -32,21 +32,28 @@ export default function RangePicker({
     }
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={preset}
-                onValueChange={selectPreset}
-                aria-label={t('range')}
-            >
-                {RANGE_PRESETS.map(value => (
-                    <ToggleGroupItem key={value} value={value} className="px-3">
-                        {t(`presets.${value}`)}
-                    </ToggleGroupItem>
-                ))}
-            </ToggleGroup>
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+            {/* The buttons scroll on their own at phone width instead of the page. */}
+            <div className="max-w-full overflow-x-auto">
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={preset}
+                    onValueChange={selectPreset}
+                    aria-label={t('range')}
+                >
+                    {RANGE_PRESETS.map(value => (
+                        <ToggleGroupItem
+                            key={value}
+                            value={value}
+                            className="px-3"
+                        >
+                            {t(`presets.${value}`)}
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
+            </div>
             {preset === 'custom' && (
                 <div className="flex items-center gap-2">
                     <MonthPicker

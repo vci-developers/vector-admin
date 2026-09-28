@@ -14,8 +14,6 @@ export const getDashboardQuerySchema = z
         exclude: programIdListSchema.default([]),
         from: monthKeySchema.optional(),
         to: monthKeySchema,
-        /** The summary month; Device Status is classified for it. */
-        month: monthKeySchema,
     })
     .refine(({ from, to }) => !from || from <= to, 'from must not be after to');
 
@@ -31,7 +29,7 @@ const fieldRecord = <T extends z.ZodType>(value: T) =>
 
 const nullableRatio = z.number().nullable();
 
-export const monthMetricsSchema = z.object({
+export const periodMetricsSchema = z.object({
     activeDevices: z.number(),
     scans: z.number(),
     uniqueSpecimens: z.number(),
@@ -65,38 +63,35 @@ export const dashboardSchema = z.object({
     selectedProgramIds: z.array(z.number()),
     failedProgramIds: z.array(z.number()),
     metrics: z.object({
-        months: z.array(monthKeySchema),
+        from: monthKeySchema,
+        to: monthKeySchema,
         programs: z.array(
             z.object({
                 programId: z.number(),
                 hasCountryBox: z.boolean(),
-                months: z.record(z.string(), monthMetricsSchema),
-                cycleLabels: z.record(z.string(), z.array(z.number())),
+                metrics: periodMetricsSchema,
+                cycles: z.array(z.number()),
             }),
         ),
-        totals: z.record(z.string(), monthMetricsSchema),
+        total: periodMetricsSchema,
+        previousTotal: periodMetricsSchema.nullable(),
     }),
-    deviceMonth: monthKeySchema,
-    /** Sessions across the whole Reporting Range; the client filters by month. */
+    /** Device Status over the period. */
+    devices: z.array(deviceRowSchema),
     specimenPoints: z.object({
         placed: z.array(
             z.object({
                 sessionId: z.number(),
                 programId: z.number(),
                 deviceId: z.number(),
-                month: monthKeySchema,
                 latitude: z.number(),
                 longitude: z.number(),
                 specimenCount: z.number(),
                 collectedAt: z.number(),
             }),
         ),
-        unplaced: z.record(
-            z.string(),
-            z.object({ sessions: z.number(), specimens: z.number() }),
-        ),
+        unplaced: z.object({ sessions: z.number(), specimens: z.number() }),
     }),
-    devices: z.array(deviceRowSchema),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
     lastUpdatedAt: z.number().nullable(),
 });
@@ -104,4 +99,4 @@ export const dashboardSchema = z.object({
 export const getDashboardResponseSchema = resultSchema(dashboardSchema);
 
 export type Dashboard = z.infer<typeof dashboardSchema>;
-export type MonthMetricsDto = z.infer<typeof monthMetricsSchema>;
+export type PeriodMetricsDto = z.infer<typeof periodMetricsSchema>;

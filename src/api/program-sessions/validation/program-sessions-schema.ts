@@ -2,13 +2,14 @@ import { sessionStateSchema } from '@/api/session/validation/session-schema';
 import { resultSchema } from '@/lib/result/result-schema';
 import { z } from 'zod';
 
-export const getProgramMonthSessionsQuerySchema = z.object({
+export const getProgramSessionsQuerySchema = z.object({
     programId: z.coerce.number().int().positive(),
-    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    from: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    to: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
 });
 
-export type GetProgramMonthSessionsQuery = z.infer<
-    typeof getProgramMonthSessionsQuerySchema
+export type GetProgramSessionsQuery = z.infer<
+    typeof getProgramSessionsQuerySchema
 >;
 
 export const programMonthSessionSchema = z.object({
@@ -29,14 +30,15 @@ export const programMonthSessionSchema = z.object({
     }),
 });
 
-export const programMonthSessionsSchema = z.object({
+export const programSessionsSchema = z.object({
     programId: z.number(),
-    month: z.string(),
+    from: z.string(),
+    to: z.string(),
     sessions: z.array(programMonthSessionSchema),
 });
 
-export const getProgramMonthSessionsResponseSchema = resultSchema(
-    programMonthSessionsSchema,
+export const getProgramSessionsResponseSchema = resultSchema(
+    programSessionsSchema,
 );
 
-export type ProgramMonthSessions = z.infer<typeof programMonthSessionsSchema>;
+export type ProgramSessions = z.infer<typeof programSessionsSchema>;

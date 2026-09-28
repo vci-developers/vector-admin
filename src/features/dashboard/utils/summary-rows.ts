@@ -1,6 +1,6 @@
 import type {
     Dashboard,
-    MonthMetricsDto,
+    PeriodMetricsDto,
 } from '@/api/dashboard/validation/dashboard-schema';
 import { FIELDS, METRICS, type MetricFormat } from './metric-definitions';
 import { programSeriesColor } from './series-colors';
@@ -12,13 +12,10 @@ export type SummaryRow = {
     hasCountryBox: boolean;
     cycles: number[];
     /** null when the Program failed to load. */
-    metrics: MonthMetricsDto | null;
+    metrics: PeriodMetricsDto | null;
 };
 
-export function buildSummaryRows(
-    dashboard: Dashboard,
-    month: string,
-): SummaryRow[] {
+export function buildSummaryRows(dashboard: Dashboard): SummaryRow[] {
     const allProgramIds = dashboard.programs.map(p => p.programId);
     const names = new Map(dashboard.programs.map(p => [p.programId, p.name]));
     const loaded = new Map(
@@ -32,8 +29,8 @@ export function buildSummaryRows(
             name: names.get(programId) ?? String(programId),
             color: programSeriesColor(programId, allProgramIds),
             hasCountryBox: programMetrics?.hasCountryBox ?? true,
-            cycles: programMetrics?.cycleLabels[month] ?? [],
-            metrics: programMetrics?.months[month] ?? null,
+            cycles: programMetrics?.cycles ?? [],
+            metrics: programMetrics?.metrics ?? null,
         };
     });
 }
@@ -46,7 +43,7 @@ function formatForSheet(value: number | null, format: MetricFormat): string {
     return String(value);
 }
 
-function sheetCells(metrics: MonthMetricsDto): string[] {
+function sheetCells(metrics: PeriodMetricsDto): string[] {
     return [
         ...METRICS.map(metric =>
             formatForSheet(metric.value(metrics), metric.format),
@@ -61,7 +58,7 @@ const COLUMN_COUNT = METRICS.length + FIELDS.length;
 
 export function summaryToTsv(
     rows: SummaryRow[],
-    total: { metrics: MonthMetricsDto | null; incomplete: boolean },
+    total: { metrics: PeriodMetricsDto | null; incomplete: boolean },
     labels: { header: string[]; total: string; incomplete: string },
 ): string {
     const lines = [

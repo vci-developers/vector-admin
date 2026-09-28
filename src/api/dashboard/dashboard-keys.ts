@@ -2,7 +2,6 @@ export type DashboardParams = {
     exclude: number[];
     from?: string;
     to: string;
-    month: string;
 };
 
 export const dashboardKeys = {

@@ -20,7 +20,7 @@ export type DeviceRow = {
 export function classifyDevices(
     devices: Device[],
     sessions: Session[],
-    month: MonthKey,
+    period: { from: MonthKey; to: MonthKey },
     country: string,
     timeZone: string,
 ): DeviceRow[] {
@@ -32,7 +32,8 @@ export function classifyDevices(
         if (!latest || session.submittedAt > latest.submittedAt) {
             latestSession.set(session.deviceId, session);
         }
-        if (monthKeyOf(sessionBucketTime(session), timeZone) === month) {
+        const month = monthKeyOf(sessionBucketTime(session), timeZone);
+        if (month >= period.from && month <= period.to) {
             activeDeviceIds.add(session.deviceId);
         }
     }

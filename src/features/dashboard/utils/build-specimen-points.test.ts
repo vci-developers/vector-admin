@@ -54,7 +54,7 @@ describe('buildSpecimenPoints', () => {
                 [specimen(1, 1), specimen(2, 1), specimen(3, 3)],
             ),
             'Uganda',
-            ['2026-01'],
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(points.placed.map(p => [p.sessionId, p.specimenCount])).toEqual([
@@ -73,12 +73,12 @@ describe('buildSpecimenPoints', () => {
                 [specimen(1, 1), specimen(2, 2), specimen(3, 2)],
             ),
             'Uganda',
-            ['2026-01'],
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(points).toEqual({
             placed: [],
-            unplaced: { '2026-01': { sessions: 2, specimens: 3 } },
+            unplaced: { sessions: 2, specimens: 3 },
         });
     });
 
@@ -86,14 +86,14 @@ describe('buildSpecimenPoints', () => {
         const points = buildSpecimenPoints(
             snapshot([session(1, { type: 'PRACTICE' })], [specimen(1, 1)]),
             'Uganda',
-            ['2026-01'],
+            { from: '2026-01', to: '2026-01' },
         );
 
         expect(points.placed).toEqual([]);
-        expect(points.unplaced).toEqual({});
+        expect(points.unplaced).toEqual({ sessions: 0, specimens: 0 });
     });
 
-    it('covers every month of the range and tags each point with its month', () => {
+    it('covers every month of the period', () => {
         const points = buildSpecimenPoints(
             snapshot(
                 [
@@ -104,12 +104,9 @@ describe('buildSpecimenPoints', () => {
                 [],
             ),
             'Uganda',
-            ['2026-01', '2026-02'],
+            { from: '2026-01', to: '2026-02' },
         );
 
-        expect(points.placed.map(p => [p.sessionId, p.month])).toEqual([
-            [1, '2026-01'],
-            [2, '2026-02'],
-        ]);
+        expect(points.placed.map(p => p.sessionId)).toEqual([1, 2]);
     });
 });

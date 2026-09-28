@@ -1,5 +1,5 @@
 import { dashboardKeys } from '@/api/dashboard/dashboard-keys';
-import { programMonthSessionsKeys } from '@/api/program-month-sessions/program-month-sessions-keys';
+import { programSessionsKeys } from '@/api/program-sessions/program-sessions-keys';
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, type Result } from '@/lib/result/result';
 import { resultSchema } from '@/lib/result/result-schema';
@@ -33,7 +33,7 @@ export function usePostRefresh() {
             if (result.ok) {
                 queryClient.invalidateQueries({ queryKey: dashboardKeys.root });
                 queryClient.invalidateQueries({
-                    queryKey: programMonthSessionsKeys.root,
+                    queryKey: programSessionsKeys.root,
                 });
             }
         },

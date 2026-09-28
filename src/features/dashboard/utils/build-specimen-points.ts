@@ -7,29 +7,25 @@ export type SpecimenPoint = {
     sessionId: number;
     programId: number;
     deviceId: number;
-    month: MonthKey;
     latitude: number;
     longitude: number;
     specimenCount: number;
     collectedAt: number;
 };
 
-export type UnplacedCounts = { sessions: number; specimens: number };
-
 export type SpecimenPoints = {
     placed: SpecimenPoint[];
-    unplaced: Record<MonthKey, UnplacedCounts>;
+    unplaced: { sessions: number; specimens: number };
 };
 
-// One point per Session in the given months, at its GPS (recorded at upload).
+// One point per Session in the period, at its GPS (recorded at upload).
 // Zero-catch Sessions stay on the map: an empty trap is still data.
 export function buildSpecimenPoints(
     snapshot: ProgramSnapshot,
     country: string,
-    months: MonthKey[],
+    period: { from: MonthKey; to: MonthKey },
 ): SpecimenPoints {
     const timeZone = programTimeZone(snapshot.collectionCycles);
-    const inRange = new Set(months);
     const specimenCounts = new Map<number, number>();
     for (const specimen of snapshot.specimens) {
         specimenCounts.set(
@@ -38,11 +34,20 @@ export function buildSpecimenPoints(
         );
     }
 
-    const points: SpecimenPoints = { placed: [], unplaced: {} };
+    const points: SpecimenPoints = {
+        placed: [],
+        unplaced: { sessions: 0, specimens: 0 },
+    };
     for (const session of snapshot.sessions) {
         const collectedAt = sessionBucketTime(session);
         const month = monthKeyOf(collectedAt, timeZone);
-        if (!isCountedSession(session) || !inRange.has(month)) continue;
+        if (
+            !isCountedSession(session) ||
+            month < period.from ||
+            month > period.to
+        ) {
+            continue;
+        }
 
         const specimenCount = specimenCounts.get(session.sessionId) ?? 0;
         if (
@@ -50,19 +55,14 @@ export function buildSpecimenPoints(
             session.longitude === null ||
             !isInsideCountry(session.latitude, session.longitude, country)
         ) {
-            const unplaced = (points.unplaced[month] ??= {
-                sessions: 0,
-                specimens: 0,
-            });
-            unplaced.sessions += 1;
-            unplaced.specimens += specimenCount;
+            points.unplaced.sessions += 1;
+            points.unplaced.specimens += specimenCount;
             continue;
         }
         points.placed.push({
             sessionId: session.sessionId,
             programId: snapshot.programId,
             deviceId: session.deviceId,
-            month,
             latitude: session.latitude,
             longitude: session.longitude,
             specimenCount,

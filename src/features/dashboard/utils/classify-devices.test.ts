@@ -40,7 +40,13 @@ function session(
 const JAN = Date.UTC(2026, 0, 10);
 const MAR = Date.UTC(2026, 2, 10);
 const classify = (devices: Device[], sessions: Session[]) =>
-    classifyDevices(devices, sessions, '2026-03', 'Uganda', 'Africa/Kampala');
+    classifyDevices(
+        devices,
+        sessions,
+        { from: '2026-03', to: '2026-03' },
+        'Uganda',
+        'Africa/Kampala',
+    );
 
 describe('classifyDevices', () => {
     it('marks devices Active, Inactive or Never Used for the month', () => {

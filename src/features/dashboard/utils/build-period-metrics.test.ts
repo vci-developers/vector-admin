@@ -3,11 +3,12 @@ import type { CollectionCycle } from '@/api/collection-cycle/validation/collecti
 import type { Session } from '@/api/session/validation/session-schema';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import { describe, expect, it } from 'vitest';
-import { buildMonthlyMetrics, type ProgramData } from './build-monthly-metrics';
+import { buildPeriodMetrics, type ProgramData } from './build-period-metrics';
 
 const JAN_10 = Date.UTC(2026, 0, 10);
 const FEB_10 = Date.UTC(2026, 1, 10);
-const range = { from: '2026-01', to: '2026-02' };
+const january = { from: '2026-01', to: '2026-01' };
+const february = { from: '2026-02', to: '2026-02' };
 
 function session(sessionId: number, overrides: Partial<Session> = {}): Session {
     return {
@@ -68,11 +69,11 @@ function program(
     };
 }
 
-describe('buildMonthlyMetrics', () => {
-    it("buckets by collectionDate in the Program's timezone", () => {
+describe('buildPeriodMetrics', () => {
+    it("assigns Sessions to months in the Program's timezone", () => {
         // 22:00 UTC on 31 Jan is 01:00 on 1 Feb in Kampala (UTC+3)
         const lateJanuaryUtc = Date.UTC(2026, 0, 31, 22);
-        const metrics = buildMonthlyMetrics(
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [session(1, { collectionDate: lateJanuaryUtc })],
@@ -84,39 +85,60 @@ describe('buildMonthlyMetrics', () => {
                     specimens: [specimen(2, 2)],
                 }),
             ],
-            range,
+            february,
         );
 
-        expect(metrics.programs[0].months['2026-02'].uniqueSpecimens).toBe(1);
-        expect(metrics.programs[1].months['2026-01'].uniqueSpecimens).toBe(1);
+        expect(metrics.programs.map(p => p.metrics.uniqueSpecimens)).toEqual([
+            1, 0,
+        ]);
     });
 
     it('counts every image as a Scan and each Specimen once', () => {
-        const metrics = buildMonthlyMetrics(
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [session(1)],
                     specimens: [specimen(1, 1, 3), specimen(2, 1, 1)],
                 }),
             ],
-            range,
+            january,
         );
-        const january = metrics.programs[0].months['2026-01'];
 
-        expect(january.scans).toBe(4);
-        expect(january.uniqueSpecimens).toBe(2);
-        expect(january.scansPerActiveDevice).toBe(4);
+        expect(metrics.programs[0].metrics).toMatchObject({
+            scans: 4,
+            uniqueSpecimens: 2,
+            scansPerActiveDevice: 4,
+        });
     });
 
-    it('leaves Scans per Active Device blank with no active devices', () => {
-        const metrics = buildMonthlyMetrics([program(1, {})], range);
-        expect(
-            metrics.programs[0].months['2026-01'].scansPerActiveDevice,
-        ).toBeNull();
+    it('counts a device active in several months of the period once', () => {
+        const metrics = buildPeriodMetrics(
+            [
+                program(1, {
+                    sessions: [
+                        session(1),
+                        session(2, { collectionDate: FEB_10 }),
+                        session(3, { deviceId: 2, collectionDate: FEB_10 }),
+                    ],
+                }),
+            ],
+            { from: '2026-01', to: '2026-02' },
+        );
+
+        expect(metrics.programs[0].metrics.activeDevices).toBe(2);
+    });
+
+    it('leaves ratios blank when their denominator is 0', () => {
+        const metrics = buildPeriodMetrics([program(1, {})], january);
+        expect(metrics.programs[0].metrics).toMatchObject({
+            scansPerActiveDevice: null,
+            metadataCompleteness: null,
+            dhis2UploadRate: null,
+        });
     });
 
     it('rates DHIS2 upload as SUBMITTED over CERTIFIED plus SUBMITTED', () => {
-        const metrics = buildMonthlyMetrics(
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [
@@ -124,38 +146,28 @@ describe('buildMonthlyMetrics', () => {
                         session(2, { state: 'CERTIFIED' }),
                         session(3, { state: 'SUBMITTED' }),
                         session(4, { state: 'NEEDS_REVIEW' }),
-                        session(5, {
-                            state: 'IN_REVIEW',
-                            collectionDate: FEB_10,
-                        }),
                     ],
                 }),
             ],
-            range,
+            january,
         );
 
-        expect(
-            metrics.programs[0].months['2026-01'].dhis2UploadRate,
-        ).toBeCloseTo(2 / 3);
-        expect(
-            metrics.programs[0].months['2026-02'].dhis2UploadRate,
-        ).toBeNull();
+        expect(metrics.programs[0].metrics.dhis2UploadRate).toBeCloseTo(2 / 3);
     });
 
     it('scores metadata completeness per Record and per field', () => {
-        const metrics = buildMonthlyMetrics(
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [session(1), session(2, { collectorName: ' ' })],
                     specimens: [specimen(1, 1), specimen(2, 2)],
                 }),
             ],
-            range,
+            january,
         );
-        const january = metrics.programs[0].months['2026-01'];
 
-        expect(january.metadataCompleteness).toBe(0.5);
-        expect(january.fieldCompleteness).toEqual({
+        expect(metrics.programs[0].metrics.metadataCompleteness).toBe(0.5);
+        expect(metrics.programs[0].metrics.fieldCompleteness).toEqual({
             species: 1,
             captureDate: 1,
             geolocation: 1,
@@ -163,8 +175,8 @@ describe('buildMonthlyMetrics', () => {
         });
     });
 
-    it('buckets a Session with no collectionDate by upload time and fails capture date', () => {
-        const metrics = buildMonthlyMetrics(
+    it('places a Session with no collectionDate by upload time and fails capture date', () => {
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [
@@ -176,16 +188,16 @@ describe('buildMonthlyMetrics', () => {
                     specimens: [specimen(1, 1)],
                 }),
             ],
-            range,
+            february,
         );
 
-        expect(
-            metrics.programs[0].months['2026-02'].fieldCompleteness.captureDate,
-        ).toBe(0);
+        expect(metrics.programs[0].metrics.fieldCompleteness.captureDate).toBe(
+            0,
+        );
     });
 
     it('ignores practice and calibration Sessions', () => {
-        const metrics = buildMonthlyMetrics(
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [
@@ -195,16 +207,17 @@ describe('buildMonthlyMetrics', () => {
                     specimens: [specimen(1, 1), specimen(2, 2)],
                 }),
             ],
-            range,
+            january,
         );
-        const january = metrics.programs[0].months['2026-01'];
 
-        expect(january.activeDevices).toBe(0);
-        expect(january.uniqueSpecimens).toBe(0);
+        expect(metrics.programs[0].metrics).toMatchObject({
+            activeDevices: 0,
+            uniqueSpecimens: 0,
+        });
     });
 
-    it('sums counts into Total rows and recomputes ratios from the sums', () => {
-        const metrics = buildMonthlyMetrics(
+    it('sums Programs into the total and recomputes ratios from the sums', () => {
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [session(1), session(2, { deviceId: 2 })],
@@ -215,17 +228,62 @@ describe('buildMonthlyMetrics', () => {
                     specimens: [specimen(2, 3, 3)],
                 }),
             ],
-            range,
+            january,
         );
-        const january = metrics.totals['2026-01'];
 
-        expect(january.activeDevices).toBe(3);
-        expect(january.scans).toBe(6);
-        expect(january.scansPerActiveDevice).toBe(2);
+        expect(metrics.total).toMatchObject({
+            activeDevices: 3,
+            scans: 6,
+            scansPerActiveDevice: 2,
+        });
     });
 
-    it('labels every month a Collection Cycle overlaps', () => {
-        const metrics = buildMonthlyMetrics(
+    it('counts a user once per period and sums their logins', () => {
+        const metrics = buildPeriodMetrics(
+            [
+                program(1, {
+                    userLogins: [
+                        {
+                            userId: 1,
+                            dailyLogins: [
+                                { date: '2026-01-05', count: 2 },
+                                { date: '2026-02-01', count: 4 },
+                                { date: '2026-03-01', count: 9 },
+                            ],
+                        },
+                        {
+                            userId: 2,
+                            dailyLogins: [{ date: '2026-01-07', count: 1 }],
+                        },
+                    ],
+                }),
+            ],
+            { from: '2026-01', to: '2026-02' },
+        );
+
+        expect(metrics.total).toMatchObject({ uniqueUsers: 2, logins: 7 });
+    });
+
+    it('leaves user counts blank for a period before login tracking began', () => {
+        const logins = {
+            userLogins: [
+                { userId: 1, dailyLogins: [{ date: '2026-02-03', count: 1 }] },
+            ],
+        };
+        expect(
+            buildPeriodMetrics([program(1, logins)], january).total,
+        ).toMatchObject({
+            uniqueUsers: null,
+            logins: null,
+        });
+        expect(
+            buildPeriodMetrics([program(1, logins), program(2, {})], february)
+                .programs[1].metrics,
+        ).toMatchObject({ uniqueUsers: 0, logins: 0 });
+    });
+
+    it('lists the Collection Cycles overlapping the period', () => {
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     collectionCycles: [
@@ -239,23 +297,14 @@ describe('buildMonthlyMetrics', () => {
                 }),
                 program(2, {}),
             ],
-            { from: '2026-01', to: '2026-03' },
+            february,
         );
 
-        expect(metrics.programs[0].cycleLabels).toEqual({
-            '2026-01': [7],
-            '2026-02': [7],
-            '2026-03': [],
-        });
-        expect(metrics.programs[1].cycleLabels).toEqual({
-            '2026-01': [],
-            '2026-02': [],
-            '2026-03': [],
-        });
+        expect(metrics.programs.map(p => p.cycles)).toEqual([[7], []]);
     });
 
-    it('starts All time at the earliest Session month', () => {
-        const metrics = buildMonthlyMetrics(
+    it('starts All time at the earliest Session and has no previous period', () => {
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [session(1, { collectionDate: FEB_10 })],
@@ -269,82 +318,28 @@ describe('buildMonthlyMetrics', () => {
             { to: '2026-02' },
         );
 
-        expect(metrics.months).toEqual([
-            '2025-11',
-            '2025-12',
-            '2026-01',
-            '2026-02',
-        ]);
+        expect([metrics.from, metrics.to]).toEqual(['2025-11', '2026-02']);
+        expect(metrics.previousTotal).toBeNull();
     });
 
-    it('counts unique users and logins per month and sums them in totals', () => {
-        const metrics = buildMonthlyMetrics(
+    it('totals the same-length period just before for comparison', () => {
+        const metrics = buildPeriodMetrics(
             [
                 program(1, {
-                    userLogins: [
-                        {
-                            userId: 1,
-                            dailyLogins: [
-                                { date: '2026-01-05', count: 2 },
-                                { date: '2026-01-20', count: 1 },
-                                { date: '2026-02-01', count: 4 },
-                            ],
-                        },
-                        {
-                            userId: 2,
-                            dailyLogins: [{ date: '2026-01-07', count: 1 }],
-                        },
-                    ],
-                }),
-                program(2, {
-                    userLogins: [
-                        {
-                            userId: 3,
-                            dailyLogins: [{ date: '2026-01-31', count: 5 }],
-                        },
+                    sessions: [
+                        session(1, { collectionDate: Date.UTC(2025, 11, 3) }),
+                        session(2, { deviceId: 2 }),
+                        session(3, {
+                            deviceId: 3,
+                            collectionDate: Date.UTC(2026, 2, 3),
+                        }),
                     ],
                 }),
             ],
-            range,
+            { from: '2026-02', to: '2026-03' },
         );
 
-        expect(metrics.programs[0].months['2026-01']).toMatchObject({
-            uniqueUsers: 2,
-            logins: 4,
-        });
-        expect(metrics.programs[0].months['2026-02']).toMatchObject({
-            uniqueUsers: 1,
-            logins: 4,
-        });
-        expect(metrics.totals['2026-01']).toMatchObject({
-            uniqueUsers: 3,
-            logins: 9,
-        });
-    });
-
-    it('leaves user counts blank before the first recorded login', () => {
-        const metrics = buildMonthlyMetrics(
-            [
-                program(1, {
-                    userLogins: [
-                        {
-                            userId: 1,
-                            dailyLogins: [{ date: '2026-02-03', count: 1 }],
-                        },
-                    ],
-                }),
-                program(2, {}),
-            ],
-            range,
-        );
-
-        expect(metrics.totals['2026-01']).toMatchObject({
-            uniqueUsers: null,
-            logins: null,
-        });
-        expect(metrics.programs[1].months['2026-02']).toMatchObject({
-            uniqueUsers: 0,
-            logins: 0,
-        });
+        expect(metrics.total.activeDevices).toBe(1);
+        expect(metrics.previousTotal?.activeDevices).toBe(2);
     });
 });
