@@ -101,6 +101,18 @@ uploaded": a failed upload and a never-attempted one both stay `CERTIFIED`, so
 it reads as "share of send-ready data that reached DHIS2". Counted in Sessions
 because Submission is per Session. Blank for Programs that don't use DHIS2.
 
+**Unique Users**: VectorVerify web-app users (VCOs and other reviewers, not
+field collectors) of a Program who logged in at least once in the Reporting
+Month, from `GET /users/auth-events` (admin token, `eventType=login`). A user
+belongs to one Program, so Program counts add up to the Total. **Logins** is the
+same population's total login count. Both use UTC months because the backend
+groups logins by UTC day; every other metric uses the Program's timezone. Months
+before the first recorded login in the selection are blank, not zero: the
+backend only logs logins from when auth events shipped (test: June 2026). Same
+source and population as VectorVerify's User Analytics (VCV-303), but across all
+Programs via the Program Filter. _Avoid_: Active Users (collides with
+`isActive`), Monthly Active Device (different population)
+
 **Time to Confirmation**: Elapsed time from a Session's `createdAt` (started on
 the device) to `certifiedAt` (a VCO confirmed it in Review). Uncertified
 Sessions have no value. Shown per Session only; no monthly summary is decided.

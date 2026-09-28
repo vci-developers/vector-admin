@@ -53,7 +53,10 @@ Terms below are defined in vector-admin's `CONTEXT.md`.
 14. As a Viewer, I want Unique Specimens per Program per month, so that I can
     report surveillance output.
 15. As a Viewer, I want Scans per Active Device, so that I can compare device
-    utilisation across Programs.
+    utilisation across Programs. 15b. As a Viewer, I want Unique Users and
+    Logins per Program per month (the VectorVerify user analytics, across
+    Programs), so that I can report reviewer engagement alongside device
+    adoption.
 16. As a Viewer, I want Scans per Active Device blank when there are no active
     devices, so that 0 isn't mistaken for measured idleness.
 17. As a Viewer, I want a Total row per metric, so that I can report the whole

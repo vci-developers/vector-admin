@@ -40,6 +40,8 @@ export const monthMetricsSchema = z.object({
     fieldPasses: fieldRecord(z.number()),
     certifiedSessions: z.number(),
     submittedSessions: z.number(),
+    uniqueUsers: z.number().nullable(),
+    logins: z.number().nullable(),
     scansPerActiveDevice: nullableRatio,
     metadataCompleteness: nullableRatio,
     fieldCompleteness: fieldRecord(nullableRatio),

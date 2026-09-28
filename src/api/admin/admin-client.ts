@@ -11,6 +11,7 @@ export type AdminEndpoint =
     | '/sessions/'
     | '/specimens/'
     | '/devices/'
+    | '/users/auth-events'
     | `/programs/${number}/collection-cycles`;
 
 export type AdminQuery = Record<string, string | number | boolean>;

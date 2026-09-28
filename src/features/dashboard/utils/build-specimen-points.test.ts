@@ -37,6 +37,7 @@ function snapshot(sessions: Session[], specimens: Specimen[]): ProgramSnapshot {
         specimens,
         devices: [],
         collectionCycles: [],
+        userLogins: [],
         fetchedAt: 0,
     };
 }

@@ -24,10 +24,18 @@ export type MonthCounts = {
     fieldPasses: Record<RequiredField, number>;
     certifiedSessions: number;
     submittedSessions: number;
+    /** VectorVerify users who logged in that (UTC) month. */
+    uniqueUsers: number;
+    logins: number;
 };
 
-/** Ratios are null when their denominator is 0, so blanks never read as 0. */
-export type MonthMetrics = MonthCounts & {
+/**
+ * Ratios are null when their denominator is 0, and user counts are null before
+ * login tracking began, so blanks never read as 0.
+ */
+export type MonthMetrics = Omit<MonthCounts, 'uniqueUsers' | 'logins'> & {
+    uniqueUsers: number | null;
+    logins: number | null;
     scansPerActiveDevice: number | null;
     metadataCompleteness: number | null;
     fieldCompleteness: Record<RequiredField, number | null>;
@@ -64,15 +72,19 @@ function emptyCounts(): MonthCounts {
         },
         certifiedSessions: 0,
         submittedSessions: 0,
+        uniqueUsers: 0,
+        logins: 0,
     };
 }
 
 const ratio = (numerator: number, denominator: number) =>
     denominator === 0 ? null : numerator / denominator;
 
-function withRatios(counts: MonthCounts): MonthMetrics {
+function withRatios(counts: MonthCounts, loginsTracked: boolean): MonthMetrics {
     return {
         ...counts,
+        uniqueUsers: loginsTracked ? counts.uniqueUsers : null,
+        logins: loginsTracked ? counts.logins : null,
         scansPerActiveDevice: ratio(counts.scans, counts.activeDevices),
         metadataCompleteness: ratio(counts.completeRecords, counts.records),
         fieldCompleteness: {
@@ -96,6 +108,9 @@ function addCounts(total: MonthCounts, counts: MonthCounts) {
     total.completeRecords += counts.completeRecords;
     total.certifiedSessions += counts.certifiedSessions;
     total.submittedSessions += counts.submittedSessions;
+    // A user belongs to one Program, so per-Program unique users add up.
+    total.uniqueUsers += counts.uniqueUsers;
+    total.logins += counts.logins;
     for (const field of REQUIRED_FIELDS) {
         total.fieldPasses[field] += counts.fieldPasses[field];
     }
@@ -149,6 +164,21 @@ function countProgramMonths(
         }
     }
 
+    // The backend buckets logins by UTC day, so these use UTC months.
+    for (const user of snapshot.userLogins) {
+        const monthsLoggedIn = new Set<MonthKey>();
+        for (const { date, count } of user.dailyLogins) {
+            const monthCounts = counts.get(date.slice(0, 7));
+            if (!monthCounts) continue;
+            monthCounts.logins += count;
+            monthsLoggedIn.add(date.slice(0, 7));
+        }
+        for (const month of monthsLoggedIn) {
+            const monthCounts = counts.get(month);
+            if (monthCounts) monthCounts.uniqueUsers += 1;
+        }
+    }
+
     for (const [month, devices] of activeDevices) {
         const monthCounts = counts.get(month);
         if (monthCounts) monthCounts.activeDevices = devices.size;
@@ -189,6 +219,17 @@ function earliestDataMonth(programs: ProgramData[]): MonthKey | undefined {
     );
 }
 
+// The backend only records logins from when auth events shipped; months before
+// the first recorded login anywhere in the selection are unknown, not zero.
+function firstLoginMonth(programs: ProgramData[]): MonthKey | null {
+    const dates = programs.flatMap(({ snapshot }) =>
+        snapshot.userLogins.flatMap(user => user.dailyLogins.map(d => d.date)),
+    );
+    return dates.length
+        ? dates.reduce((a, b) => (a < b ? a : b)).slice(0, 7)
+        : null;
+}
+
 export function buildMonthlyMetrics(
     programs: ProgramData[],
     range: ResolvedRange,
@@ -196,6 +237,9 @@ export function buildMonthlyMetrics(
     const from = range.from ?? earliestDataMonth(programs) ?? range.to;
     const months = monthsInRange(from, range.to);
     const totals = new Map(months.map(month => [month, emptyCounts()]));
+    const loginStart = firstLoginMonth(programs);
+    const loginsTracked = (month: MonthKey) =>
+        loginStart !== null && month >= loginStart;
 
     const programMetrics = programs.map(programData => {
         const timeZone = programTimeZone(programData.snapshot.collectionCycles);
@@ -210,7 +254,7 @@ export function buildMonthlyMetrics(
             months: Object.fromEntries(
                 [...counts].map(([month, monthCounts]) => [
                     month,
-                    withRatios(monthCounts),
+                    withRatios(monthCounts, loginsTracked(month)),
                 ]),
             ),
             cycleLabels: buildCycleLabels(
@@ -227,7 +271,7 @@ export function buildMonthlyMetrics(
         totals: Object.fromEntries(
             [...totals].map(([month, monthCounts]) => [
                 month,
-                withRatios(monthCounts),
+                withRatios(monthCounts, loginsTracked(month)),
             ]),
         ),
     };

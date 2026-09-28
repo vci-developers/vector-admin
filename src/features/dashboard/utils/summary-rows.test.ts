@@ -16,6 +16,8 @@ const metrics: MonthMetricsDto = {
     },
     certifiedSessions: 0,
     submittedSessions: 0,
+    uniqueUsers: 3,
+    logins: 12,
     scansPerActiveDevice: 308.5,
     metadataCompleteness: 0.456,
     fieldCompleteness: {
@@ -50,7 +52,7 @@ describe('summaryToTsv', () => {
             labels,
         );
         expect(tsv.split('\n')[1]).toBe(
-            'Uganda\t4\t1234\t1000\t308.5\t45.6%\t\t100.0%\t100.0%\t45.6%\t100.0%',
+            'Uganda\t4\t1234\t1000\t308.5\t3\t12\t45.6%\t\t100.0%\t100.0%\t45.6%\t100.0%',
         );
     });
 
@@ -61,7 +63,7 @@ describe('summaryToTsv', () => {
             labels,
         );
         const [, , failed, total] = tsv.split('\n');
-        expect(failed).toBe(`Ghana${'\t'.repeat(10)}`);
-        expect(total).toBe(`Total${'\tIncomplete'.repeat(10)}`);
+        expect(failed).toBe(`Ghana${'\t'.repeat(12)}`);
+        expect(total).toBe(`Total${'\tIncomplete'.repeat(12)}`);
     });
 });

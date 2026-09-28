@@ -8,7 +8,9 @@ export type MetricKey =
     | 'uniqueSpecimens'
     | 'scansPerActiveDevice'
     | 'metadataCompleteness'
-    | 'dhis2UploadRate';
+    | 'dhis2UploadRate'
+    | 'uniqueUsers'
+    | 'logins';
 
 export type FieldKey = keyof MonthMetricsDto['fieldCompleteness'];
 
@@ -27,6 +29,8 @@ export const METRICS: MetricDefinition[] = [
         format: 'decimal',
         value: m => m.scansPerActiveDevice,
     },
+    { key: 'uniqueUsers', format: 'count', value: m => m.uniqueUsers },
+    { key: 'logins', format: 'count', value: m => m.logins },
     {
         key: 'metadataCompleteness',
         format: 'percent',

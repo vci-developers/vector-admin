@@ -7,8 +7,8 @@ export default function DashboardSkeleton({ message }: { message: string }) {
             <p role="status" className="text-muted-foreground text-sm">
                 {message}
             </p>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                {Array.from({ length: 6 }, (_, index) => (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {Array.from({ length: 8 }, (_, index) => (
                     <Card key={index} className="gap-2 px-4 py-3">
                         <Skeleton height="xs" width="sm" />
                         <Skeleton height="lg" width="md" />

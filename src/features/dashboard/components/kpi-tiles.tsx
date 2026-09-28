@@ -25,7 +25,7 @@ export default function KpiTiles({
     const formatter = useFormatter();
 
     return (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {METRICS.map(metric => {
                 const value = current ? metric.value(current) : null;
                 const before = previous ? metric.value(previous) : null;

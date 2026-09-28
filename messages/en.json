@@ -78,6 +78,14 @@
         "dhis2UploadRate": {
             "title": "DHIS2 Upload Rate",
             "description": "Submitted ÷ (Certified + Submitted) Sessions. Blank when a Program has none."
+        },
+        "uniqueUsers": {
+            "title": "Unique Users",
+            "description": "VectorVerify users who logged in during the month (UTC). Blank before login tracking began."
+        },
+        "logins": {
+            "title": "Logins",
+            "description": "VectorVerify logins during the month (UTC), all users. Blank before login tracking began."
         }
     },
     "MonthPicker": {

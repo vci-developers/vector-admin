@@ -61,6 +61,7 @@ function program(
             specimens: [],
             devices: [],
             collectionCycles: [],
+            userLogins: [],
             fetchedAt: 0,
             ...snapshot,
         },
@@ -274,5 +275,76 @@ describe('buildMonthlyMetrics', () => {
             '2026-01',
             '2026-02',
         ]);
+    });
+
+    it('counts unique users and logins per month and sums them in totals', () => {
+        const metrics = buildMonthlyMetrics(
+            [
+                program(1, {
+                    userLogins: [
+                        {
+                            userId: 1,
+                            dailyLogins: [
+                                { date: '2026-01-05', count: 2 },
+                                { date: '2026-01-20', count: 1 },
+                                { date: '2026-02-01', count: 4 },
+                            ],
+                        },
+                        {
+                            userId: 2,
+                            dailyLogins: [{ date: '2026-01-07', count: 1 }],
+                        },
+                    ],
+                }),
+                program(2, {
+                    userLogins: [
+                        {
+                            userId: 3,
+                            dailyLogins: [{ date: '2026-01-31', count: 5 }],
+                        },
+                    ],
+                }),
+            ],
+            range,
+        );
+
+        expect(metrics.programs[0].months['2026-01']).toMatchObject({
+            uniqueUsers: 2,
+            logins: 4,
+        });
+        expect(metrics.programs[0].months['2026-02']).toMatchObject({
+            uniqueUsers: 1,
+            logins: 4,
+        });
+        expect(metrics.totals['2026-01']).toMatchObject({
+            uniqueUsers: 3,
+            logins: 9,
+        });
+    });
+
+    it('leaves user counts blank before the first recorded login', () => {
+        const metrics = buildMonthlyMetrics(
+            [
+                program(1, {
+                    userLogins: [
+                        {
+                            userId: 1,
+                            dailyLogins: [{ date: '2026-02-03', count: 1 }],
+                        },
+                    ],
+                }),
+                program(2, {}),
+            ],
+            range,
+        );
+
+        expect(metrics.totals['2026-01']).toMatchObject({
+            uniqueUsers: null,
+            logins: null,
+        });
+        expect(metrics.programs[1].months['2026-02']).toMatchObject({
+            uniqueUsers: 0,
+            logins: 0,
+        });
     });
 });
