@@ -117,5 +117,37 @@
         "hint": "Click a month on any chart to show it in the summary.",
         "legend": "Programs",
         "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}"
+    },
+    "Devices": {
+        "heading": "Devices in {month}",
+        "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {unplaced} unplaced",
+        "legend": "Map colours",
+        "legendActive": "Any device active this month",
+        "legendIdle": "No device active this month",
+        "selectedHeading": "{count, plural, =0 {Selected devices} one {# selected device} other {# selected devices}}",
+        "selectHint": "Click a cluster or a device on the map to list it here.",
+        "deviceId": "Device ID",
+        "ssaid": "Android ID",
+        "model": "Model",
+        "program": "Program",
+        "status": "Status",
+        "lastSubmitted": "Last submitted",
+        "unknown": "Unknown",
+        "never": "Never",
+        "statuses": {
+            "ACTIVE": "Active",
+            "INACTIVE": "Inactive",
+            "NEVER_USED": "Never used"
+        },
+        "unplaced": {
+            "heading": "Unplaced devices ({count})",
+            "description": "Latest Session has no GPS, or GPS outside the Program's country. Session GPS is recorded at upload, so this is common.",
+            "empty": "Every used device has an in-country location."
+        },
+        "neverUsed": {
+            "heading": "Never used ({count})",
+            "description": "Registered devices with no Sessions.",
+            "empty": "Every registered device has Sessions."
+        }
     }
 }

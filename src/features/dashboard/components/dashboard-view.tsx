@@ -10,6 +10,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import DashboardSkeleton from './dashboard-skeleton';
+import DevicesSection from './devices-section';
 import MonthSummary from './month-summary';
 import ProgramFilter from './program-filter';
 import RangePicker from './range-picker';
@@ -100,6 +101,11 @@ export default function DashboardView() {
             ) : (
                 <>
                     <MonthSummary dashboard={dashboard} month={summaryMonth} />
+                    <DevicesSection
+                        key={summaryMonth}
+                        dashboard={dashboard}
+                        month={summaryMonth}
+                    />
                     <TrendCharts dashboard={dashboard} month={summaryMonth} />
                 </>
             )}
