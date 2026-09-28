@@ -75,6 +75,21 @@ export const dashboardSchema = z.object({
         totals: z.record(z.string(), monthMetricsSchema),
     }),
     deviceMonth: monthKeySchema,
+    specimenPoints: z.object({
+        placed: z.array(
+            z.object({
+                sessionId: z.number(),
+                programId: z.number(),
+                deviceId: z.number(),
+                latitude: z.number(),
+                longitude: z.number(),
+                specimenCount: z.number(),
+                collectedAt: z.number(),
+            }),
+        ),
+        unplacedSessions: z.number(),
+        unplacedSpecimens: z.number(),
+    }),
     devices: z.array(deviceRowSchema),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
     lastUpdatedAt: z.number().nullable(),

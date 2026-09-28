@@ -18,6 +18,9 @@ const dashboardFilterParsers = {
     month: parseAsString,
     // Program whose Session panel is open
     sessions: parseAsInteger,
+    layer: parseAsStringLiteral(['specimens', 'devices'] as const).withDefault(
+        'specimens',
+    ),
     exclude: parseAsArrayOf(parseAsInteger).withDefault(
         HIDDEN_BY_DEFAULT_PROGRAM_IDS,
     ),

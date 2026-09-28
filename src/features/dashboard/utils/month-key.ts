@@ -3,6 +3,12 @@ import type { CollectionCycle } from '@/api/collection-cycle/validation/collecti
 /** A Reporting Month as `YYYY-MM`. */
 export type MonthKey = string;
 
+/** Midnight UTC on the first of the month, for formatting with timeZone UTC. */
+export function monthStartDate(month: MonthKey): Date {
+    const [year, monthNumber] = month.split('-').map(Number);
+    return new Date(Date.UTC(year, monthNumber - 1, 1));
+}
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
 export function monthKeyOf(timestamp: number, timeZone: string): MonthKey {

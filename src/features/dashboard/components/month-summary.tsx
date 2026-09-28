@@ -3,9 +3,8 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import MonthPicker from '@/components/ui/month-picker';
-import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
+import { monthStartDate } from '@/features/dashboard/utils/month-key';
 import {
     buildSummaryRows,
     summaryToTsv,
@@ -19,17 +18,11 @@ import SummaryTable from './summary-table';
 
 type MonthSummaryProps = { dashboard: Dashboard; month: string };
 
-function monthDate(month: string) {
-    const [year, monthNumber] = month.split('-').map(Number);
-    return new Date(Date.UTC(year, monthNumber - 1, 1));
-}
-
 export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
     const t = useTranslations('Summary');
     const tMetrics = useTranslations('Metrics');
     const tFields = useTranslations('Fields');
     const formatter = useFormatter();
-    const [, setFilters] = useDashboardFilters();
     const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>(
         'idle',
     );
@@ -41,7 +34,7 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
     );
     const previousMonth = months[months.indexOf(month) - 1] ?? null;
     const incomplete = dashboard.failedProgramIds.length > 0;
-    const monthLabel = formatter.dateTime(monthDate(month), {
+    const monthLabel = formatter.dateTime(monthStartDate(month), {
         month: 'long',
         year: 'numeric',
         timeZone: 'UTC',
@@ -76,24 +69,12 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
             className="flex flex-col gap-4"
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                    <h2
-                        id="month-summary-heading"
-                        className="text-lg font-semibold"
-                    >
-                        {t('heading')}
-                    </h2>
-                    <MonthPicker
-                        label={t('month')}
-                        value={month}
-                        min={months[0]}
-                        max={months[months.length - 1]}
-                        onChange={nextMonth => {
-                            setCopyState('idle');
-                            setFilters({ month: nextMonth });
-                        }}
-                    />
-                </div>
+                <h2
+                    id="month-summary-heading"
+                    className="text-lg font-semibold"
+                >
+                    {t('heading', { month: monthLabel })}
+                </h2>
                 <div className="flex items-center gap-2">
                     <span
                         aria-live="polite"
@@ -119,7 +100,7 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
                 }
                 previousMonthLabel={
                     previousMonth
-                        ? formatter.dateTime(monthDate(previousMonth), {
+                        ? formatter.dateTime(monthStartDate(previousMonth), {
                               month: 'short',
                               timeZone: 'UTC',
                           })

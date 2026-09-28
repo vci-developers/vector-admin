@@ -7,10 +7,12 @@ import {
     resolveSelectedMonth,
 } from '@/features/dashboard/utils/resolve-reporting-range';
 import { AlertTriangle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import MonthPicker from '@/components/ui/month-picker';
+import { monthStartDate } from '@/features/dashboard/utils/month-key';
+import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import DashboardSkeleton from './dashboard-skeleton';
-import DevicesSection from './devices-section';
+import MapSection from './map-section';
 import MonthSummary from './month-summary';
 import ProgramFilter from './program-filter';
 import RangePicker from './range-picker';
@@ -23,7 +25,8 @@ function currentMonthKey(now: Date) {
 
 export default function DashboardView() {
     const t = useTranslations('Dashboard');
-    const [filters] = useDashboardFilters();
+    const formatter = useFormatter();
+    const [filters, setFilters] = useDashboardFilters();
     const { range, month, currentMonth } = useMemo(() => {
         const now = new Date();
         const resolved = resolveReportingRange(
@@ -69,12 +72,25 @@ export default function DashboardView() {
         ? month
         : (dashboard.metrics.months.at(-1) ?? month);
 
+    const summaryMonthLabel = formatter.dateTime(monthStartDate(summaryMonth), {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+    });
+
     return (
         <div className="flex flex-col gap-8">
             <div className="bg-background/95 sticky top-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
                 <div className="flex flex-wrap items-center gap-2">
                     <ProgramFilter programs={dashboard.programs} />
                     <RangePicker range={range} currentMonth={currentMonth} />
+                    <MonthPicker
+                        label={t('summaryMonth')}
+                        value={summaryMonth}
+                        min={dashboard.metrics.months[0]}
+                        max={dashboard.metrics.months.at(-1)}
+                        onChange={nextMonth => setFilters({ month: nextMonth })}
+                    />
                 </div>
                 <RefreshControl
                     lastUpdatedAt={dashboard.lastUpdatedAt}
@@ -100,9 +116,14 @@ export default function DashboardView() {
                 </p>
             ) : (
                 <>
-                    <MonthSummary dashboard={dashboard} month={summaryMonth} />
-                    <DevicesSection
+                    <MapSection
                         key={summaryMonth}
+                        dashboard={dashboard}
+                        month={summaryMonth}
+                        monthLabel={summaryMonthLabel}
+                    />
+                    <MonthSummary
+                        key={`summary-${summaryMonth}`}
                         dashboard={dashboard}
                         month={summaryMonth}
                     />

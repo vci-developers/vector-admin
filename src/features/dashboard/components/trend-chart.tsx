@@ -3,6 +3,7 @@
 import type { MonthMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { MetricDefinition } from '@/features/dashboard/utils/metric-definitions';
+import { monthStartDate } from '@/features/dashboard/utils/month-key';
 import { useFormatter, useTranslations } from 'next-intl';
 import {
     CartesianGrid,
@@ -32,11 +33,6 @@ type TrendChartProps = {
     onSelectMonth: (month: string) => void;
 };
 
-function monthDate(month: string) {
-    const [year, monthNumber] = month.split('-').map(Number);
-    return new Date(Date.UTC(year, monthNumber - 1, 1));
-}
-
 export default function TrendChart({
     metric,
     months,
@@ -49,7 +45,7 @@ export default function TrendChart({
     const formatter = useFormatter();
     const formatMetric = useFormatMetric();
     const monthLabel = (month: string, style: 'short' | 'long') =>
-        formatter.dateTime(monthDate(month), {
+        formatter.dateTime(monthStartDate(month), {
             month: style,
             year: style === 'long' ? 'numeric' : '2-digit',
             timeZone: 'UTC',

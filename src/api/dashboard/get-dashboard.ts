@@ -10,6 +10,7 @@ import {
     buildMonthlyMetrics,
     type ProgramData,
 } from '@/features/dashboard/utils/build-monthly-metrics';
+import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
 import type { NetworkError } from '@/lib/network/network-error';
@@ -48,6 +49,20 @@ export async function getDashboard(
             programTimeZone(snapshot.collectionCycles),
         ),
     );
+    const specimenPoints = loaded
+        .map(({ program, snapshot }) =>
+            buildSpecimenPoints(snapshot, program.country, query.month),
+        )
+        .reduce(
+            (all, points) => ({
+                placed: [...all.placed, ...points.placed],
+                unplacedSessions:
+                    all.unplacedSessions + points.unplacedSessions,
+                unplacedSpecimens:
+                    all.unplacedSpecimens + points.unplacedSpecimens,
+            }),
+            { placed: [], unplacedSessions: 0, unplacedSpecimens: 0 },
+        );
     const fetchTimes = loaded.map(({ snapshot }) => snapshot.fetchedAt);
 
     return ok({
@@ -57,6 +72,7 @@ export async function getDashboard(
         metrics,
         deviceMonth,
         devices,
+        specimenPoints,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,
     });
 }

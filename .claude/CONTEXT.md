@@ -80,6 +80,12 @@ recorded at upload, not collection, so it can be wrong (VectorVerify geocodes
 Sites for this reason); VectorAdmin uses it and reports how often it fails.
 _Avoid_: site location (VectorVerify's geocoded position)
 
+**Specimen Location**: Where a Specimen appears on the map: its Session's GPS
+`latitude`/`longitude`, drawn as one point per Session sized by specimen count.
+The same in-country rule as Device Location applies; Sessions outside it are
+counted as unplaced with their specimens, never drawn. Recorded at upload, not
+at the trap. _Avoid_: trap location, site location
+
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),
 capture date (Session `collectionDate`), geolocation (Session GPS inside the

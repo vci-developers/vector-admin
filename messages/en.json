@@ -25,7 +25,8 @@
         "loading": "Loading program data… The first load after a refresh can take up to a minute.",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
-        "noProgramsSelected": "No programs selected. Choose at least one program."
+        "noProgramsSelected": "No programs selected. Choose at least one program.",
+        "summaryMonth": "Summary month"
     },
     "Filters": {
         "programs": "Programs",
@@ -89,8 +90,7 @@
         "deltaPoints": "{delta} pts vs {month}"
     },
     "Summary": {
-        "heading": "Month summary",
-        "month": "Summary month",
+        "heading": "Summary for {month}",
         "program": "Program",
         "total": "Total",
         "incomplete": "Incomplete",
@@ -120,13 +120,10 @@
         "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}"
     },
     "Devices": {
-        "heading": "Devices in {month}",
         "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {unplaced} unplaced",
         "legend": "Map colours",
         "legendActive": "Any device active this month",
         "legendIdle": "No device active this month",
-        "selectedHeading": "{count, plural, =0 {Selected devices} one {# selected device} other {# selected devices}}",
-        "selectHint": "Click a cluster or a device on the map to list it here.",
         "deviceId": "Device ID",
         "ssaid": "Android ID",
         "model": "Model",
@@ -183,5 +180,24 @@
             "hours": "{count, plural, one {# hour} other {# hours}}",
             "days": "{count, plural, one {# day} other {# days}}"
         }
+    },
+    "MapSection": {
+        "heading": "Collection in {month}",
+        "layer": "Map layer",
+        "layers": {
+            "specimens": "Specimens",
+            "devices": "Devices"
+        },
+        "specimenStats": "{specimens} specimens from {sessions} Sessions on the map · {unplacedSpecimens} specimens from {unplacedSessions} Sessions without an in-country location",
+        "legend": "Map key",
+        "legendSpecimens": "Session with specimens (size = count)",
+        "legendZeroCatch": "Session with no specimens",
+        "selectedSessions": "{count, plural, =0 {Sessions} one {# Session} other {# Sessions}}",
+        "selectedDevices": "{count, plural, =0 {Devices} one {# device} other {# devices}}",
+        "selectHint": "Click a cluster or a point on the map to list it here.",
+        "sessionLabel": "Session {id}",
+        "deviceLabel": "Device {id}",
+        "specimenCount": "{count, plural, one {# specimen} other {# specimens}}",
+        "lastSubmitted": "last submitted {date}"
     }
 }

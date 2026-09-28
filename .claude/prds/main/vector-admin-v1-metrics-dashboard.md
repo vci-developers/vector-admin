@@ -81,8 +81,10 @@ Terms below are defined in vector-admin's `CONTEXT.md`.
     that I can chase stuck reviews.
 28. As a Viewer, I want each Session's missing Required Metadata Fields shown,
     so that I can see what to fix.
-29. As a Viewer, I want a map of every registered Device, so that I can see
-    where devices are deployed.
+29. As a Viewer, I want the map to be the first thing on the page, showing where
+    the Summary Month's specimens were collected (one point per Session, sized
+    by specimen count) and, on a switch, every registered Device, so that I can
+    see where surveillance happens and where devices are deployed.
 30. As a Viewer, I want each Device's status (Active, Inactive, Never Used) for
     the Summary Month, so that I can spot silent devices.
 31. As a Viewer, I want devices clustered when zoomed out, so that the world
@@ -189,10 +191,14 @@ a no-op there.
    totals with change vs the previous month, and a Programs × metrics table with
    a Total row, expandable Field Completeness and copy-as-TSV. Trend charts: one
    small line chart per metric, one line per Program, colours fixed per Program.
-   Device map with clusters (react-leaflet-cluster, clustering off from about
-   zoom 7), coloured by any-active, plus a side list for the clicked cluster,
-   and separate Unplaced and Never Used lists. A Session panel opened from a
-   summary row.
+   Map first, full width, with a Specimens / Devices layer switch (URL param
+   `layer`, default Specimens) and a side list for the clicked cluster or point.
+   Specimens layer: one point per Session at its Specimen Location, clusters
+   labelled with total specimens, zero-catch Sessions hollow, unplaced Sessions
+   and specimens counted. Devices layer: clusters (react-leaflet-cluster,
+   clustering off from about zoom 7) coloured by any-active, plus Unplaced and
+   Never Used lists. The Summary Month picker sits in the toolbar. A Session
+   panel opened from a summary row.
 
 **Partial failure.** If one Program's snapshot fails, the dashboard renders the
 others and marks that Program's rows as failed; Total rows show as incomplete,
