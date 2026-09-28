@@ -190,7 +190,7 @@
         }
     },
     "MapSection": {
-        "heading": "Collection in {month}",
+        "heading": "Collection, {period}",
         "layer": "Map layer",
         "layers": {
             "specimens": "Specimens",
@@ -207,7 +207,13 @@
         "deviceLabel": "Device {id}",
         "specimenCount": "{count, plural, one {# specimen} other {# specimens}}",
         "lastSubmitted": "last submitted {date}",
-        "emptySpecimens": "No Sessions with an in-country location in {month}. Pick another month or check the unplaced count above.",
-        "emptyDevices": "No devices with an in-country location."
+        "emptySpecimens": "No Sessions with an in-country location in {month}. Try a wider range or check the unplaced count above.",
+        "emptyDevices": "No devices with an in-country location.",
+        "headingDevices": "Devices in {month}",
+        "rangeLabel": "{from} – {to}",
+        "period": "Map period",
+        "periods": {
+            "range": "Whole range"
+        }
     }
 }

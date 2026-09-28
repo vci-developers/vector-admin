@@ -18,6 +18,9 @@ const dashboardFilterParsers = {
     month: parseAsString,
     // Program whose Session panel is open
     sessions: parseAsInteger,
+    mapPeriod: parseAsStringLiteral(['range', 'month'] as const).withDefault(
+        'range',
+    ),
     layer: parseAsStringLiteral(['specimens', 'devices'] as const).withDefault(
         'specimens',
     ),

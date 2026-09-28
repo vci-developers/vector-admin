@@ -49,20 +49,26 @@ export async function getDashboard(
             programTimeZone(snapshot.collectionCycles),
         ),
     );
-    const specimenPoints = loaded
-        .map(({ program, snapshot }) =>
-            buildSpecimenPoints(snapshot, program.country, query.month),
-        )
-        .reduce(
-            (all, points) => ({
-                placed: [...all.placed, ...points.placed],
-                unplacedSessions:
-                    all.unplacedSessions + points.unplacedSessions,
-                unplacedSpecimens:
-                    all.unplacedSpecimens + points.unplacedSpecimens,
-            }),
-            { placed: [], unplacedSessions: 0, unplacedSpecimens: 0 },
+    const specimenPoints: Dashboard['specimenPoints'] = {
+        placed: [],
+        unplaced: {},
+    };
+    for (const { program, snapshot } of loaded) {
+        const points = buildSpecimenPoints(
+            snapshot,
+            program.country,
+            metrics.months,
         );
+        specimenPoints.placed.push(...points.placed);
+        for (const [month, counts] of Object.entries(points.unplaced)) {
+            const total = (specimenPoints.unplaced[month] ??= {
+                sessions: 0,
+                specimens: 0,
+            });
+            total.sessions += counts.sessions;
+            total.specimens += counts.specimens;
+        }
+    }
     const fetchTimes = loaded.map(({ snapshot }) => snapshot.fetchedAt);
 
     return ok({

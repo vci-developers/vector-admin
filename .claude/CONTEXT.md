@@ -82,9 +82,11 @@ _Avoid_: site location (VectorVerify's geocoded position)
 
 **Specimen Location**: Where a Specimen appears on the map: its Session's GPS
 `latitude`/`longitude`, drawn as one point per Session sized by specimen count.
-The same in-country rule as Device Location applies; Sessions outside it are
-counted as unplaced with their specimens, never drawn. Recorded at upload, not
-at the trap. _Avoid_: trap location, site location
+The map shows the whole Reporting Range by default and the Summary Month on
+request; the Devices layer is always the Summary Month, since Device Status is
+per month. The same in-country rule as Device Location applies; Sessions outside
+it are counted as unplaced with their specimens, never drawn. Recorded at
+upload, not at the trap. _Avoid_: trap location, site location
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),

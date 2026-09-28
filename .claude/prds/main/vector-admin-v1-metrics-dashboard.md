@@ -196,13 +196,14 @@ a no-op there.
    small line chart per metric, one line per Program, colours fixed per Program.
    Map first, full width, with a Specimens / Devices layer switch (URL param
    `layer`, default Specimens) and a side list for the clicked cluster or point.
-   Specimens layer: one point per Session at its Specimen Location, clusters
-   labelled with total specimens, zero-catch Sessions hollow, unplaced Sessions
-   and specimens counted. Devices layer: clusters (react-leaflet-cluster; the
-   merge radius shrinks from about zoom 7 but never reaches zero, so devices
-   sharing a GPS fix fan out on click) coloured by any-active, plus Unplaced and
-   Never Used lists. The Summary Month picker sits in the toolbar. A Session
-   panel opened from a summary row.
+   Specimens layer: one point per Session at its Specimen Location, across the
+   whole Reporting Range by default or the Summary Month on a switch (URL param
+   `mapPeriod`), clusters labelled with total specimens, zero-catch Sessions
+   hollow, unplaced Sessions and specimens counted. Devices layer: clusters
+   (react-leaflet-cluster; the merge radius shrinks from about zoom 7 but never
+   reaches zero, so devices sharing a GPS fix fan out on click) coloured by
+   any-active, plus Unplaced and Never Used lists. The Summary Month picker sits
+   in the toolbar. A Session panel opened from a summary row.
 
 **Partial failure.** If one Program's snapshot fails, the dashboard renders the
 others and marks that Program's rows as failed; Total rows show as incomplete,

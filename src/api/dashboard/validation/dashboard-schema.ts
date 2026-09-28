@@ -77,20 +77,24 @@ export const dashboardSchema = z.object({
         totals: z.record(z.string(), monthMetricsSchema),
     }),
     deviceMonth: monthKeySchema,
+    /** Sessions across the whole Reporting Range; the client filters by month. */
     specimenPoints: z.object({
         placed: z.array(
             z.object({
                 sessionId: z.number(),
                 programId: z.number(),
                 deviceId: z.number(),
+                month: monthKeySchema,
                 latitude: z.number(),
                 longitude: z.number(),
                 specimenCount: z.number(),
                 collectedAt: z.number(),
             }),
         ),
-        unplacedSessions: z.number(),
-        unplacedSpecimens: z.number(),
+        unplaced: z.record(
+            z.string(),
+            z.object({ sessions: z.number(), specimens: z.number() }),
+        ),
     }),
     devices: z.array(deviceRowSchema),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
