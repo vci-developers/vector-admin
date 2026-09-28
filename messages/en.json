@@ -1,0 +1,9 @@
+{
+    "App": {
+        "title": "VectorAdmin",
+        "description": "Cross-program adoption and data-quality metrics for VectorCam"
+    },
+    "Dashboard": {
+        "heading": "Program metrics"
+    }
+}
