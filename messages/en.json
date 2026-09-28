@@ -3,6 +3,20 @@
         "title": "VectorAdmin",
         "description": "Cross-program adoption and data-quality metrics for VectorCam"
     },
+    "Auth": {
+        "title": "Sign in to VectorAdmin",
+        "subtitle": "Use your VectorCam account.",
+        "email": "Email",
+        "password": "Password",
+        "loginButton": "Sign in",
+        "loginError": "Sign-in failed. The email or password may be incorrect.",
+        "accessCheckError": "Could not check your access. Refresh the page to try again."
+    },
+    "NoAccess": {
+        "title": "No access",
+        "description": "VectorAdmin is open to VectorCam developer accounts only. Your account is signed in but does not have developer access.",
+        "switchAccount": "Sign in with a different account"
+    },
     "Dashboard": {
         "heading": "Program metrics"
     }

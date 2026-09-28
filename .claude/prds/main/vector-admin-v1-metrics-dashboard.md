@@ -132,10 +132,11 @@ only. Hidden-by-Default Program ids are a per-environment config value (prod:
 **Modules.**
 
 1. **Viewer gate.** Login posts to `/auth/login` and stores the user token in an
-   httpOnly cookie (VectorVerify's flow). The root layout fetches the profile
-   with the user token and requires `isDeveloper`; otherwise it renders a
-   no-access page. Every BFF route repeats the check before touching the admin
-   token.
+   httpOnly cookie (VectorVerify's flow). The dashboard layout calls
+   `GET /users/permissions` with the user token and requires
+   `permissions.devMode` (the backend's `isDeveloper`; `/users/profile` does
+   not return it); otherwise it redirects to a no-access page. Every BFF route
+   repeats the check (`withViewer`) before touching the admin token.
 2. **Admin data loader** (server only, deep module). Interface:
    `loadProgramSnapshot(programId) → Result<ProgramSnapshot, NetworkError>`.
    Pages `/sessions/?programId`, `/specimens/?programId&includeAllImages=true`,
@@ -212,9 +213,9 @@ app shell, `messages/en.json`, i18n config, Vitest config, `.claude/docs/*`,
 `.claude/skills/*`, `.claude/CLAUDE.md`.
 
 **Commit 2 — Log in and require isDeveloper**: Copy `Result`, network helpers,
-auth-session cookies and proxy; add login page, profile check in the root
-layout, and no-access page. Files: `lib/result`, `lib/network`,
-`lib/auth-session`, `proxy`, login and no-access routes, root layout.
+auth-session cookies and proxy; add login page, `devMode` check in the
+dashboard layout, and no-access page. Files: `lib/result`, `lib/network`,
+`lib/auth-session`, `proxy`, login and no-access routes, dashboard layout.
 
 **Commit 3 — Load and cache Program snapshots**: Admin GET-only client, schemas
 for sessions/specimens/devices/cycles/programs, `loadProgramSnapshot` with
