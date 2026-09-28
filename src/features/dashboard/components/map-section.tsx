@@ -107,7 +107,8 @@ export default function MapSection({
             </div>
 
             <div className="grid gap-4 lg:grid-cols-4">
-                <Card className="relative h-[34rem] overflow-hidden p-0 lg:col-span-3">
+                {/* isolate: keeps Leaflet's z-indexes (400+) below popovers and the toolbar */}
+                <Card className="relative isolate h-[34rem] overflow-hidden p-0 lg:col-span-3">
                     <SurveillanceMap
                         layer={layer}
                         specimenPoints={dashboard.specimenPoints.placed}
