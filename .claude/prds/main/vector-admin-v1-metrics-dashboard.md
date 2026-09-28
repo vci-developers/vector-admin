@@ -13,8 +13,9 @@ across Programs, and no map of where devices are and whether they are working.
 
 A single-page dashboard in the new vector-admin repo, open to `isDeveloper`
 users only. It shows every Program side by side per Reporting Month: the
-measured metrics as sheet-shaped tables, data-quality metrics, and a map of
-every registered Device with its Device Status. Clicking a Program-month opens
+measured and data-quality metrics for a chosen Summary Month (ready to copy into
+the team sheet), trend charts across the Reporting Range, and a map of every
+registered Device with its Device Status. Clicking a Program's summary row opens
 the Sessions behind it. Filters (Program Filter, Reporting Range) live in the
 URL. No backend changes: the BFF reads all Programs with the admin token
 (ADR-0001) and computes everything itself.
@@ -57,10 +58,11 @@ Terms below are defined in vector-admin's `CONTEXT.md`.
     devices, so that 0 isn't mistaken for measured idleness.
 17. As a Viewer, I want a Total row per metric, so that I can report the whole
     deployment.
-18. As a Viewer, I want tables laid out like the team sheet (Programs as rows,
-    months as columns), so that I can copy numbers straight into it.
-19. As a Viewer, I want each month labelled with its overlapping Cycle(s) for a
-    single Program, so that a quiet month can be read against the cycle.
+18. As a Viewer, I want one month's numbers for every Program in one table, with
+    a copy-for-Excel button, so that I can fill the team sheet quickly. The page
+    supplies data points; it does not mimic the sheet's layout.
+19. As a Viewer, I want each Program's Cycle(s) shown for the Summary Month and
+    in the trend tooltips, so that a quiet month can be read against the cycle.
 20. As a Viewer, I want Metadata Completeness per Program per month, so that I
     can see data-quality trends.
 21. As a Viewer, I want Field Completeness per required field, so that I can
@@ -69,8 +71,8 @@ Terms below are defined in vector-admin's `CONTEXT.md`.
     can see how much send-ready data reached DHIS2.
 23. As a Viewer, I want DHIS2 Upload Rate blank for Programs with no Certified
     or Submitted Sessions, so that non-DHIS2 Programs don't read as 0%.
-24. As a Viewer, I want to click a Program-month cell and see its Sessions, so
-    that I can find out why a number looks wrong.
+24. As a Viewer, I want to click a Program's summary row and see its Sessions
+    for that month, so that I can find out why a number looks wrong.
 25. As a Viewer, I want each Session's state, device, site, collection date and
     submitted date, so that I can trace it.
 26. As a Viewer, I want each Session's Time to Confirmation, so that I can see
@@ -82,7 +84,7 @@ Terms below are defined in vector-admin's `CONTEXT.md`.
 29. As a Viewer, I want a map of every registered Device, so that I can see
     where devices are deployed.
 30. As a Viewer, I want each Device's status (Active, Inactive, Never Used) for
-    the last month of the range, so that I can spot silent devices.
+    the Summary Month, so that I can spot silent devices.
 31. As a Viewer, I want devices clustered when zoomed out, so that the world
     view stays readable.
 32. As a Viewer, I want a cluster to show its device count, green if any device
@@ -126,16 +128,17 @@ the grill-with-docs and to-prd skills. Do not copy VectorVerify's `CONTEXT.md`,
 ADRs or any feature code.
 
 **Environment.** `API_BASE_URL` (test/prod) and `ADMIN_AUTH_TOKEN`, both server
-only. Hidden-by-Default Program ids are a per-environment config value (prod:
-`[5]`; test: the TEST/demo programs).
+only. Hidden-by-Default Program ids are a constant, `[5]` (prod Johns Hopkins
+University); test hides nothing, and its ids start at 7, so the same constant is
+a no-op there.
 
 **Modules.**
 
 1. **Viewer gate.** Login posts to `/auth/login` and stores the user token in an
    httpOnly cookie (VectorVerify's flow). The dashboard layout calls
    `GET /users/permissions` with the user token and requires
-   `permissions.devMode` (the backend's `isDeveloper`; `/users/profile` does
-   not return it); otherwise it redirects to a no-access page. Every BFF route
+   `permissions.devMode` (the backend's `isDeveloper`; `/users/profile` does not
+   return it); otherwise it redirects to a no-access page. Every BFF route
    repeats the check (`withViewer`) before touching the admin token.
 2. **Admin data loader** (server only, deep module). Interface:
    `loadProgramSnapshot(programId) → Result<ProgramSnapshot, NetworkError>`.
@@ -170,18 +173,26 @@ only. Hidden-by-Default Program ids are a per-environment config value (prod:
    geolocation and is flagged in the UI). Operator ID passes on a non-empty
    trimmed `collectorName`. Shared by `buildMonthlyMetrics`, `classifyDevices`
    (for the GPS check) and the Session list.
-6. **BFF routes + hooks.** `GET /api/dashboard?programIds&from&to` → metric
-   tables + device rows for the last month of the range + snapshot times
-   (`useGetDashboard`). `GET /api/program-month-sessions?programId&month` →
-   Session rows with state, Time to Confirmation, missing fields
-   (`useGetProgramMonthSessions`). `POST /api/refresh?programIds` invalidates
-   those snapshots. Responses are Zod-validated end to end.
+6. **BFF routes + hooks.** `GET /api/dashboard?exclude&from&to` → all Programs
+   (for the filter), metric tables + device rows for the last month of the
+   range + oldest snapshot time (`useGetDashboard`). The filter stores excluded
+   ids, so a new Program is selected without the URL changing; `from` is omitted
+   for All time and starts at the earliest data.
+   `GET /api/program-month-sessions?programId&month` → Session rows with state,
+   Time to Confirmation, missing fields (`useGetProgramMonthSessions`).
+   `POST /api/refresh?programIds` invalidates those snapshots. Responses are
+   Zod-validated end to end.
 7. **UI** (single page). Filter bar (Program Filter multi-select, Reporting
    Range presets + custom month pair, last-updated + refresh) on nuqs, with
-   defaults omitted from the URL. One table per metric. Device map with clusters
-   (react-leaflet-cluster, clustering off from about zoom 7), coloured by
-   any-active, plus a side list for the clicked cluster, and separate Unplaced
-   and Never Used lists. A Session panel opened from a table cell.
+   defaults omitted from the URL. Month summary: Summary Month picker (default:
+   last complete month; chart clicks also set it), KPI tiles for the month's
+   totals with change vs the previous month, and a Programs × metrics table with
+   a Total row, expandable Field Completeness and copy-as-TSV. Trend charts: one
+   small line chart per metric, one line per Program, colours fixed per Program.
+   Device map with clusters (react-leaflet-cluster, clustering off from about
+   zoom 7), coloured by any-active, plus a side list for the clicked cluster,
+   and separate Unplaced and Never Used lists. A Session panel opened from a
+   summary row.
 
 **Partial failure.** If one Program's snapshot fails, the dashboard renders the
 others and marks that Program's rows as failed; Total rows show as incomplete,
@@ -213,8 +224,8 @@ app shell, `messages/en.json`, i18n config, Vitest config, `.claude/docs/*`,
 `.claude/skills/*`, `.claude/CLAUDE.md`.
 
 **Commit 2 — Log in and require isDeveloper**: Copy `Result`, network helpers,
-auth-session cookies and proxy; add login page, `devMode` check in the
-dashboard layout, and no-access page. Files: `lib/result`, `lib/network`,
+auth-session cookies and proxy; add login page, `devMode` check in the dashboard
+layout, and no-access page. Files: `lib/result`, `lib/network`,
 `lib/auth-session`, `proxy`, login and no-access routes, dashboard layout.
 
 **Commit 3 — Load and cache Program snapshots**: Admin GET-only client, schemas
@@ -226,17 +237,18 @@ one-hour tagged cache, refresh route. Files: `api/admin-client`,
 `classifyDevices`, country bounding boxes, and their Vitest suites; no UI yet.
 Files: `features/dashboard/utils/*`, their tests.
 
-**Commit 5 — Render filters and metric tables**: Dashboard BFF route and hook,
-nuqs filter bar, metric tables with Total rows and Cycle Labels, last-updated
-and refresh. Files: dashboard route and hook, `features/dashboard/components/*`
-(filters, tables), page.
+**Commit 5 — Render filters, month summary and trends**: Dashboard BFF route and
+hook, nuqs filter bar, month summary (KPI tiles, summary table, copy for Excel),
+trend charts, last-updated and refresh, VectorVerify's theme tokens and shadcn
+components. Files: dashboard route and hook, `features/dashboard/components/*`,
+`components/ui/*`, page.
 
 **Commit 6 — Add the device map**: Clustered map, cluster/marker device list,
 Unplaced and Never Used lists. Files: `features/dashboard/components/*` (map,
 device lists).
 
 **Commit 7 — Add the Session panel**: Program-month Sessions route and hook,
-panel opened from a table cell with state, Time to Confirmation and missing
+panel opened from a summary row with state, Time to Confirmation and missing
 fields. Files: program-month-sessions route and hook, session panel component.
 
 ## Out of Scope
@@ -247,7 +259,7 @@ fields. Files: program-month-sessions route and hook, session panel component.
 - Mind the Gap (not a backend Program).
 - A monthly summary of Time to Confirmation.
 - Notifications of any kind.
-- Export to the sheet (copy from the tables).
+- Writing to the sheet (the summary copies as tab-separated text instead).
 - Any backend change, including the DHIS2 first-sync bug (`vectorcam-api`
   `handlers/dhis2/sync.ts`, first-sync branch marks Sessions `SUBMITTED` with no
   event id), a sync-task list endpoint, and server-side aggregates. These go to

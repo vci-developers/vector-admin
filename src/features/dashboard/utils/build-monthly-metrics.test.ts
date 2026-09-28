@@ -252,4 +252,27 @@ describe('buildMonthlyMetrics', () => {
             '2026-03': [],
         });
     });
+
+    it('starts All time at the earliest Session month', () => {
+        const metrics = buildMonthlyMetrics(
+            [
+                program(1, {
+                    sessions: [session(1, { collectionDate: FEB_10 })],
+                }),
+                program(2, {
+                    sessions: [
+                        session(2, { collectionDate: Date.UTC(2025, 10, 5) }),
+                    ],
+                }),
+            ],
+            { to: '2026-02' },
+        );
+
+        expect(metrics.months).toEqual([
+            '2025-11',
+            '2025-12',
+            '2026-01',
+            '2026-02',
+        ]);
+    });
 });

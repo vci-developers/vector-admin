@@ -14,11 +14,10 @@ which Programs they see, is undecided and out of v1. _Avoid_: admin (collides
 with the admin token)
 
 **Program Filter**: A multi-select over every Program from `GET /programs`.
-Defaults to all Programs except a configured **Hidden-by-Default** list
-(currently prod program 5, Johns Hopkins University, whose nature is
-unconfirmed); a hidden Program can still be selected. New Programs appear
-selected automatically. _Avoid_: all programs (means the default selection, not
-literally every Program)
+Defaults to all Programs except a **Hidden-by-Default** list (currently prod
+program 5, Johns Hopkins University, whose nature is unconfirmed); a hidden
+Program can still be selected. New Programs appear selected automatically.
+_Avoid_: all programs (means the default selection, not literally every Program)
 
 **Reporting Month**: The calendar month every metric is bucketed by, evaluated
 in the Program's timezone. Used for all programs alike so programs are
@@ -36,15 +35,20 @@ the static bounding box behind every GPS check. Boxes exist for Uganda, Kenya,
 Ghana, Cameroon, Colombia and the United States of America (contiguous states
 only). A Program whose country has no box fails every geolocation check.
 
+**Summary Month**: The one Reporting Month the month summary, KPI tiles, map and
+Session panel show. Defaults to the last complete month and always lies inside
+the Reporting Range. _Avoid_: selected month, current month
+
 **Reporting Range**: The span of Reporting Months shown. Chosen from presets
 (Last 3 / 6 / 12 months, Year to date, All time) or a custom from/to month pair.
 Defaults to Last 12 months; presets are relative, so a bookmarked preset always
 tracks the current month. _Avoid_: date range (months are the smallest unit)
 
 **Cycle Label**: The Collection Cycle(s) overlapping a Reporting Month, shown as
-context on that month (e.g. "Cycle 5") so a quiet month can be read against
-where the program is in its cycle. Annotation only; never a bucket. Programs
-with no Collection Schedule show none. _Avoid_: cycle view
+context on that month (e.g. "Cycle 5") beside each Program in the month summary
+and in trend tooltips, so a quiet month can be read against where the program is
+in its cycle. Annotation only; never a bucket. Programs with no Collection
+Schedule show none. _Avoid_: cycle view
 
 **Monthly Active Device**: A Device with ≥1 Session whose `collectionDate` falls
 in the Reporting Month. Distinct from VectorVerify's **Device Activity**
@@ -67,8 +71,7 @@ Devices.
 (has Sessions, none that month) or **Never Used** (no Sessions ever). Uses the
 registry, unlike VectorVerify, because VectorAdmin scopes by Program, not
 location, and must surface devices handed out but never used. The map shows
-status for the last Reporting Month of the Reporting Range (provisional; to be
-revisited once visible).
+status for the **Summary Month**.
 
 **Device Location**: A Device is placed at the GPS `latitude`/`longitude` of its
 latest Session. A point that is null or outside its Program's country is

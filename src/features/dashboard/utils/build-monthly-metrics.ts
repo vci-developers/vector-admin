@@ -7,6 +7,7 @@ import {
 } from './check-record-fields';
 import { isCountedSession, sessionBucketTime } from './counted-sessions';
 import { hasCountryBox } from './country-bounding-boxes';
+import type { ResolvedRange } from './resolve-reporting-range';
 import {
     monthKeyOf,
     monthsInRange,
@@ -47,8 +48,6 @@ export type MonthlyMetrics = {
 };
 
 export type ProgramData = { program: Program; snapshot: ProgramSnapshot };
-
-export type ReportingRange = { from: MonthKey; to: MonthKey };
 
 function emptyCounts(): MonthCounts {
     return {
@@ -177,11 +176,25 @@ function buildCycleLabels(
     return labels;
 }
 
+function earliestDataMonth(programs: ProgramData[]): MonthKey | undefined {
+    const firstMonths = programs.flatMap(({ snapshot }) => {
+        const timeZone = programTimeZone(snapshot.collectionCycles);
+        return snapshot.sessions
+            .filter(isCountedSession)
+            .map(session => monthKeyOf(sessionBucketTime(session), timeZone));
+    });
+    return firstMonths.reduce<MonthKey | undefined>(
+        (earliest, month) => (!earliest || month < earliest ? month : earliest),
+        undefined,
+    );
+}
+
 export function buildMonthlyMetrics(
     programs: ProgramData[],
-    range: ReportingRange,
+    range: ResolvedRange,
 ): MonthlyMetrics {
-    const months = monthsInRange(range.from, range.to);
+    const from = range.from ?? earliestDataMonth(programs) ?? range.to;
+    const months = monthsInRange(from, range.to);
     const totals = new Map(months.map(month => [month, emptyCounts()]));
 
     const programMetrics = programs.map(programData => {

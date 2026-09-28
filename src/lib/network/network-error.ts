@@ -1,14 +1,17 @@
-type NetworkErrorKind =
-    | 'unauthorized'
-    | 'forbidden'
-    | 'not_found'
-    | 'timeout'
-    | 'conflict'
-    | 'rate_limited'
-    | 'client'
-    | 'server'
-    | 'network'
-    | 'unknown';
+export const NETWORK_ERROR_KINDS = [
+    'unauthorized',
+    'forbidden',
+    'not_found',
+    'timeout',
+    'conflict',
+    'rate_limited',
+    'client',
+    'server',
+    'network',
+    'unknown',
+] as const;
+
+type NetworkErrorKind = (typeof NETWORK_ERROR_KINDS)[number];
 
 export type NetworkError = {
     kind: NetworkErrorKind;

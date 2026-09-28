@@ -1,26 +1,119 @@
 @import 'tailwindcss';
-
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
+@import 'tw-animate-css';
 
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
     --font-sans: var(--font-geist-sans);
     --font-mono: var(--font-geist-mono);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Base tokens follow VectorVerify; --series-* is the validated categorical
+   chart palette (one slot per Program, never cycled). */
+:root {
+    --radius: 0.65rem;
+
+    --background: #f7f8f7;
+    --foreground: #1a1a1a;
+    --card: #ffffff;
+    --card-foreground: #1a1a1a;
+    --popover: #ffffff;
+    --popover-foreground: #1a1a1a;
+    --primary: #00796b;
+    --primary-foreground: #ffffff;
+    --secondary: #4dbd8c;
+    --secondary-foreground: #ffffff;
+    --accent: #d1fae5;
+    --accent-foreground: #00796b;
+    --muted: #f2f4f3;
+    --muted-foreground: #5f6b7a;
+    --destructive: #d23c3c;
+    --destructive-foreground: #ffffff;
+    --warning: #a15c00;
+    --warning-foreground: #ffffff;
+    --border: #e1e3e1;
+    --input: #d9d9d9;
+    --ring: #4dbd8c;
+
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-8: #e34948;
+    --series-other: #8a8f98;
+    --chart-grid: #eceeec;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
+        --background: #0b1220;
+        --foreground: #f3f4f6;
+        --card: #0f1a2b;
+        --card-foreground: #f3f4f6;
+        --popover: #0f1a2b;
+        --popover-foreground: #f3f4f6;
+        --primary: #6edb81;
+        --primary-foreground: #052012;
+        --secondary: #4dbd8c;
+        --secondary-foreground: #052012;
+        --accent: #1e3a2f;
+        --accent-foreground: #bff7d0;
+        --muted: #1a2233;
+        --muted-foreground: #94a3b8;
+        --destructive: #ff6b6b;
+        --destructive-foreground: #0b1220;
+        --warning: #ffca1b;
+        --warning-foreground: #0b1220;
+        --border: #2a3345;
+        --input: #313a4f;
+        --ring: #6edb81;
+
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --series-3: #199e70;
+        --series-4: #c98500;
+        --series-5: #d55181;
+        --series-6: #008300;
+        --series-7: #9085e9;
+        --series-8: #e66767;
+        --series-other: #6b7280;
+        --chart-grid: #1f2a3c;
     }
 }
 
-body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: Arial, Helvetica, sans-serif;
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
 }
