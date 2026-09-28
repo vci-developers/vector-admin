@@ -195,8 +195,9 @@ a no-op there.
    `layer`, default Specimens) and a side list for the clicked cluster or point.
    Specimens layer: one point per Session at its Specimen Location, clusters
    labelled with total specimens, zero-catch Sessions hollow, unplaced Sessions
-   and specimens counted. Devices layer: clusters (react-leaflet-cluster,
-   clustering off from about zoom 7) coloured by any-active, plus Unplaced and
+   and specimens counted. Devices layer: clusters (react-leaflet-cluster; the
+   merge radius shrinks from about zoom 7 but never reaches zero, so devices
+   sharing a GPS fix fan out on click) coloured by any-active, plus Unplaced and
    Never Used lists. The Summary Month picker sits in the toolbar. A Session
    panel opened from a summary row.
 

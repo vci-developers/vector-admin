@@ -198,6 +198,8 @@
         "sessionLabel": "Session {id}",
         "deviceLabel": "Device {id}",
         "specimenCount": "{count, plural, one {# specimen} other {# specimens}}",
-        "lastSubmitted": "last submitted {date}"
+        "lastSubmitted": "last submitted {date}",
+        "emptySpecimens": "No Sessions with an in-country location in {month}. Pick another month or check the unplaced count above.",
+        "emptyDevices": "No devices with an in-country location."
     }
 }

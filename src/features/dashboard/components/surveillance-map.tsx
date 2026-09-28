@@ -6,10 +6,9 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import L from 'leaflet';
 import { useEffect, useMemo, useRef } from 'react';
+import { ACTIVE_COLOR, IDLE_COLOR, type MapLayer } from './map-constants';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-
-export type MapLayer = 'specimens' | 'devices';
 
 type DeviceRow = Dashboard['devices'][number];
 export type PlacedDevice = DeviceRow & {
@@ -29,9 +28,6 @@ type SurveillanceMapProps = {
     onSelect: (ids: number[]) => void;
 };
 
-// Device status colors; the legend beside the map carries the meaning in text.
-export const ACTIVE_COLOR = '#15803d';
-export const IDLE_COLOR = '#6b7280';
 const SPECIMEN_COLOR = 'var(--primary)';
 
 const circle = (size: number, style: string, label = '') =>
@@ -124,9 +120,14 @@ export default function SurveillanceMap({
                 (sum, id) => sum + (specimenCounts.get(id) ?? 0),
                 0,
             );
+            // All zero-catch: hollow, matching single zero-catch points.
+            const fill =
+                total === 0
+                    ? `background:#fff;color:${SPECIMEN_COLOR};border:3px solid ${SPECIMEN_COLOR}`
+                    : `background:${SPECIMEN_COLOR};border:3px solid rgba(255,255,255,.85)`;
             return circle(
                 clusterSize(total),
-                `background:${SPECIMEN_COLOR};border:3px solid rgba(255,255,255,.85);box-shadow:0 1px 3px rgba(0,0,0,.35)`,
+                `${fill};box-shadow:0 1px 3px rgba(0,0,0,.35)`,
                 compact.format(total),
             );
         }
@@ -162,7 +163,11 @@ export default function SurveillanceMap({
             <MarkerClusterGroup
                 key={`${layer}:${dataKey}`}
                 chunkedLoading
-                disableClusteringAtZoom={layer === 'devices' ? 7 : 11}
+                // Clustering never switches off: points sharing a GPS fix stay a
+                // cluster and fan out on click instead of hiding under each other.
+                maxClusterRadius={(zoom: number) =>
+                    zoom >= (layer === 'devices' ? 7 : 11) ? 12 : 80
+                }
                 showCoverageOnHover={false}
                 iconCreateFunction={clusterIcon}
                 onClick={event =>

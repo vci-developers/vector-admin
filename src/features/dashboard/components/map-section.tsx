@@ -9,7 +9,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import DeviceList from './device-list';
 import SelectionList from './selection-list';
-import { ACTIVE_COLOR, IDLE_COLOR, type MapLayer } from './surveillance-map';
+import { ACTIVE_COLOR, IDLE_COLOR, type MapLayer } from './map-constants';
 
 // Leaflet touches window on import.
 const SurveillanceMap = dynamic(() => import('./surveillance-map'), {
@@ -117,6 +117,20 @@ export default function MapSection({
                         selectedIds={selectedIds}
                         onSelect={setSelectedIds}
                     />
+                    {(layer === 'specimens'
+                        ? view.placedSessions
+                        : view.placedDevices.length) === 0 && (
+                        <p className="bg-card/95 absolute top-1/2 left-1/2 z-[1000] max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border px-4 py-3 text-center text-sm shadow-sm">
+                            {t(
+                                layer === 'specimens'
+                                    ? 'emptySpecimens'
+                                    : 'emptyDevices',
+                                {
+                                    month: monthLabel,
+                                },
+                            )}
+                        </p>
+                    )}
                     <ul
                         aria-label={t('legend')}
                         className="bg-card/90 absolute bottom-3 left-3 z-[1000] flex flex-col gap-1 rounded-md border px-3 py-2 text-xs shadow-sm"
@@ -160,7 +174,7 @@ export default function MapSection({
                         )}
                     </ul>
                 </Card>
-                <Card className="h-[34rem] gap-2 py-4">
+                <Card className="max-h-[34rem] gap-2 py-4 lg:h-[34rem]">
                     <CardHeader className="px-4">
                         <CardTitle className="text-sm">
                             {t(
@@ -185,7 +199,7 @@ export default function MapSection({
             </div>
 
             {layer === 'devices' && (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="flex flex-col gap-4">
                     {[
                         { key: 'unplaced', devices: view.unplacedDevices },
                         { key: 'neverUsed', devices: view.neverUsed },

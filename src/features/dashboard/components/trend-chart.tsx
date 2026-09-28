@@ -126,9 +126,11 @@ export default function TrendChart({
                         data={data}
                         margin={{ top: 4, right: 12, bottom: 0, left: 0 }}
                         onClick={state => {
-                            if (typeof state.activeLabel === 'string') {
-                                onSelectMonth(state.activeLabel);
-                            }
+                            const month =
+                                typeof state.activeLabel === 'string'
+                                    ? state.activeLabel
+                                    : months[Number(state.activeTooltipIndex)];
+                            if (month) onSelectMonth(month);
                         }}
                         className="cursor-pointer"
                     >

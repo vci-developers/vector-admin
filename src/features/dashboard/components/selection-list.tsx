@@ -3,7 +3,7 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Badge } from '@/components/ui/badge';
 import { useFormatter, useTranslations } from 'next-intl';
-import type { MapLayer } from './surveillance-map';
+import type { MapLayer } from './map-constants';
 
 type SelectionListProps = {
     layer: MapLayer;
