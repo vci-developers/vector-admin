@@ -13,5 +13,6 @@ export default defineConfig({
     },
     test: {
         include: ['src/**/*.test.ts'],
+        env: { API_BASE_URL: 'https://api.test' },
     },
 });
