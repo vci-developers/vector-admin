@@ -104,7 +104,8 @@
         "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}",
         "copy": "Copy for Excel",
         "copied": "Copied",
-        "copyFailed": "Copy failed"
+        "copyFailed": "Copy failed",
+        "openSessions": "Show {program} Sessions for this month"
     },
     "Fields": {
         "species": "Species",
@@ -148,6 +149,39 @@
             "heading": "Never used ({count})",
             "description": "Registered devices with no Sessions.",
             "empty": "Every registered device has Sessions."
+        }
+    },
+    "Sessions": {
+        "title": "{program} · {month}",
+        "description": "Sessions collected this month.",
+        "summary": "{count, plural, one {# Session} other {# Sessions}}, {uncertified} not yet certified. Uncertified first, oldest first.",
+        "close": "Close",
+        "loadError": "Could not load Sessions. Try again.",
+        "empty": "No Sessions this month.",
+        "session": "Session",
+        "state": "State",
+        "device": "Device",
+        "site": "Site",
+        "collected": "Collected",
+        "submitted": "Submitted",
+        "timeToConfirmation": "Time to confirmation",
+        "missing": "Missing fields",
+        "noDate": "No date",
+        "notConfirmed": "Not confirmed",
+        "noneMissing": "None",
+        "missingSpecies": "Species ({count} of {total})",
+        "states": {
+            "NEEDS_REVIEW": "Needs review",
+            "IN_REVIEW": "In review",
+            "CERTIFIED": "Certified",
+            "SUBMITTED": "Submitted",
+            "NOT_APPLICABLE": "Not applicable",
+            "UNKNOWN": "Unknown"
+        },
+        "duration": {
+            "minutes": "{count} min",
+            "hours": "{count, plural, one {# hour} other {# hours}}",
+            "days": "{count, plural, one {# day} other {# days}}"
         }
     }
 }

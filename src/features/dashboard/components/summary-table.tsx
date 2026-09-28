@@ -15,6 +15,7 @@ import {
 import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
 import type { SummaryRow } from '@/features/dashboard/utils/summary-rows';
 import { ChevronRight } from 'lucide-react';
+import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { useTranslations } from 'next-intl';
 import { Fragment, useState } from 'react';
 import MetricValue from './metric-value';
@@ -51,6 +52,7 @@ export default function SummaryTable({
 }: SummaryTableProps) {
     const t = useTranslations('Summary');
     const tMetrics = useTranslations('Metrics');
+    const [, setFilters] = useDashboardFilters();
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const columnCount = METRICS.length + 2;
 
@@ -117,9 +119,26 @@ export default function SummaryTable({
                                             className="size-2.5 shrink-0 rounded-full"
                                             style={{ background: row.color }}
                                         />
-                                        <span className="font-medium">
-                                            {row.name}
-                                        </span>
+                                        {row.metrics ? (
+                                            <button
+                                                type="button"
+                                                className="font-medium underline-offset-4 hover:underline"
+                                                title={t('openSessions', {
+                                                    program: row.name,
+                                                })}
+                                                onClick={() =>
+                                                    setFilters({
+                                                        sessions: row.programId,
+                                                    })
+                                                }
+                                            >
+                                                {row.name}
+                                            </button>
+                                        ) : (
+                                            <span className="font-medium">
+                                                {row.name}
+                                            </span>
+                                        )}
                                         {!row.metrics && (
                                             <Badge variant="destructive">
                                                 {t('failed')}

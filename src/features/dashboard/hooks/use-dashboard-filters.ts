@@ -16,6 +16,8 @@ const dashboardFilterParsers = {
     from: parseAsString,
     to: parseAsString,
     month: parseAsString,
+    // Program whose Session panel is open
+    sessions: parseAsInteger,
     exclude: parseAsArrayOf(parseAsInteger).withDefault(
         HIDDEN_BY_DEFAULT_PROGRAM_IDS,
     ),

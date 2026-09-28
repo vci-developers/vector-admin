@@ -14,6 +14,7 @@ import { Check, Copy } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import KpiTiles from './kpi-tiles';
+import SessionPanel from './session-panel';
 import SummaryTable from './summary-table';
 
 type MonthSummaryProps = { dashboard: Dashboard; month: string };
@@ -135,6 +136,13 @@ export default function MonthSummary({ dashboard, month }: MonthSummaryProps) {
                     />
                 </CardContent>
             </Card>
+            <SessionPanel
+                programNames={
+                    new Map(dashboard.programs.map(p => [p.programId, p.name]))
+                }
+                month={month}
+                monthLabel={monthLabel}
+            />
         </section>
     );
 }
