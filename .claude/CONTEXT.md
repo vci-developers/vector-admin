@@ -22,7 +22,19 @@ literally every Program)
 
 **Reporting Month**: The calendar month every metric is bucketed by, evaluated
 in the Program's timezone. Used for all programs alike so programs are
-comparable side by side. _Avoid_: period, cycle (when meaning a month)
+comparable side by side. A Session with no `collectionDate` is bucketed by its
+`submittedAt` instead, so its Records still appear (failing capture date).
+_Avoid_: period, cycle (when meaning a month)
+
+**Counted Session**: A `SURVEILLANCE` or `DATA_COLLECTION` Session. `PRACTICE`
+and `CALIBRATION` Sessions are ignored by every metric and by Device Status (a
+Device with only those is Never Used). Every "Session" in the metric definitions
+below means a Counted Session.
+
+**Program Country**: The Program's `country` from `GET /programs`, the key for
+the static bounding box behind every GPS check. Boxes exist for Uganda, Kenya,
+Ghana, Cameroon, Colombia and the United States of America (contiguous states
+only). A Program whose country has no box fails every geolocation check.
 
 **Reporting Range**: The span of Reporting Months shown. Chosen from presets
 (Last 3 / 6 / 12 months, Year to date, All time) or a custom from/to month pair.

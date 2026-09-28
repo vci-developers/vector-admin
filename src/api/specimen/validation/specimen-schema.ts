@@ -4,7 +4,7 @@ export const specimenSchema = z.object({
     id: z.number(),
     sessionId: z.number(),
     images: z.array(z.object({ id: z.number() })).default([]),
-    thumbnailImage: z.object({ species: z.string().nullable() }).nullable(),
+    thumbnailImage: z.object({ species: z.string().nullish() }).nullable(),
 });
 
 export const getSpecimensPageSchema = z
