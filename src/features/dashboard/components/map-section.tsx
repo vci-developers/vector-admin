@@ -2,10 +2,16 @@
 
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
+import { useMapFilters } from '@/features/dashboard/hooks/use-map-filters';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
 import { useGetSiteLocations } from '@/api/site-locations/hooks/use-get-site-locations';
+import {
+    buildSpecimenFacets,
+    filterDevices,
+    filterSessions,
+} from '@/features/dashboard/utils/filter-map-points';
+import { findMapGaps } from '@/features/dashboard/utils/find-map-gaps';
 import {
     placeBySite,
     sitesToLocate,
@@ -15,8 +21,9 @@ import dynamic from 'next/dynamic';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import DeviceList from './device-list';
-import SelectionList from './selection-list';
-import { MAP_LAYERS } from './map-constants';
+import SelectionPanel from './selection-panel';
+import MapFilters from './map-filters';
+import MapGaps from './map-gaps';
 import MapLegend from './map-legend';
 import type { MapSelection } from './surveillance-map';
 
@@ -35,7 +42,8 @@ export default function MapSection({
     const t = useTranslations('MapSection');
     const tDevices = useTranslations('Devices');
     const formatter = useFormatter();
-    const [{ layers, exclude }, setFilters] = useDashboardFilters();
+    const [{ layers, exclude }] = useDashboardFilters();
+    const { filters: mapFilters, specimenFilter } = useMapFilters();
     const [selection, setSelection] = useState<MapSelection>(null);
     const showSpecimens = layers.includes('specimens');
     const showDevices = layers.includes('devices');
@@ -52,13 +60,35 @@ export default function MapSection({
                   pending: new Set(siteResult.data.pending),
               }
             : { locations: {}, pending: new Set(siteIds) };
-        const { devices, sessions } = placeBySite(dashboard, sites);
+        const placement = placeBySite(dashboard, sites);
+        // Map filters apply after placement, so counts stay per placement kind.
+        const sessions = {
+            placed: filterSessions(placement.sessions.placed, specimenFilter),
+            unplaced: filterSessions(
+                placement.sessions.unplaced,
+                specimenFilter,
+            ),
+        };
+        const devices = {
+            placed: filterDevices(
+                placement.devices.placed,
+                mapFilters.deviceStatus,
+            ),
+            unplaced: filterDevices(
+                placement.devices.unplaced,
+                mapFilters.deviceStatus,
+            ),
+        };
         const sum = (items: { specimenCount: number }[]) =>
             items.reduce((total, item) => total + item.specimenCount, 0);
         const bySite = sessions.placed.filter(p => p.placement.by === 'site');
         return {
             devices,
             sessions,
+            facets: buildSpecimenFacets([
+                ...placement.sessions.placed,
+                ...placement.sessions.unplaced,
+            ]),
             locatingCount: sites.pending.size,
             neverUsed: dashboard.devices.filter(d => d.status === 'NEVER_USED'),
             activeCount: dashboard.devices.filter(d => d.status === 'ACTIVE')
@@ -69,11 +99,48 @@ export default function MapSection({
                 unplaced: sum(sessions.unplaced),
                 unplacedSessions: sessions.unplaced.length,
             },
-            programNames: new Map(
-                dashboard.programs.map(p => [p.programId, p.name]),
+            programs: new Map(dashboard.programs.map(p => [p.programId, p])),
+            gaps: findMapGaps({
+                programIds: dashboard.selectedProgramIds.filter(
+                    id => !dashboard.failedProgramIds.includes(id),
+                ),
+                sessions: showSpecimens
+                    ? {
+                          all: [
+                              ...placement.sessions.placed,
+                              ...placement.sessions.unplaced,
+                          ],
+                          shown: [...sessions.placed, ...sessions.unplaced],
+                          placed: sessions.placed,
+                      }
+                    : null,
+                devices: showDevices
+                    ? {
+                          all: [
+                              ...placement.devices.placed,
+                              ...placement.devices.unplaced,
+                          ],
+                          shown: [...devices.placed, ...devices.unplaced],
+                          placed: devices.placed,
+                      }
+                    : null,
+            }),
+            // What each device submitted in the period, whatever the map
+            // filters: a device popup reports its Sessions, not the circles.
+            sessionsByDevice: Map.groupBy(
+                [...placement.sessions.placed, ...placement.sessions.unplaced],
+                session => session.deviceId,
             ),
         };
-    }, [dashboard, siteIds, siteResult]);
+    }, [
+        dashboard,
+        siteIds,
+        siteResult,
+        specimenFilter,
+        mapFilters.deviceStatus,
+        showSpecimens,
+        showDevices,
+    ]);
 
     const n = (value: number) => formatter.number(value);
     const nothingPlaced =
@@ -121,29 +188,22 @@ export default function MapSection({
                         </p>
                     )}
                 </div>
-                <ToggleGroup
-                    type="multiple"
-                    variant="outline"
-                    size="sm"
-                    value={layers}
-                    onValueChange={values => {
-                        setSelection(null);
-                        const next = MAP_LAYERS.filter(layer =>
-                            values.includes(layer),
-                        );
-                        // Keep at least one layer on so the map is never blank.
-                        if (next.length > 0) setFilters({ layers: next });
+                <MapFilters
+                    facets={view.facets}
+                    deviceCounts={{
+                        ACTIVE: deviceCounts.active,
+                        INACTIVE: deviceCounts.inactive,
                     }}
-                    aria-label={t('layer')}
-                >
-                    <ToggleGroupItem value="specimens" className="px-3">
-                        {t('layers.specimens')}
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="devices" className="px-3">
-                        {t('layers.devices')}
-                    </ToggleGroupItem>
-                </ToggleGroup>
+                    onChange={() => setSelection(null)}
+                />
             </div>
+
+            <MapGaps
+                gaps={view.gaps}
+                programs={view.programs}
+                periodLabel={period.label}
+                onChange={() => setSelection(null)}
+            />
 
             <div className="grid gap-4 lg:grid-cols-4">
                 {/* isolate: keeps Leaflet's z-indexes (400+) below popovers and the toolbar */}
@@ -152,6 +212,8 @@ export default function MapSection({
                         layers={layers}
                         specimenPoints={view.sessions.placed}
                         devices={view.devices.placed}
+                        sessionsByDevice={view.sessionsByDevice}
+                        programs={view.programs}
                         fitKey={dashboard.selectedProgramIds.join(',')}
                         dataKey={`${period.from}:${period.to}:${dashboard.selectedProgramIds.join(',')}`}
                         selection={selection}
@@ -176,27 +238,17 @@ export default function MapSection({
                     )}
                     <MapLegend layers={layers} />
                 </Card>
-                <Card className="max-h-[34rem] gap-2 py-4 lg:h-[34rem]">
-                    <CardHeader className="px-4">
-                        <CardTitle className="text-sm">
-                            {selection
-                                ? t(
-                                      selection.layer === 'specimens'
-                                          ? 'selectedSessions'
-                                          : 'selectedDevices',
-                                      { count: selection.ids.length },
-                                  )
-                                : t('selectedNone')}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="min-h-0 flex-1 overflow-auto px-2">
-                        <SelectionList
-                            selection={selection}
-                            sessions={view.sessions.placed}
-                            devices={view.devices.placed}
-                            programNames={view.programNames}
-                        />
-                    </CardContent>
+                <Card className="max-h-[34rem] gap-0 py-4 lg:h-[34rem]">
+                    <SelectionPanel
+                        selection={selection}
+                        sessions={view.sessions.placed}
+                        devices={view.devices.placed}
+                        sessionsByDevice={view.sessionsByDevice}
+                        programs={view.programs}
+                        facets={view.facets}
+                        period={period}
+                        onClear={() => setSelection(null)}
+                    />
                 </Card>
             </div>
 
@@ -217,10 +269,10 @@ export default function MapSection({
                                     {tDevices(`${key}.description`)}
                                 </p>
                             </CardHeader>
-                            <CardContent className="max-h-80 overflow-auto px-2">
+                            <CardContent className="px-2">
                                 <DeviceList
                                     devices={devices}
-                                    programNames={view.programNames}
+                                    programs={view.programs}
                                     emptyMessage={tDevices(`${key}.empty`)}
                                     locationNotes={
                                         key === 'unplaced'

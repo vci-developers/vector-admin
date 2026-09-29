@@ -198,13 +198,30 @@
             "days": "{count, plural, one {# day} other {# days}}"
         }
     },
+    "MapFilters": {
+        "button": "Map filters",
+        "mapOnly": "These filters change only the map, not the numbers below it.",
+        "specimens": "Specimens",
+        "devices": "Devices",
+        "species": "Species",
+        "nonMosquito": "Non-mosquitoes",
+        "sex": "Sex",
+        "abdomen": "Abdomen status",
+        "notRecorded": "Not recorded",
+        "notRecordedInfo": "What does Not recorded mean?",
+        "notRecordedSpecies": "No species on record: the app did not predict one and no reviewer has set one.",
+        "notRecordedSex": "No sex on record: the app did not predict one and no reviewer has set one.",
+        "notRecordedAbdomen": "No abdomen status on record: the app did not predict one and no reviewer has set one. Always the case for males.",
+        "zeroCatch": "Sessions with no specimens",
+        "showAll": "Show all",
+        "deviceStatus": {
+            "ACTIVE": "Active",
+            "INACTIVE": "Inactive"
+        },
+        "reset": "Reset map filters"
+    },
     "MapSection": {
         "heading": "Collection, {period}",
-        "layer": "Map layers",
-        "layers": {
-            "specimens": "Specimens",
-            "devices": "Devices"
-        },
         "specimenStats": "{gps} specimens placed by GPS · {site} by Site location · {unplaced} from {unplacedSessions} Sessions with no location",
         "legend": "Map key",
         "selectedSessions": "{count, plural, =0 {Sessions} one {# Session} other {# Sessions}}",
@@ -222,7 +239,72 @@
         "selectedNone": "Selection",
         "placedBySite": "Placed at Site location (no GPS): {site}",
         "locatingSites": "{count, plural, one {Locating # Site…} other {Locating # Sites…}}",
-        "legendBySite": "Dashed outline: Site location (no GPS)"
+        "legendBySite": "Dashed outline: Site location (no GPS)",
+        "gapsTitle": "Not on the map",
+        "gapNoSessions": "no Sessions in {period}",
+        "gapFiltered": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# Session} other {# Sessions}} hidden by the map filters",
+        "gapNoLocation": "{sessions, plural, one {# Session} other {# Sessions}} with no location yet",
+        "gapDevicesFiltered": "{devices, plural, one {# device} other {# devices}} hidden by the map filters",
+        "gapDevicesNoLocation": "{devices, plural, one {# device} other {# devices}} with no location yet",
+        "showEverything": "Show everything",
+        "chartWholeMap": "Everything on the map",
+        "chartBack": "Whole map",
+        "chartStackBy": "Stack specimens by",
+        "chartDimension": {
+            "species": "Species",
+            "sex": "Sex",
+            "abdomen": "Abdomen"
+        },
+        "chartInPeriod": "in {period}",
+        "chartTitle": {
+            "week": "Specimens per week",
+            "month": "Specimens per month",
+            "quarter": "Specimens per quarter"
+        },
+        "chartTitleTotals": "Specimens in the period",
+        "chartTitleTotal": "{total} total",
+        "chartTotalsAria": "Specimens by value for the whole period",
+        "chartView": "Chart view",
+        "chartViews": {
+            "stacked": "Stacked",
+            "lines": "Lines",
+            "totals": "Totals",
+            "pie": "Pie"
+        },
+        "chartPieAria": "Pie chart of specimens by value for the whole period",
+        "chartLegend": "Chart key",
+        "chartReadoutBucket": "{bucket} · {total} total",
+        "chartReadoutPeriod": "Whole period · hover a bar or point for just that stretch",
+        "chartAxisY": "Specimens",
+        "chartAxisX": {
+            "week": "Week starting",
+            "month": "Month",
+            "quarter": "Quarter"
+        },
+        "chartAria": "Chart of {total} specimens per {granularity}",
+        "chartWeekOf": "Week of {date}",
+        "chartQuarter": "Q{quarter} {year}",
+        "chartQuarterTick": "Q{quarter} {short}",
+        "chartOther": "Other",
+        "chartNotRecorded": "Not recorded",
+        "chartOtherOrNotRecorded": "Other or not recorded",
+        "chartEmpty": "No specimens to chart.",
+        "chartListSessions": "{count, plural, one {Show the Session} other {Show the # Sessions}}",
+        "chartListDevices": "{count, plural, one {Show the device} other {Show the # devices}}",
+        "zoomIn": "Zoom in",
+        "spreadOut": "Spread out",
+        "clusterStatus": "{active} active · {inactive} inactive",
+        "summaryTotal": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# Session} other {# Sessions}}",
+        "summarySpecies": "Species",
+        "summarySex": "Sex",
+        "summaryAbdomen": "Abdomen",
+        "noSpecimens": "{sessions, plural, =0 {No Sessions in the period.} one {No specimens in this Session.} other {No specimens in these # Sessions.}}",
+        "hiddenByFilters": "+ {count, plural, one {# more specimen} other {# more specimens}} hidden by the map filters:",
+        "hiddenNotRecorded": {
+            "species": "Species not recorded",
+            "sex": "Sex not recorded",
+            "abdomen": "Abdomen not recorded"
+        }
     },
     "Period": {
         "range": "{from} – {to}"

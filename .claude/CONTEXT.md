@@ -103,6 +103,31 @@ other. The same in-country rule as Device Location applies; Sessions outside it
 are counted as unplaced with their specimens, never drawn. Recorded at upload,
 not at the trap. _Avoid_: trap location, site location
 
+**Map Filter**: Filters that change only the map (and its "without a location"
+device list), never the KPI tiles, summary table or users section. Specimens:
+the current `species`, `sex` and `abdomenStatus` on the Specimen's thumbnail
+image: the app's prediction at upload, replaced when a reviewer corrects it (the
+`appSpecies`… fields keep the app's original and are not used). "Not recorded"
+means the field is empty: the app predicted nothing (males never have an abdomen
+status) and no reviewer has set it, or the Specimen has no thumbnail image. By
+default the map shows identified mosquitoes only: "Not recorded" species, the
+**Non-Mosquito** toggle and Sessions with no specimens are off until turned on.
+"Not recorded" sex and abdomen status stay on, because males never have an
+abdomen status. A Session's circle counts only its matching specimens, and a
+Session whose specimens all fail the filter is dropped (it is not an empty
+trap). Devices: Active shown, Inactive hidden by default; Never Used devices are
+never drawn. Filters list hidden values, so a new species or status appears
+without opting in. Kept in the URL. The Program Filter is never changed by the
+map; instead any selected Program with nothing on the map is named beside it
+with the reason (no Sessions in the period, hidden by the map filters, or no
+location yet). Every click on a point or cluster opens a popup with its specimen
+summary; a cluster's popup zooms in (or fans out points sharing one spot) on
+request. The panel beside the map charts specimens per week (periods of up to
+three months) or per month, stacked by species, sex or abdomen status, for the
+clicked point, cluster or device, or for everything on the map when nothing is
+clicked; each value keeps its colour whatever is clicked, and the Sessions or
+devices behind the chart are listed under it. _Avoid_: layer filter
+
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),
 capture date (Session `collectionDate`), geolocation (Session GPS inside the

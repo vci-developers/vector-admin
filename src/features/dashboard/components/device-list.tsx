@@ -1,5 +1,6 @@
 'use client';
 
+import type { Program } from '@/api/program/validation/program-schema';
 import { Badge } from '@/components/ui/badge';
 import {
     Table,
@@ -11,10 +12,11 @@ import {
 } from '@/components/ui/table';
 import type { DeviceRow } from '@/features/dashboard/utils/classify-devices';
 import { useFormatter, useTranslations } from 'next-intl';
+import ProgramLabel from './program-label';
 
 type DeviceListProps = {
     devices: DeviceRow[];
-    programNames: Map<number, string>;
+    programs: Map<number, Program>;
     emptyMessage: string;
     /** Adds a Location column explaining why each device is not on the map. */
     locationNotes?: Map<number, string>;
@@ -22,7 +24,7 @@ type DeviceListProps = {
 
 export default function DeviceList({
     devices,
-    programNames,
+    programs,
     emptyMessage,
     locationNotes,
 }: DeviceListProps) {
@@ -36,8 +38,8 @@ export default function DeviceList({
     }
 
     return (
-        <Table>
-            <TableHeader className="bg-card sticky top-0">
+        <Table containerClassName="max-h-80 overflow-auto">
+            <TableHeader className="bg-card sticky top-0 z-10 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                 <TableRow>
                     <TableHead>{t('deviceId')}</TableHead>
                     <TableHead>{t('ssaid')}</TableHead>
@@ -63,8 +65,9 @@ export default function DeviceList({
                         </TableCell>
                         <TableCell>{device.model}</TableCell>
                         <TableCell>
-                            {programNames.get(device.programId) ??
-                                device.programId}
+                            <ProgramLabel
+                                program={programs.get(device.programId)}
+                            />
                         </TableCell>
                         <TableCell>
                             <Badge

@@ -3,14 +3,17 @@
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 
+import type { Program } from '@/api/program/validation/program-schema';
 import type {
     PlacedDevice,
     PlacedSession,
 } from '@/features/dashboard/utils/place-by-site';
 import { specimenSeverity } from '@/features/dashboard/utils/specimen-severity';
 import L from 'leaflet';
-import { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { Button } from '@/components/ui/button';
+import { useTranslations } from 'next-intl';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import {
     ACTIVE_COLOR,
@@ -18,6 +21,8 @@ import {
     ZERO_CATCH_COLOR,
     type MapLayer,
 } from './map-constants';
+import { DeviceDetails, SessionDetails } from './map-point-details';
+import SpecimenSummary, { type SummarySession } from './specimen-summary';
 
 export type MapSelection = { layer: MapLayer; ids: number[] } | null;
 
@@ -25,6 +30,9 @@ type SurveillanceMapProps = {
     layers: MapLayer[];
     specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
+    /** Each device's Sessions in the period, whatever the map filters. */
+    sessionsByDevice: Map<number, SummarySession[]>;
+    programs: Map<number, Program>;
     /** Changes when the Program selection changes, so the map refits then only. */
     fitKey: string;
     /** Changes with the data; remounts clusters so their icons match it. */
@@ -108,17 +116,235 @@ function FitToPoints({
     return null;
 }
 
+const PopupSummary = ({ sessions }: { sessions: SummarySession[] }) => (
+    <div className="mt-2 border-t pt-2">
+        <SpecimenSummary sessions={sessions} />
+    </div>
+);
+
+/** What a click opened: one point, or every point in a cluster. */
+type OpenPopup = {
+    layer: MapLayer;
+    ids: number[];
+    cluster: L.MarkerCluster | null;
+};
+
+// markercluster keeps the fanned-out cluster on its group but does not type it.
+type SpiderfiableCluster = L.MarkerCluster & {
+    _group?: { _spiderfied?: L.MarkerCluster | null };
+};
+const isSpreadOut = (cluster: L.MarkerCluster) =>
+    (cluster as SpiderfiableCluster)._group?._spiderfied === cluster;
+
+// Clicking a cluster no longer zooms by itself; this does it on request, or
+// fans the points out when they share one spot and zooming cannot split them.
+// Nothing is offered once the cluster is already fanned out.
+function ClusterZoomButton({
+    cluster,
+    onDone,
+}: {
+    cluster: L.MarkerCluster;
+    onDone: () => void;
+}) {
+    const t = useTranslations('MapSection');
+    const map = useMap();
+    const bounds = cluster.getBounds();
+    const canZoom =
+        !bounds.getNorthEast().equals(bounds.getSouthWest()) &&
+        map.getZoom() < map.getMaxZoom();
+    if (!canZoom && isSpreadOut(cluster)) return null;
+    return (
+        <Button
+            size="xs"
+            variant="outline"
+            className="mt-2 w-full"
+            onClick={() => {
+                onDone();
+                if (canZoom) cluster.zoomToBounds({ padding: [40, 40] });
+                else cluster.spiderfy();
+            }}
+        >
+            {t(canZoom ? 'zoomIn' : 'spreadOut')}
+        </Button>
+    );
+}
+
+function ClusterContent({
+    open,
+    cluster,
+    specimenPoints,
+    devices,
+    sessionsByDevice,
+    onDone,
+}: {
+    open: OpenPopup;
+    cluster: L.MarkerCluster;
+    specimenPoints: PlacedSession[];
+    devices: PlacedDevice[];
+    sessionsByDevice: Map<number, SummarySession[]>;
+    onDone: () => void;
+}) {
+    const t = useTranslations('MapSection');
+    const ids = new Set(open.ids);
+    const clusterDevices = devices.filter(d => ids.has(d.deviceId));
+    const active = clusterDevices.filter(d => d.status === 'ACTIVE').length;
+    return (
+        <>
+            {/* Specimen clusters: the summary's first line already counts Sessions. */}
+            {open.layer === 'devices' && (
+                <>
+                    <p className="text-sm font-medium">
+                        {t('selectedDevices', { count: open.ids.length })}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                        {t('clusterStatus', {
+                            active,
+                            inactive: clusterDevices.length - active,
+                        })}
+                    </p>
+                </>
+            )}
+            {open.layer === 'specimens' ? (
+                <SpecimenSummary
+                    sessions={specimenPoints.filter(p => ids.has(p.sessionId))}
+                />
+            ) : (
+                <PopupSummary
+                    sessions={clusterDevices.flatMap(
+                        d => sessionsByDevice.get(d.deviceId) ?? [],
+                    )}
+                />
+            )}
+            <ClusterZoomButton cluster={cluster} onDone={onDone} />
+        </>
+    );
+}
+
+function MapPopup({
+    open,
+    specimenPoints,
+    devices,
+    sessionsByDevice,
+    programs,
+    onClose,
+}: {
+    open: OpenPopup | null;
+    specimenPoints: PlacedSession[];
+    devices: PlacedDevice[];
+    sessionsByDevice: Map<number, SummarySession[]>;
+    programs: Map<number, Program>;
+    onClose: (closed: OpenPopup) => void;
+}) {
+    if (!open) return null;
+    // Device marks sit up and to the right of their point.
+    const isDevice = open.layer === 'devices';
+    const deviceOffset = (lift: number): [number, number] => [
+        DEVICE_OFFSET,
+        -DEVICE_OFFSET - lift,
+    ];
+    let target: {
+        position: L.LatLngExpression;
+        offset: [number, number];
+        content: ReactNode;
+    } | null = null;
+
+    if (open.cluster) {
+        target = {
+            position: open.cluster.getLatLng(),
+            offset: isDevice ? deviceOffset(12) : [0, -18],
+            content: (
+                <ClusterContent
+                    open={open}
+                    cluster={open.cluster}
+                    specimenPoints={specimenPoints}
+                    devices={devices}
+                    sessionsByDevice={sessionsByDevice}
+                    onDone={() => onClose(open)}
+                />
+            ),
+        };
+    } else if (!isDevice) {
+        const session = specimenPoints.find(p => p.sessionId === open.ids[0]);
+        if (session) {
+            target = {
+                position: [session.latitude, session.longitude],
+                offset: [0, -8],
+                content: (
+                    <>
+                        <SessionDetails
+                            session={session}
+                            program={programs.get(session.programId)}
+                        />
+                        <PopupSummary sessions={[session]} />
+                    </>
+                ),
+            };
+        }
+    } else {
+        const device = devices.find(d => d.deviceId === open.ids[0]);
+        if (device) {
+            target = {
+                position: [device.position.latitude, device.position.longitude],
+                offset: deviceOffset(4),
+                content: (
+                    <>
+                        <DeviceDetails
+                            device={device}
+                            program={programs.get(device.programId)}
+                        />
+                        <PopupSummary
+                            sessions={
+                                sessionsByDevice.get(device.deviceId) ?? []
+                            }
+                        />
+                    </>
+                ),
+            };
+        }
+    }
+    if (!target) return null;
+    return (
+        <Popup
+            position={target.position}
+            offset={target.offset}
+            eventHandlers={{ remove: () => onClose(open) }}
+        >
+            {target.content}
+        </Popup>
+    );
+}
+
 type ClusterClick = L.LeafletMouseEvent & { layer: L.MarkerCluster };
 
 export default function SurveillanceMap({
     layers,
     specimenPoints,
     devices,
+    sessionsByDevice,
+    programs,
     fitKey,
     dataKey,
     selection,
     onSelect,
 }: SurveillanceMapProps) {
+    // Every click opens a popup; the panel beside the map lists the same ids.
+    const [openPopup, setOpenPopup] = useState<OpenPopup | null>(null);
+    const select = (
+        layer: MapLayer,
+        ids: number[],
+        cluster: L.MarkerCluster | null = null,
+    ) => {
+        setOpenPopup({ layer, ids, cluster });
+        onSelect({ layer, ids });
+    };
+    const selectCluster = (
+        layer: MapLayer,
+        markers: Map<L.Marker, number>,
+        event: L.LeafletEvent,
+    ) => {
+        const cluster = (event as ClusterClick).layer;
+        select(layer, idsIn(cluster, markers), cluster);
+    };
     const sessionMarkers = useRef(new Map<L.Marker, number>());
     const deviceMarkers = useRef(new Map<L.Marker, number>());
     const showSpecimens = layers.includes('specimens');
@@ -129,6 +355,32 @@ export default function SurveillanceMap({
     const specimenCounts = useMemo(
         () => new Map(specimenPoints.map(p => [p.sessionId, p.specimenCount])),
         [specimenPoints],
+    );
+    // Stable position arrays: react-leaflet moves a marker whenever its
+    // position prop is a new array, and the cluster group re-adds a moved
+    // marker, which collapses a spread-out cluster on the next render.
+    const sessionPositions = useMemo(
+        () =>
+            new Map(
+                specimenPoints.map(p => [
+                    p.sessionId,
+                    [p.latitude, p.longitude] as L.LatLngTuple,
+                ]),
+            ),
+        [specimenPoints],
+    );
+    const devicePositions = useMemo(
+        () =>
+            new Map(
+                devices.map(d => [
+                    d.deviceId,
+                    [
+                        d.position.latitude,
+                        d.position.longitude,
+                    ] as L.LatLngTuple,
+                ]),
+            ),
+        [devices],
     );
     const activeDevices = useMemo(
         () =>
@@ -216,25 +468,29 @@ export default function SurveillanceMap({
                     key={`specimens:${dataKey}`}
                     chunkedLoading
                     // Clustering never switches off: points sharing a GPS fix stay
-                    // a cluster and fan out on click instead of hiding each other.
+                    // a cluster, and its popup's button fans them out.
                     maxClusterRadius={(zoom: number) => (zoom >= 11 ? 12 : 80)}
                     showCoverageOnHover={false}
+                    zoomToBoundsOnClick={false}
                     iconCreateFunction={specimenCluster}
                     onClick={event =>
-                        onSelect({
-                            layer: 'specimens',
-                            ids: idsIn(
-                                (event as ClusterClick).layer,
-                                sessionMarkers.current,
-                            ),
-                        })
+                        selectCluster(
+                            'specimens',
+                            sessionMarkers.current,
+                            event,
+                        )
                     }
                 >
                     {specimenPoints.map(point => (
                         <Marker
                             key={point.sessionId}
                             ref={registerSession(point.sessionId)}
-                            position={[point.latitude, point.longitude]}
+                            position={
+                                sessionPositions.get(point.sessionId) ?? [
+                                    point.latitude,
+                                    point.longitude,
+                                ]
+                            }
                             icon={specimenIcon(
                                 point.specimenCount,
                                 point.placement.by === 'site',
@@ -242,10 +498,7 @@ export default function SurveillanceMap({
                             )}
                             eventHandlers={{
                                 click: () =>
-                                    onSelect({
-                                        layer: 'specimens',
-                                        ids: [point.sessionId],
-                                    }),
+                                    select('specimens', [point.sessionId]),
                             }}
                         />
                     ))}
@@ -257,25 +510,22 @@ export default function SurveillanceMap({
                     chunkedLoading
                     maxClusterRadius={(zoom: number) => (zoom >= 7 ? 12 : 80)}
                     showCoverageOnHover={false}
+                    zoomToBoundsOnClick={false}
                     iconCreateFunction={deviceCluster}
                     onClick={event =>
-                        onSelect({
-                            layer: 'devices',
-                            ids: idsIn(
-                                (event as ClusterClick).layer,
-                                deviceMarkers.current,
-                            ),
-                        })
+                        selectCluster('devices', deviceMarkers.current, event)
                     }
                 >
                     {devices.map(device => (
                         <Marker
                             key={device.deviceId}
                             ref={registerDevice(device.deviceId)}
-                            position={[
-                                device.position.latitude,
-                                device.position.longitude,
-                            ]}
+                            position={
+                                devicePositions.get(device.deviceId) ?? [
+                                    device.position.latitude,
+                                    device.position.longitude,
+                                ]
+                            }
                             icon={deviceIcon(
                                 device.status === 'ACTIVE',
                                 device.placement.by === 'site',
@@ -283,15 +533,32 @@ export default function SurveillanceMap({
                             )}
                             eventHandlers={{
                                 click: () =>
-                                    onSelect({
-                                        layer: 'devices',
-                                        ids: [device.deviceId],
-                                    }),
+                                    select('devices', [device.deviceId]),
                             }}
                         />
                     ))}
                 </MarkerClusterGroup>
             )}
+            <MapPopup
+                // Hidden once the selection moves on (e.g. a filter change).
+                open={
+                    openPopup &&
+                    selection?.layer === openPopup.layer &&
+                    selection.ids === openPopup.ids
+                        ? openPopup
+                        : null
+                }
+                specimenPoints={showSpecimens ? specimenPoints : []}
+                devices={showDevices ? devices : []}
+                sessionsByDevice={sessionsByDevice}
+                programs={programs}
+                onClose={closed =>
+                    // Only clear if no other popup has opened since.
+                    setOpenPopup(current =>
+                        current === closed ? null : current,
+                    )
+                }
+            />
         </MapContainer>
     );
 }

@@ -1,43 +1,29 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
+import type { Program } from '@/api/program/validation/program-schema';
 import type {
     PlacedDevice,
     PlacedSession,
-    Placement,
 } from '@/features/dashboard/utils/place-by-site';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
+import { DeviceDetails, SessionDetails } from './map-point-details';
 import type { MapSelection } from './surveillance-map';
 
 type SelectionListProps = {
     selection: MapSelection;
     sessions: PlacedSession[];
     devices: PlacedDevice[];
-    programNames: Map<number, string>;
+    programs: Map<number, Program>;
 };
-
-function PlacementNote({ placement }: { placement: Placement }) {
-    const t = useTranslations('MapSection');
-    if (placement.by === 'gps') return null;
-    return (
-        <p className="text-muted-foreground text-xs italic">
-            {t('placedBySite', { site: placement.siteName })}
-        </p>
-    );
-}
 
 export default function SelectionList({
     selection,
     sessions,
     devices,
-    programNames,
+    programs,
 }: SelectionListProps) {
     const t = useTranslations('MapSection');
-    const tDevices = useTranslations('Devices');
-    const formatter = useFormatter();
     const ids = new Set(selection?.ids);
-    const formatDate = (timestamp: number) =>
-        formatter.dateTime(timestamp, { dateStyle: 'medium' });
 
     if (!selection || selection.ids.length === 0) {
         return (
@@ -48,82 +34,38 @@ export default function SelectionList({
     }
 
     if (selection.layer === 'specimens') {
+        const selected = sessions
+            .filter(session => ids.has(session.sessionId))
+            .sort((a, b) => b.specimenCount - a.specimenCount);
         return (
-            <ul className="divide-y">
-                {sessions
-                    .filter(point => ids.has(point.sessionId))
-                    .sort((a, b) => b.specimenCount - a.specimenCount)
-                    .map(point => (
-                        <li
-                            key={point.sessionId}
-                            className="flex flex-col gap-0.5 px-2 py-2 text-sm"
-                        >
-                            <p className="flex items-center justify-between gap-2">
-                                <span className="font-medium">
-                                    {t('sessionLabel', { id: point.sessionId })}
-                                </span>
-                                <span className="tabular-nums">
-                                    {t('specimenCount', {
-                                        count: point.specimenCount,
-                                    })}
-                                </span>
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                                {programNames.get(point.programId)}
-                                {' · '}
-                                {t('deviceLabel', { id: point.deviceId })}
-                                {' · '}
-                                {formatDate(point.collectedAt)}
-                            </p>
-                            <PlacementNote placement={point.placement} />
+            <>
+                <ul className="divide-y">
+                    {selected.map(session => (
+                        <li key={session.sessionId} className="px-2 py-2">
+                            <SessionDetails
+                                session={session}
+                                program={programs.get(session.programId)}
+                            />
                         </li>
                     ))}
-            </ul>
+                </ul>
+            </>
         );
     }
 
+    const selectedDevices = devices.filter(device => ids.has(device.deviceId));
     return (
-        <ul className="divide-y">
-            {devices
-                .filter(device => ids.has(device.deviceId))
-                .map(device => (
-                    <li
-                        key={device.deviceId}
-                        className="flex flex-col gap-0.5 px-2 py-2 text-sm"
-                    >
-                        <p className="flex items-center justify-between gap-2">
-                            <span className="font-medium">
-                                {t('deviceLabel', { id: device.deviceId })}
-                            </span>
-                            <Badge
-                                variant={
-                                    device.status === 'ACTIVE'
-                                        ? 'default'
-                                        : 'outline'
-                                }
-                            >
-                                {tDevices(`statuses.${device.status}`)}
-                            </Badge>
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                            {device.model}
-                            {' · '}
-                            <span className="font-mono">
-                                {device.ssaid ?? tDevices('unknown')}
-                            </span>
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                            {programNames.get(device.programId)}
-                            {' · '}
-                            {device.lastSubmittedAt === null
-                                ? tDevices('never')
-                                : t('lastSubmitted', {
-                                      date: formatDate(device.lastSubmittedAt),
-                                  })}
-                        </p>
-                        <PlacementNote placement={device.placement} />
+        <>
+            <ul className="divide-y">
+                {selectedDevices.map(device => (
+                    <li key={device.deviceId} className="px-2 py-2">
+                        <DeviceDetails
+                            device={device}
+                            program={programs.get(device.programId)}
+                        />
                     </li>
                 ))}
-        </ul>
+            </ul>
+        </>
     );
 }

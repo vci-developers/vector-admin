@@ -117,3 +117,31 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Map popups follow the app theme instead of Leaflet's white card. Scoped
+   under .leaflet-container to outrank leaflet.css, which loads later. */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+    background: var(--popover);
+    color: var(--popover-foreground);
+}
+.leaflet-container .leaflet-popup-content-wrapper {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.leaflet-container .leaflet-popup-content {
+    margin: 12px 14px;
+    min-width: 220px;
+    font-family: inherit;
+    line-height: 1.4;
+}
+.leaflet-container .leaflet-popup-content p {
+    margin: 0;
+}
+/* Room for the close button on the first line only. */
+.leaflet-container .leaflet-popup-content > :first-child {
+    padding-right: 18px;
+}
+.leaflet-container a.leaflet-popup-close-button {
+    color: var(--muted-foreground);
+}
