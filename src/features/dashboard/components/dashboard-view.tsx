@@ -3,6 +3,7 @@
 import { useGetDashboard } from '@/api/dashboard/hooks/use-get-dashboard';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
+import { programTitle } from '@/features/dashboard/utils/program-title';
 import { resolveReportingRange } from '@/features/dashboard/utils/resolve-reporting-range';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -61,7 +62,7 @@ export default function DashboardView() {
         .filter(program =>
             dashboard.failedProgramIds.includes(program.programId),
         )
-        .map(program => program.name);
+        .map(programTitle);
 
     return (
         <div className="flex flex-col gap-8">

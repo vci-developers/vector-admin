@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
 import type { SummaryRow } from '@/features/dashboard/utils/summary-rows';
+import { programTitle } from '@/features/dashboard/utils/program-title';
 import { cycleLabel } from '@/features/dashboard/utils/cycle-label';
 import { ChevronRight } from 'lucide-react';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
@@ -27,16 +28,30 @@ type SummaryTableProps = {
     totalIncomplete: boolean;
 };
 
-function CycleNote({ cycles }: { cycles: number[] }) {
+/** Under the country: the Program name, then its Cycle Label. */
+function ProgramNote({
+    name,
+    cycles,
+}: {
+    name: string | null;
+    cycles: number[];
+}) {
     const t = useTranslations('Summary');
     const label = cycleLabel(cycles);
-    if (!label) return null;
     return (
-        <p className="text-muted-foreground pl-4.5 text-xs whitespace-nowrap">
-            {label.kind === 'list'
-                ? t('cycles', { count: label.count, numbers: label.numbers })
-                : t('cycleRange', label)}
-        </p>
+        <div className="text-muted-foreground pl-4.5 text-xs">
+            {name && <p>{name}</p>}
+            {label && (
+                <p className="whitespace-nowrap">
+                    {label.kind === 'list'
+                        ? t('cycles', {
+                              count: label.count,
+                              numbers: label.numbers,
+                          })
+                        : t('cycleRange', label)}
+                </p>
+            )}
+        </div>
     );
 }
 
@@ -110,7 +125,7 @@ export default function SummaryTable({
                                             size="icon-xs"
                                             aria-expanded={isOpen}
                                             aria-label={t('toggleFields', {
-                                                program: row.name,
+                                                program: programTitle(row),
                                             })}
                                             onClick={() =>
                                                 toggle(row.programId)
@@ -138,7 +153,7 @@ export default function SummaryTable({
                                                 type="button"
                                                 className="font-medium underline-offset-4 hover:underline"
                                                 title={t('openSessions', {
-                                                    program: row.name,
+                                                    program: programTitle(row),
                                                 })}
                                                 onClick={() =>
                                                     setFilters({
@@ -146,11 +161,11 @@ export default function SummaryTable({
                                                     })
                                                 }
                                             >
-                                                {row.name}
+                                                {row.country || row.name}
                                             </button>
                                         ) : (
                                             <span className="font-medium">
-                                                {row.name}
+                                                {row.country || row.name}
                                             </span>
                                         )}
                                         {!row.metrics && (
@@ -167,7 +182,10 @@ export default function SummaryTable({
                                             </Badge>
                                         )}
                                     </div>
-                                    <CycleNote cycles={row.cycles} />
+                                    <ProgramNote
+                                        name={row.country ? row.name : null}
+                                        cycles={row.cycles}
+                                    />
                                 </TableCell>
                                 {METRICS.map(metric => (
                                     <TableCell

@@ -45,11 +45,40 @@ export default function ProgramFilter({ programs }: { programs: Program[] }) {
                     <ChevronDown />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-2">
-                <fieldset className="flex flex-col">
-                    <legend className="text-muted-foreground px-2 pb-1 text-xs font-medium">
+            <PopoverContent align="start" className="w-80 p-2">
+                <div className="flex items-center justify-between gap-2 pb-1 pl-2">
+                    <span
+                        id="program-filter-legend"
+                        className="text-muted-foreground text-xs font-medium"
+                    >
                         {t('programs')}
-                    </legend>
+                    </span>
+                    <div className="flex gap-1">
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            disabled={exclude.length === 0}
+                            onClick={() => setFilters({ exclude: [] })}
+                        >
+                            {t('selectAll')}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            disabled={selectedCount === 0}
+                            onClick={() =>
+                                setFilters({ exclude: allProgramIds })
+                            }
+                        >
+                            {t('deselectAll')}
+                        </Button>
+                    </div>
+                </div>
+                <div
+                    role="group"
+                    aria-labelledby="program-filter-legend"
+                    className="flex flex-col"
+                >
                     {programs.map(program => (
                         <label
                             key={program.programId}
@@ -79,17 +108,18 @@ export default function ProgramFilter({ programs }: { programs: Program[] }) {
                                     ),
                                 }}
                             />
-                            <span className="flex-1">{program.name}</span>
-                            {HIDDEN_BY_DEFAULT_PROGRAM_IDS.includes(
-                                program.programId,
-                            ) && (
+                            <span className="flex flex-1 flex-col">
+                                {program.country}
                                 <span className="text-muted-foreground text-xs">
-                                    {t('hiddenByDefault')}
+                                    {program.name}
+                                    {HIDDEN_BY_DEFAULT_PROGRAM_IDS.includes(
+                                        program.programId,
+                                    ) && ` · ${t('hiddenByDefault')}`}
                                 </span>
-                            )}
+                            </span>
                         </label>
                     ))}
-                </fieldset>
+                </div>
                 <Button
                     variant="ghost"
                     size="sm"

@@ -30,8 +30,10 @@
     "Filters": {
         "programs": "Programs",
         "programsSummary": "{selected} of {total} programs",
-        "hiddenByDefault": "(hidden by default)",
+        "hiddenByDefault": "hidden by default",
         "resetPrograms": "Reset to default",
+        "selectAll": "Select all",
+        "deselectAll": "Deselect all",
         "range": "Period",
         "from": "From",
         "to": "To",

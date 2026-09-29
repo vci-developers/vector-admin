@@ -32,12 +32,10 @@ export default function UsersSection({
         'idle',
     );
 
-    const { programNames, programColors } = useMemo(() => {
+    const { programs, programColors } = useMemo(() => {
         const ids = dashboard.programs.map(p => p.programId);
         return {
-            programNames: new Map(
-                dashboard.programs.map(p => [p.programId, p.name]),
-            ),
+            programs: new Map(dashboard.programs.map(p => [p.programId, p])),
             programColors: new Map(
                 ids.map(id => [id, programSeriesColor(id, ids)]),
             ),
@@ -68,7 +66,7 @@ export default function UsersSection({
     const result = query.data;
     const users = result?.ok ? result.data.users : [];
     const totalLogins = users.reduce((sum, user) => sum + user.logins, 0);
-    const tableProps = { users, period, programNames, programColors };
+    const tableProps = { users, period, programs, programColors };
 
     return (
         <section

@@ -8,6 +8,7 @@ import { programSeriesColor } from './series-colors';
 export type SummaryRow = {
     programId: number;
     name: string;
+    country: string;
     color: string;
     hasCountryBox: boolean;
     cycles: number[];
@@ -17,7 +18,7 @@ export type SummaryRow = {
 
 export function buildSummaryRows(dashboard: Dashboard): SummaryRow[] {
     const allProgramIds = dashboard.programs.map(p => p.programId);
-    const names = new Map(dashboard.programs.map(p => [p.programId, p.name]));
+    const programs = new Map(dashboard.programs.map(p => [p.programId, p]));
     const loaded = new Map(
         dashboard.metrics.programs.map(p => [p.programId, p]),
     );
@@ -26,7 +27,8 @@ export function buildSummaryRows(dashboard: Dashboard): SummaryRow[] {
         const programMetrics = loaded.get(programId);
         return {
             programId,
-            name: names.get(programId) ?? String(programId),
+            name: programs.get(programId)?.name ?? String(programId),
+            country: programs.get(programId)?.country ?? '',
             color: programSeriesColor(programId, allProgramIds),
             hasCountryBox: programMetrics?.hasCountryBox ?? true,
             cycles: programMetrics?.cycles ?? [],

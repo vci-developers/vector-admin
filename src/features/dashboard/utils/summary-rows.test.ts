@@ -35,6 +35,7 @@ const row = (
 ): SummaryRow => ({
     programId: 1,
     name,
+    country: 'Uganda',
     color: 'var(--series-1)',
     hasCountryBox: true,
     cycles: [],

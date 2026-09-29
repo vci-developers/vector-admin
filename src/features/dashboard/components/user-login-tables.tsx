@@ -1,5 +1,6 @@
 'use client';
 
+import type { Program } from '@/api/program/validation/program-schema';
 import type { UserLogins } from '@/api/user-logins/validation/user-logins-schema';
 import {
     Table,
@@ -16,6 +17,7 @@ import {
 } from '@/features/dashboard/utils/build-user-logins';
 import { monthStartDate } from '@/features/dashboard/utils/month-key';
 import { cn } from '@/utils/cn';
+import ProgramLabel from './program-label';
 import { ChevronRight } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -25,17 +27,17 @@ type UserRow = UserLogins['users'][number];
 type TablesProps = {
     users: UserRow[];
     period: { from: string; to: string };
-    programNames: Map<number, string>;
+    programs: Map<number, Program>;
     programColors: Map<number, string>;
 };
 
 function ProgramCell({
     programId,
-    programNames,
+    programs,
     programColors,
 }: {
     programId: number;
-    programNames: Map<number, string>;
+    programs: Map<number, Program>;
     programColors: Map<number, string>;
 }) {
     return (
@@ -45,16 +47,12 @@ function ProgramCell({
                 className="size-2 shrink-0 rounded-full"
                 style={{ background: programColors.get(programId) }}
             />
-            {programNames.get(programId) ?? programId}
+            <ProgramLabel program={programs.get(programId)} />
         </span>
     );
 }
 
-export function UsersTable({
-    users,
-    programNames,
-    programColors,
-}: TablesProps) {
+export function UsersTable({ users, programs, programColors }: TablesProps) {
     const t = useTranslations('Users');
     const formatter = useFormatter();
     return (
@@ -80,7 +78,7 @@ export function UsersTable({
                         <TableCell>
                             <ProgramCell
                                 programId={user.programId}
-                                programNames={programNames}
+                                programs={programs}
                                 programColors={programColors}
                             />
                         </TableCell>
@@ -176,7 +174,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                             )}
                         </TableHead>
                     ))}
-                    <TableHead className="bg-card sticky right-0 z-10 text-right">
+                    <TableHead className="bg-card sticky right-0 z-10 pr-4 pl-3 text-right">
                         {t('total')}
                     </TableHead>
                 </TableRow>
@@ -208,7 +206,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="bg-card sticky right-0 text-right font-medium tabular-nums">
+                            <TableCell className="bg-card sticky right-0 pr-4 pl-3 text-right font-medium tabular-nums">
                                 {user.logins}
                             </TableCell>
                         </TableRow>
