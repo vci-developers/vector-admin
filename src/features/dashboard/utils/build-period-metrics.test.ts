@@ -245,6 +245,8 @@ describe('buildPeriodMetrics', () => {
                     userLogins: [
                         {
                             userId: 1,
+                            name: null,
+                            email: 'u1@example.org',
                             dailyLogins: [
                                 { date: '2026-01-05', count: 2 },
                                 { date: '2026-02-01', count: 4 },
@@ -253,6 +255,8 @@ describe('buildPeriodMetrics', () => {
                         },
                         {
                             userId: 2,
+                            name: null,
+                            email: 'u2@example.org',
                             dailyLogins: [{ date: '2026-01-07', count: 1 }],
                         },
                     ],
@@ -267,7 +271,12 @@ describe('buildPeriodMetrics', () => {
     it('leaves user counts blank for a period before login tracking began', () => {
         const logins = {
             userLogins: [
-                { userId: 1, dailyLogins: [{ date: '2026-02-03', count: 1 }] },
+                {
+                    userId: 1,
+                    name: null,
+                    email: 'u1@example.org',
+                    dailyLogins: [{ date: '2026-02-03', count: 1 }],
+                },
             ],
         };
         expect(

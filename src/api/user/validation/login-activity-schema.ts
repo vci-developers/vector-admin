@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
-// Only ids and per-day counts; zod strips names and emails before caching.
 export const userLoginActivitySchema = z.object({
     userId: z.number(),
+    name: z.string().nullable(),
+    email: z.string(),
     dailyLogins: z.array(
         z.object({
             /** `YYYY-MM-DD`, bucketed by the backend in UTC. */

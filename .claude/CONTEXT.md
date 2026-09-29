@@ -111,8 +111,10 @@ groups logins by UTC day; every other metric uses the Program's timezone. Months
 before the first recorded login in the selection are blank, not zero: the
 backend only logs logins from when auth events shipped (test: June 2026). Same
 source and population as VectorVerify's User Analytics (VCV-303), but across all
-Programs via the Program Filter. _Avoid_: Active Users (collides with
-`isActive`), Active Device (different population)
+Programs via the Program Filter. The users section lists each user (name, email,
+Program, logins, last login) with a by-day or by-month breakdown and an .xlsx
+report. _Avoid_: Active Users (collides with `isActive`), Active Device
+(different population)
 
 **Time to Confirmation**: Elapsed time from a Session's `createdAt` (started on
 the device) to `certifiedAt` (a VCO confirmed it in Review). Uncertified

@@ -3,6 +3,7 @@ import { programSessionsKeys } from '@/api/program-sessions/program-sessions-key
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, type Result } from '@/lib/result/result';
 import { resultSchema } from '@/lib/result/result-schema';
+import { userLoginsKeys } from '@/api/user-logins/hooks/use-get-user-logins';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -34,6 +35,9 @@ export function usePostRefresh() {
                 queryClient.invalidateQueries({ queryKey: dashboardKeys.root });
                 queryClient.invalidateQueries({
                     queryKey: programSessionsKeys.root,
+                });
+                queryClient.invalidateQueries({
+                    queryKey: userLoginsKeys.root,
                 });
             }
         },

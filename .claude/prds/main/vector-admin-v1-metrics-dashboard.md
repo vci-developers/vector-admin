@@ -38,8 +38,13 @@ These supersede anything below that conflicts:
 - **Map first, specimens by default** (story 29 as revised), Devices on a
   switch.
 - **Unique Users and Logins** added (story 15b) from `GET /users/auth-events`.
-- **Still to build:** per-user login tables and the report export, as in
-  VectorVerify PR #197 (VCV-303), following the Reporting Period.
+- **User login tables and report**, as in VectorVerify PR #197 (VCV-303) but
+  across the selected Programs and the Reporting Period: a Users table (name,
+  email, Program, logins, last login), a Logins by day (one month) or by month
+  table, and an .xlsx download built in the BFF with the backend report's
+  `unique-users` and `daily-logins` sheets plus a Program column. The backend
+  report takes one `programId` or all Programs, so it cannot honour the Program
+  Filter.
 
 ## User Stories
 

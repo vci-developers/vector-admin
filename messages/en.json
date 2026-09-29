@@ -208,5 +208,23 @@
     },
     "Period": {
         "range": "{from} – {to}"
+    },
+    "Users": {
+        "heading": "VectorVerify users, {period}",
+        "description": "People who logged in to VectorVerify (reviewers, not field collectors).",
+        "summary": "{users} unique users · {logins} logins. Logins are counted by UTC day.",
+        "download": "Download report",
+        "downloadFailed": "Download failed. Try again.",
+        "loadError": "Could not load VectorVerify logins.",
+        "empty": "No VectorVerify logins in this period.",
+        "usersTitle": "Users",
+        "byDayTitle": "Logins by day",
+        "byMonthTitle": "Logins by month",
+        "name": "Name",
+        "email": "Email",
+        "program": "Program",
+        "logins": "Logins",
+        "lastLogin": "Last login",
+        "total": "Total"
     }
 }

@@ -13,6 +13,7 @@ import PeriodSummary from './period-summary';
 import ProgramFilter from './program-filter';
 import RangePicker from './range-picker';
 import RefreshControl from './refresh-control';
+import UsersSection from './users-section';
 
 function currentMonthKey(now: Date) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -103,6 +104,7 @@ export default function DashboardView() {
                         dashboard={dashboard}
                         period={period}
                     />
+                    <UsersSection dashboard={dashboard} period={period} />
                 </>
             )}
         </div>
