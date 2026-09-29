@@ -124,7 +124,7 @@
         "operatorId": "Operator ID"
     },
     "Devices": {
-        "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {unplaced} unplaced",
+        "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {bySite} placed by Site · {unplaced} without a location",
         "legend": "Map colours",
         "deviceId": "Device ID",
         "ssaid": "Android ID",
@@ -140,15 +140,18 @@
             "NEVER_USED": "Never used"
         },
         "unplaced": {
-            "heading": "Unplaced devices ({count})",
-            "description": "Latest Session has no GPS, or GPS outside the Program's country. Session GPS is recorded at upload, so this is common.",
-            "empty": "Every used device has an in-country location."
+            "heading": "Devices without a location ({count})",
+            "description": "No in-country GPS fix, and their Site could not be geocoded (yet).",
+            "empty": "Every used device is on the map."
         },
         "neverUsed": {
             "heading": "Never used ({count})",
             "description": "Registered devices with no Sessions.",
             "empty": "Every registered device has Sessions."
-        }
+        },
+        "location": "Location",
+        "locating": "Locating Site…",
+        "noLocation": "No geocoded location"
     },
     "Sessions": {
         "title": "{program} · {period}",
@@ -190,7 +193,7 @@
             "specimens": "Specimens",
             "devices": "Devices"
         },
-        "specimenStats": "{specimens} specimens from {sessions} Sessions on the map · {unplacedSpecimens} specimens from {unplacedSessions} Sessions without an in-country location",
+        "specimenStats": "{gps} specimens placed by GPS · {site} by Site location · {unplaced} from {unplacedSessions} Sessions with no location",
         "legend": "Map key",
         "selectedSessions": "{count, plural, =0 {Sessions} one {# Session} other {# Sessions}}",
         "selectedDevices": "{count, plural, =0 {Devices} one {# device} other {# devices}}",
@@ -204,7 +207,10 @@
         "legendActive": "Active in period",
         "legendInactive": "Not active",
         "emptyMap": "Nothing with an in-country location in {period}. Try a longer period or check the unplaced counts above.",
-        "selectedNone": "Selection"
+        "selectedNone": "Selection",
+        "placedBySite": "Placed at Site location (no GPS): {site}",
+        "locatingSites": "{count, plural, one {Locating # Site…} other {Locating # Sites…}}",
+        "legendBySite": "Dashed outline: Site location (no GPS)"
     },
     "Period": {
         "range": "{from} – {to}"

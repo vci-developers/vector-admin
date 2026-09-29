@@ -11,6 +11,7 @@ export type AdminEndpoint =
     | '/sessions/'
     | '/specimens/'
     | '/devices/'
+    | '/sites/'
     | '/users/auth-events'
     | `/programs/${number}/collection-cycles`;
 

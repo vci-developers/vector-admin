@@ -84,4 +84,31 @@ describe('classifyDevices', () => {
 
         expect(rows.map(row => row.position)).toEqual([null, null]);
     });
+
+    it('falls back to the latest earlier Session with an in-country fix', () => {
+        const [row] = classify(
+            [device(1)],
+            [
+                session(1, 1, JAN, KAMPALA),
+                session(2, 1, MAR, { latitude: 23.04, longitude: 72.52 }),
+            ],
+        );
+
+        expect(row.position).toEqual(KAMPALA);
+    });
+
+    it("keeps the latest Session's Site for Site-based placement", () => {
+        const [row] = classify(
+            [device(1)],
+            [
+                { ...session(1, 1, JAN), siteId: 10 },
+                {
+                    ...session(2, 1, MAR, { latitude: null, longitude: null }),
+                    siteId: 20,
+                },
+            ],
+        );
+
+        expect(row.siteId).toBe(20);
+    });
 });

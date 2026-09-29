@@ -77,6 +77,13 @@ export default function MapLegend({ layers }: { layers: MapLayer[] }) {
                     </ul>
                 </div>
             )}
+            <p className="flex items-center gap-1">
+                <span
+                    aria-hidden="true"
+                    className="size-3 rounded-full border-2 border-dashed border-gray-800"
+                />
+                {t('legendBySite')}
+            </p>
         </div>
     );
 }

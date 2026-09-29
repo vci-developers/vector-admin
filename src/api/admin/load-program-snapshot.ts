@@ -21,6 +21,10 @@ import {
     getLoginActivityResponseSchema,
     type UserLoginActivity,
 } from '@/api/user/validation/login-activity-schema';
+import {
+    getSitesPageSchema,
+    type Site,
+} from '@/api/site/validation/site-schema';
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, ok, type Result } from '@/lib/result/result';
 import { cacheLife, cacheTag } from 'next/cache';
@@ -32,6 +36,7 @@ export type ProgramSnapshot = {
     devices: Device[];
     collectionCycles: CollectionCycle[];
     userLogins: UserLoginActivity[];
+    sites: Site[];
     fetchedAt: number;
 };
 
@@ -84,31 +89,34 @@ async function loadCachedProgramSnapshot(
     'use cache';
     cacheTag(programSnapshotTag(programId));
 
-    const [sessions, specimens, devices, cycles, logins] = await Promise.all([
-        adminGetAll('/sessions/', { programId }, getSessionsPageSchema),
-        adminGetAll(
-            '/specimens/',
-            { programId, includeAllImages: true },
-            getSpecimensPageSchema,
-        ),
-        adminGetAll('/devices/', { programId }, getDevicesPageSchema),
-        adminGet(
-            `/programs/${programId}/collection-cycles`,
-            ALL_CYCLES_RANGE,
-            getCollectionCyclesResponseSchema,
-        ),
-        adminGet(
-            '/users/auth-events',
-            loginActivityQuery(programId),
-            getLoginActivityResponseSchema,
-        ),
-    ]);
+    const [sessions, specimens, devices, cycles, logins, sites] =
+        await Promise.all([
+            adminGetAll('/sessions/', { programId }, getSessionsPageSchema),
+            adminGetAll(
+                '/specimens/',
+                { programId, includeAllImages: true },
+                getSpecimensPageSchema,
+            ),
+            adminGetAll('/devices/', { programId }, getDevicesPageSchema),
+            adminGet(
+                `/programs/${programId}/collection-cycles`,
+                ALL_CYCLES_RANGE,
+                getCollectionCyclesResponseSchema,
+            ),
+            adminGet(
+                '/users/auth-events',
+                loginActivityQuery(programId),
+                getLoginActivityResponseSchema,
+            ),
+            adminGetAll('/sites/', { programId }, getSitesPageSchema),
+        ]);
 
     if (!sessions.ok) return failBriefly(sessions.error);
     if (!specimens.ok) return failBriefly(specimens.error);
     if (!devices.ok) return failBriefly(devices.error);
     if (!cycles.ok) return failBriefly(cycles.error);
     if (!logins.ok) return failBriefly(logins.error);
+    if (!sites.ok) return failBriefly(sites.error);
 
     // Past an hour, serve the stale snapshot while a fresh one loads.
     cacheLife('hours');
@@ -120,6 +128,7 @@ async function loadCachedProgramSnapshot(
         devices: devices.data,
         collectionCycles: cycles.data.collectionCycles,
         userLogins: logins.data.users,
+        sites: sites.data,
         fetchedAt: Date.now(),
     });
 }

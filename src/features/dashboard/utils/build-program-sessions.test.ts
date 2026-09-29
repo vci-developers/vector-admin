@@ -31,6 +31,7 @@ function snapshot(overrides: Partial<ProgramSnapshot>): ProgramSnapshot {
         devices: [],
         collectionCycles: [],
         userLogins: [],
+        sites: [],
         fetchedAt: 0,
         ...overrides,
     };

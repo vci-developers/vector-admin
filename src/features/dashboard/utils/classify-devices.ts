@@ -12,8 +12,13 @@ export type DeviceRow = {
     model: string;
     programId: number;
     status: DeviceStatus;
-    /** Latest Session's GPS; null when the device is unplaced or never used. */
+    /**
+     * GPS of the latest Session with an in-country fix (usually the latest
+     * Session); null when no Session has one, or the device was never used.
+     */
     position: { latitude: number; longitude: number } | null;
+    /** Latest Session's Site, the fallback location when position is null. */
+    siteId: number | null;
     lastSubmittedAt: number | null;
 };
 
@@ -25,12 +30,20 @@ export function classifyDevices(
     timeZone: string,
 ): DeviceRow[] {
     const latestSession = new Map<number, Session>();
+    const latestFix = new Map<number, Session>();
     const activeDeviceIds = new Set<number>();
+    const isLater = (session: Session, current?: Session) =>
+        !current || session.submittedAt > current.submittedAt;
 
     for (const session of sessions.filter(isCountedSession)) {
-        const latest = latestSession.get(session.deviceId);
-        if (!latest || session.submittedAt > latest.submittedAt) {
+        if (isLater(session, latestSession.get(session.deviceId))) {
             latestSession.set(session.deviceId, session);
+        }
+        if (
+            isInsideCountry(session.latitude, session.longitude, country) &&
+            isLater(session, latestFix.get(session.deviceId))
+        ) {
+            latestFix.set(session.deviceId, session);
         }
         const month = monthKeyOf(sessionBucketTime(session), timeZone);
         if (month >= period.from && month <= period.to) {
@@ -45,12 +58,10 @@ export function classifyDevices(
             : activeDeviceIds.has(device.deviceId)
               ? 'ACTIVE'
               : 'INACTIVE';
+        const fix = latestFix.get(device.deviceId);
         const position =
-            latest &&
-            latest.latitude !== null &&
-            latest.longitude !== null &&
-            isInsideCountry(latest.latitude, latest.longitude, country)
-                ? { latitude: latest.latitude, longitude: latest.longitude }
+            fix && fix.latitude !== null && fix.longitude !== null
+                ? { latitude: fix.latitude, longitude: fix.longitude }
                 : null;
 
         return {
@@ -60,6 +71,7 @@ export function classifyDevices(
             programId: device.programId,
             status,
             position,
+            siteId: latest?.siteId ?? null,
             lastSubmittedAt: latest?.submittedAt ?? null,
         };
     });

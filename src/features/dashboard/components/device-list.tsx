@@ -16,12 +16,15 @@ type DeviceListProps = {
     devices: DeviceRow[];
     programNames: Map<number, string>;
     emptyMessage: string;
+    /** Adds a Location column explaining why each device is not on the map. */
+    locationNotes?: Map<number, string>;
 };
 
 export default function DeviceList({
     devices,
     programNames,
     emptyMessage,
+    locationNotes,
 }: DeviceListProps) {
     const t = useTranslations('Devices');
     const formatter = useFormatter();
@@ -42,6 +45,7 @@ export default function DeviceList({
                     <TableHead>{t('program')}</TableHead>
                     <TableHead>{t('status')}</TableHead>
                     <TableHead>{t('lastSubmitted')}</TableHead>
+                    {locationNotes && <TableHead>{t('location')}</TableHead>}
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,6 +84,11 @@ export default function DeviceList({
                                       dateStyle: 'medium',
                                   })}
                         </TableCell>
+                        {locationNotes && (
+                            <TableCell className="text-muted-foreground">
+                                {locationNotes.get(device.deviceId)}
+                            </TableCell>
+                        )}
                     </TableRow>
                 ))}
             </TableBody>

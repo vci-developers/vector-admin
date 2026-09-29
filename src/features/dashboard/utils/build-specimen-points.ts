@@ -13,9 +13,14 @@ export type SpecimenPoint = {
     collectedAt: number;
 };
 
+/** A Session without an in-country fix; the map may place it at its Site. */
+export type UnplacedSession = Omit<SpecimenPoint, 'latitude' | 'longitude'> & {
+    siteId: number;
+};
+
 export type SpecimenPoints = {
     placed: SpecimenPoint[];
-    unplaced: { sessions: number; specimens: number };
+    unplaced: UnplacedSession[];
 };
 
 // One point per Session in the period, at its GPS (recorded at upload).
@@ -34,10 +39,7 @@ export function buildSpecimenPoints(
         );
     }
 
-    const points: SpecimenPoints = {
-        placed: [],
-        unplaced: { sessions: 0, specimens: 0 },
-    };
+    const points: SpecimenPoints = { placed: [], unplaced: [] };
     for (const session of snapshot.sessions) {
         const collectedAt = sessionBucketTime(session);
         const month = monthKeyOf(collectedAt, timeZone);
@@ -55,8 +57,14 @@ export function buildSpecimenPoints(
             session.longitude === null ||
             !isInsideCountry(session.latitude, session.longitude, country)
         ) {
-            points.unplaced.sessions += 1;
-            points.unplaced.specimens += specimenCount;
+            points.unplaced.push({
+                sessionId: session.sessionId,
+                programId: snapshot.programId,
+                deviceId: session.deviceId,
+                siteId: session.siteId,
+                specimenCount,
+                collectedAt,
+            });
             continue;
         }
         points.placed.push({

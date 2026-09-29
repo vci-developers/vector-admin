@@ -5,6 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
+import { useGetSiteLocations } from '@/api/site-locations/hooks/use-get-site-locations';
+import {
+    placeBySite,
+    sitesToLocate,
+} from '@/features/dashboard/utils/place-by-site';
+import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
@@ -29,48 +35,66 @@ export default function MapSection({
     const t = useTranslations('MapSection');
     const tDevices = useTranslations('Devices');
     const formatter = useFormatter();
-    const [{ layers }, setFilters] = useDashboardFilters();
+    const [{ layers, exclude }, setFilters] = useDashboardFilters();
     const [selection, setSelection] = useState<MapSelection>(null);
     const showSpecimens = layers.includes('specimens');
     const showDevices = layers.includes('devices');
 
+    const siteIds = useMemo(() => sitesToLocate(dashboard), [dashboard]);
+    const siteQuery = useGetSiteLocations(exclude, siteIds);
+    const siteResult = siteQuery.data;
+
     const view = useMemo(() => {
-        const used = dashboard.devices.filter(d => d.status !== 'NEVER_USED');
-        const { placed, unplaced } = dashboard.specimenPoints;
+        // Until the first answer arrives, every Site counts as still locating.
+        const sites = siteResult?.ok
+            ? {
+                  locations: siteResult.data.locations,
+                  pending: new Set(siteResult.data.pending),
+              }
+            : { locations: {}, pending: new Set(siteIds) };
+        const { devices, sessions } = placeBySite(dashboard, sites);
+        const sum = (items: { specimenCount: number }[]) =>
+            items.reduce((total, item) => total + item.specimenCount, 0);
+        const bySite = sessions.placed.filter(p => p.placement.by === 'site');
         return {
-            placedDevices: used.flatMap(d =>
-                d.position ? [{ ...d, position: d.position }] : [],
-            ),
-            unplacedDevices: used.filter(d => !d.position),
+            devices,
+            sessions,
+            locatingCount: sites.pending.size,
             neverUsed: dashboard.devices.filter(d => d.status === 'NEVER_USED'),
             activeCount: dashboard.devices.filter(d => d.status === 'ACTIVE')
                 .length,
-            placedPoints: placed,
-            placedSessions: placed.length,
-            placedSpecimens: placed.reduce(
-                (sum, p) => sum + p.specimenCount,
-                0,
-            ),
-            unplacedSessions: unplaced.sessions,
-            unplacedSpecimens: unplaced.specimens,
+            specimens: {
+                gps: sum(sessions.placed) - sum(bySite),
+                site: sum(bySite),
+                unplaced: sum(sessions.unplaced),
+                unplacedSessions: sessions.unplaced.length,
+            },
             programNames: new Map(
                 dashboard.programs.map(p => [p.programId, p.name]),
             ),
         };
-    }, [dashboard]);
+    }, [dashboard, siteIds, siteResult]);
 
     const n = (value: number) => formatter.number(value);
     const nothingPlaced =
-        (!showSpecimens || view.placedSessions === 0) &&
-        (!showDevices || view.placedDevices.length === 0);
+        (!showSpecimens || view.sessions.placed.length === 0) &&
+        (!showDevices || view.devices.placed.length === 0);
     const deviceCounts = {
         total: dashboard.devices.length,
         active: view.activeCount,
         inactive:
             dashboard.devices.length - view.activeCount - view.neverUsed.length,
         neverUsed: view.neverUsed.length,
-        unplaced: view.unplacedDevices.length,
+        bySite: view.devices.placed.filter(d => d.placement.by === 'site')
+            .length,
+        unplaced: view.devices.unplaced.length,
     };
+    const locationNotes = new Map(
+        view.devices.unplaced.map(d => [
+            d.deviceId,
+            tDevices(d.reason === 'locating' ? 'locating' : 'noLocation'),
+        ]),
+    );
 
     return (
         <section aria-labelledby="map-heading" className="flex flex-col gap-4">
@@ -82,10 +106,12 @@ export default function MapSection({
                     {showSpecimens && (
                         <p className="text-muted-foreground text-sm">
                             {t('specimenStats', {
-                                specimens: n(view.placedSpecimens),
-                                sessions: n(view.placedSessions),
-                                unplacedSpecimens: n(view.unplacedSpecimens),
-                                unplacedSessions: n(view.unplacedSessions),
+                                gps: n(view.specimens.gps),
+                                site: n(view.specimens.site),
+                                unplaced: n(view.specimens.unplaced),
+                                unplacedSessions: n(
+                                    view.specimens.unplacedSessions,
+                                ),
                             })}
                         </p>
                     )}
@@ -124,8 +150,8 @@ export default function MapSection({
                 <Card className="relative isolate h-[34rem] overflow-hidden p-0 lg:col-span-3">
                     <SurveillanceMap
                         layers={layers}
-                        specimenPoints={view.placedPoints}
-                        devices={view.placedDevices}
+                        specimenPoints={view.sessions.placed}
+                        devices={view.devices.placed}
                         fitKey={dashboard.selectedProgramIds.join(',')}
                         dataKey={`${period.from}:${period.to}:${dashboard.selectedProgramIds.join(',')}`}
                         selection={selection}
@@ -134,6 +160,18 @@ export default function MapSection({
                     {nothingPlaced && (
                         <p className="bg-card/95 absolute top-1/2 left-1/2 z-[1000] max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border px-4 py-3 text-center text-sm shadow-sm">
                             {t('emptyMap', { period: period.label })}
+                        </p>
+                    )}
+                    {view.locatingCount > 0 && (
+                        <p
+                            role="status"
+                            className="bg-card/95 absolute top-3 right-3 z-[1000] flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs shadow-sm"
+                        >
+                            <Loader2
+                                className="size-3 animate-spin"
+                                aria-hidden="true"
+                            />
+                            {t('locatingSites', { count: view.locatingCount })}
                         </p>
                     )}
                     <MapLegend layers={layers} />
@@ -154,7 +192,8 @@ export default function MapSection({
                     <CardContent className="min-h-0 flex-1 overflow-auto px-2">
                         <SelectionList
                             selection={selection}
-                            dashboard={dashboard}
+                            sessions={view.sessions.placed}
+                            devices={view.devices.placed}
                             programNames={view.programNames}
                         />
                     </CardContent>
@@ -164,7 +203,7 @@ export default function MapSection({
             {showDevices && (
                 <div className="flex flex-col gap-4">
                     {[
-                        { key: 'unplaced', devices: view.unplacedDevices },
+                        { key: 'unplaced', devices: view.devices.unplaced },
                         { key: 'neverUsed', devices: view.neverUsed },
                     ].map(({ key, devices }) => (
                         <Card key={key} className="gap-2 py-4">
@@ -183,6 +222,11 @@ export default function MapSection({
                                     devices={devices}
                                     programNames={view.programNames}
                                     emptyMessage={tDevices(`${key}.empty`)}
+                                    locationNotes={
+                                        key === 'unplaced'
+                                            ? locationNotes
+                                            : undefined
+                                    }
                                 />
                             </CardContent>
                         </Card>

@@ -55,6 +55,8 @@ export const deviceRowSchema = z.object({
     position: z
         .object({ latitude: z.number(), longitude: z.number() })
         .nullable(),
+    /** Latest Session's Site, the fallback location when position is null. */
+    siteId: z.number().nullable(),
     lastSubmittedAt: z.number().nullable(),
 });
 
@@ -90,7 +92,17 @@ export const dashboardSchema = z.object({
                 collectedAt: z.number(),
             }),
         ),
-        unplaced: z.object({ sessions: z.number(), specimens: z.number() }),
+        /** Sessions without an in-country fix; placed at their Site when it geocodes. */
+        unplaced: z.array(
+            z.object({
+                sessionId: z.number(),
+                programId: z.number(),
+                deviceId: z.number(),
+                siteId: z.number(),
+                specimenCount: z.number(),
+                collectedAt: z.number(),
+            }),
+        ),
     }),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
     lastUpdatedAt: z.number().nullable(),

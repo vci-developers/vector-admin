@@ -74,23 +74,34 @@ Reporting Period. Undefined (not zero) when there are no Active Devices.
 ever). Uses the registry, unlike VectorVerify, because VectorAdmin scopes by
 Program, not location, and must surface devices handed out but never used.
 
-**Device Location**: A Device is placed at the GPS `latitude`/`longitude` of its
-latest Session. A point that is null or outside its Program's country is
-**unplaced**: listed beside the map and counted, never drawn. Session GPS is
-recorded at upload, not collection, so it can be wrong (VectorVerify geocodes
-Sites for this reason); VectorAdmin uses it and reports how often it fails.
-_Avoid_: site location (VectorVerify's geocoded position)
+**Device Location**: Where a Device is drawn, in order: (1) the GPS of its
+latest Session with an in-country fix (usually the latest Session); (2)
+otherwise its latest Session's **Site Location**, drawn with a dashed outline
+and labelled "Site location (no GPS)"; (3) otherwise it is **without a
+location**: listed under the map with the reason ("Locating Site…" or "No
+geocoded location") and counted, never drawn. Session GPS is recorded at upload,
+not collection, so it is often wrong; GPS still wins whenever it is usable.
+_Avoid_: unplaced (older term for "without a location")
+
+**Site Location**: A Site's position geocoded from its place names with
+OpenStreetMap Nominatim, using VectorVerify's rules (legacy Sites: village,
+district, country; newer Sites: name, top region, country), broadening from most
+to least specific and rejecting matches outside the Program Country; a
+country-only match is never used. Geocoded one Site per second in the
+background, cached in server memory, so the map fills in over the first minute
+or two after a restart. Only a fallback when GPS cannot place something.
 
 **Specimen Location**: Where a Specimen appears on the map: its Session's GPS
-`latitude`/`longitude`, drawn as one point per Session sized by specimen count.
-The map covers the Reporting Period and shows specimens and devices together:
-specimen circles on a one-hue red scale by Session count (0 hollow, 1–4, 5–19,
-20–49, 50+; a cluster takes its worst Session's colour and is labelled with its
-total), device rounded squares (green Active, grey otherwise) drawn as badges up
-and to the right of their point so the two never hide each other. The same
-in-country rule as Device Location applies; Sessions outside it are counted as
-unplaced with their specimens, never drawn. Recorded at upload, not at the trap.
-_Avoid_: trap location, site location
+(or, when that is missing or out of country, the Session's Site Location,
+dashed) `latitude`/`longitude`, drawn as one point per Session sized by specimen
+count. The map covers the Reporting Period and shows specimens and devices
+together: specimen circles on a one-hue red scale by Session count (0 hollow,
+1–4, 5–19, 20–49, 50+; a cluster takes its worst Session's colour and is
+labelled with its total), device rounded squares (green Active, grey otherwise)
+drawn as badges up and to the right of their point so the two never hide each
+other. The same in-country rule as Device Location applies; Sessions outside it
+are counted as unplaced with their specimens, never drawn. Recorded at upload,
+not at the trap. _Avoid_: trap location, site location
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),

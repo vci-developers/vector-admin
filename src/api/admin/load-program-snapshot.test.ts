@@ -53,6 +53,7 @@ function healthyApi(url: URL): Response {
     if (url.pathname === '/devices/')
         return page(url, 'devices', 0, () => null);
     if (url.pathname === '/users/auth-events') return json({ users: [] });
+    if (url.pathname === '/sites/') return page(url, 'sites', 0, () => null);
     return json({ collectionCycles: [] });
 }
 

@@ -18,6 +18,7 @@ function program(
         devices: [],
         collectionCycles: [],
         userLogins,
+        sites: [],
         fetchedAt: 0,
     };
     return {

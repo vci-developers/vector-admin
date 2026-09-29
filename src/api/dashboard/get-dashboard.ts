@@ -51,13 +51,12 @@ export async function getDashboard(
     );
     const specimenPoints: Dashboard['specimenPoints'] = {
         placed: [],
-        unplaced: { sessions: 0, specimens: 0 },
+        unplaced: [],
     };
     for (const { program, snapshot } of loaded) {
         const points = buildSpecimenPoints(snapshot, program.country, period);
         specimenPoints.placed.push(...points.placed);
-        specimenPoints.unplaced.sessions += points.unplaced.sessions;
-        specimenPoints.unplaced.specimens += points.unplaced.specimens;
+        specimenPoints.unplaced.push(...points.unplaced);
     }
     const fetchTimes = loaded.map(({ snapshot }) => snapshot.fetchedAt);
 

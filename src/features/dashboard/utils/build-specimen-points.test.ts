@@ -38,6 +38,7 @@ function snapshot(sessions: Session[], specimens: Specimen[]): ProgramSnapshot {
         devices: [],
         collectionCycles: [],
         userLogins: [],
+        sites: [],
         fetchedAt: 0,
     };
 }
@@ -76,10 +77,13 @@ describe('buildSpecimenPoints', () => {
             { from: '2026-01', to: '2026-01' },
         );
 
-        expect(points).toEqual({
-            placed: [],
-            unplaced: { sessions: 2, specimens: 3 },
-        });
+        expect(points.placed).toEqual([]);
+        expect(
+            points.unplaced.map(u => [u.sessionId, u.siteId, u.specimenCount]),
+        ).toEqual([
+            [1, 1, 1],
+            [2, 1, 2],
+        ]);
     });
 
     it('leaves out practice Sessions', () => {
@@ -90,7 +94,7 @@ describe('buildSpecimenPoints', () => {
         );
 
         expect(points.placed).toEqual([]);
-        expect(points.unplaced).toEqual({ sessions: 0, specimens: 0 });
+        expect(points.unplaced).toEqual([]);
     });
 
     it('covers every month of the period', () => {

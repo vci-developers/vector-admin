@@ -3,7 +3,10 @@
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 
-import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
+import type {
+    PlacedDevice,
+    PlacedSession,
+} from '@/features/dashboard/utils/place-by-site';
 import { specimenSeverity } from '@/features/dashboard/utils/specimen-severity';
 import L from 'leaflet';
 import { useEffect, useMemo, useRef } from 'react';
@@ -16,17 +19,11 @@ import {
     type MapLayer,
 } from './map-constants';
 
-type DeviceRow = Dashboard['devices'][number];
-export type PlacedDevice = DeviceRow & {
-    position: NonNullable<DeviceRow['position']>;
-};
-export type SpecimenPoint = Dashboard['specimenPoints']['placed'][number];
-
 export type MapSelection = { layer: MapLayer; ids: number[] } | null;
 
 type SurveillanceMapProps = {
     layers: MapLayer[];
-    specimenPoints: SpecimenPoint[];
+    specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
     /** Changes when the Program selection changes, so the map refits then only. */
     fitKey: string;
@@ -58,28 +55,32 @@ const shape = (
         html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:${radius};font:600 11px/1 var(--font-geist-sans),sans-serif;${style}">${label}</span>`,
     });
 
-function specimenStyle(count: number) {
+function specimenStyle(count: number, bySite = false) {
     const step = specimenSeverity(count);
     return step
-        ? `background:${step.fill};color:${step.text};border:2px solid #fff`
-        : `background:#fff;color:${ZERO_CATCH_COLOR};border:2px solid ${ZERO_CATCH_COLOR}`;
+        ? `background:${step.fill};color:${step.text};${outline(bySite)}`
+        : `background:#fff;color:${ZERO_CATCH_COLOR};${outline(bySite, ZERO_CATCH_COLOR)}`;
 }
+
+// Placed by Site, not GPS: dashed outline so estimates never pass for fixes.
+const outline = (bySite: boolean, colour = '#fff') =>
+    bySite ? `border:2px dashed #1f2937` : `border:2px solid ${colour}`;
 
 const ring = (isSelected: boolean) =>
     `box-shadow:0 0 0 ${isSelected ? 3 : 1}px rgba(0,0,0,${isSelected ? 0.6 : 0.35})`;
 
-const specimenIcon = (count: number, isSelected: boolean) =>
+const specimenIcon = (count: number, bySite: boolean, isSelected: boolean) =>
     shape(
         Math.min(28, 12 + 3 * Math.sqrt(count)),
         '9999px',
-        `${specimenStyle(count)};${ring(isSelected)}`,
+        `${specimenStyle(count, bySite)};${ring(isSelected)}`,
     );
 
-const deviceIcon = (isActive: boolean, isSelected: boolean) =>
+const deviceIcon = (isActive: boolean, bySite: boolean, isSelected: boolean) =>
     shape(
         isSelected ? 16 : 13,
         '3px',
-        `background:${isActive ? ACTIVE_COLOR : IDLE_COLOR};border:2px solid #fff;${ring(isSelected)}`,
+        `background:${isActive ? ACTIVE_COLOR : IDLE_COLOR};${outline(bySite)};${ring(isSelected)}`,
         '',
         DEVICE_OFFSET,
     );
@@ -236,6 +237,7 @@ export default function SurveillanceMap({
                             position={[point.latitude, point.longitude]}
                             icon={specimenIcon(
                                 point.specimenCount,
+                                point.placement.by === 'site',
                                 isSelected('specimens', point.sessionId),
                             )}
                             eventHandlers={{
@@ -276,6 +278,7 @@ export default function SurveillanceMap({
                             ]}
                             icon={deviceIcon(
                                 device.status === 'ACTIVE',
+                                device.placement.by === 'site',
                                 isSelected('devices', device.deviceId),
                             )}
                             eventHandlers={{

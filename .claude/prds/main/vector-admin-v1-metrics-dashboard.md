@@ -38,6 +38,10 @@ These supersede anything below that conflicts:
 - **Map first, specimens and devices together** (story 29 as revised): specimen
   severity circles (red scale by count) and device badges (green active, grey
   not), each layer toggleable, at least one always on.
+- **Site Location fallback.** Devices and Sessions with no usable in-country GPS
+  are placed at their Site, geocoded with Nominatim as in VectorVerify
+  (VCV-292), drawn dashed and labelled; only what still fails is listed as
+  "without a location". Adds `GET /sites/?programId` to the admin allowlist.
 - **Unique Users and Logins** added (story 15b) from `GET /users/auth-events`.
 - **User login tables and report**, as in VectorVerify PR #197 (VCV-303) but
   across the selected Programs and the Reporting Period: a Users table (name,

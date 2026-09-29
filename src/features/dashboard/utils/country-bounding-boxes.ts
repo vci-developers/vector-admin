@@ -40,3 +40,17 @@ export function isInsideCountry(
         longitude <= box.maxLng
     );
 }
+
+// ISO 3166-1 alpha-2 codes, used to keep geocoder matches inside the country.
+const COUNTRY_CODES: Record<string, string> = {
+    Uganda: 'ug',
+    Kenya: 'ke',
+    Ghana: 'gh',
+    Cameroon: 'cm',
+    Colombia: 'co',
+    'United States of America': 'us',
+};
+
+export function countryCode(country: string): string | undefined {
+    return COUNTRY_CODES[country];
+}
