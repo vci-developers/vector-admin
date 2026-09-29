@@ -1,7 +1,16 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
+import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import { isCountedSession, sessionBucketTime } from './counted-sessions';
 import { isInsideCountry } from './country-bounding-boxes';
 import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
+
+/** Specimens of one Session sharing species, sex and abdomen status. */
+export type SpecimenGroup = {
+    species: string | null;
+    sex: string | null;
+    abdomenStatus: string | null;
+    count: number;
+};
 
 export type SpecimenPoint = {
     sessionId: number;
@@ -10,6 +19,8 @@ export type SpecimenPoint = {
     latitude: number;
     longitude: number;
     specimenCount: number;
+    /** What the map's specimen filters match against. */
+    specimenGroups: SpecimenGroup[];
     collectedAt: number;
 };
 
@@ -31,13 +42,7 @@ export function buildSpecimenPoints(
     period: { from: MonthKey; to: MonthKey },
 ): SpecimenPoints {
     const timeZone = programTimeZone(snapshot.collectionCycles);
-    const specimenCounts = new Map<number, number>();
-    for (const specimen of snapshot.specimens) {
-        specimenCounts.set(
-            specimen.sessionId,
-            (specimenCounts.get(specimen.sessionId) ?? 0) + 1,
-        );
-    }
+    const groupsBySession = groupSpecimens(snapshot.specimens);
 
     const points: SpecimenPoints = { placed: [], unplaced: [] };
     for (const session of snapshot.sessions) {
@@ -51,7 +56,11 @@ export function buildSpecimenPoints(
             continue;
         }
 
-        const specimenCount = specimenCounts.get(session.sessionId) ?? 0;
+        const specimenGroups = groupsBySession.get(session.sessionId) ?? [];
+        const specimenCount = specimenGroups.reduce(
+            (sum, group) => sum + group.count,
+            0,
+        );
         if (
             session.latitude === null ||
             session.longitude === null ||
@@ -63,6 +72,7 @@ export function buildSpecimenPoints(
                 deviceId: session.deviceId,
                 siteId: session.siteId,
                 specimenCount,
+                specimenGroups,
                 collectedAt,
             });
             continue;
@@ -74,8 +84,33 @@ export function buildSpecimenPoints(
             latitude: session.latitude,
             longitude: session.longitude,
             specimenCount,
+            specimenGroups,
             collectedAt,
         });
     }
     return points;
+}
+
+function groupSpecimens(specimens: Specimen[]): Map<number, SpecimenGroup[]> {
+    const bySession = new Map<number, Map<string, SpecimenGroup>>();
+    for (const specimen of specimens) {
+        const species = specimen.thumbnailImage?.species ?? null;
+        const sex = specimen.thumbnailImage?.sex ?? null;
+        const abdomenStatus = specimen.thumbnailImage?.abdomenStatus ?? null;
+        const key = JSON.stringify([species, sex, abdomenStatus]);
+        let groups = bySession.get(specimen.sessionId);
+        if (!groups) {
+            groups = new Map();
+            bySession.set(specimen.sessionId, groups);
+        }
+        const group = groups.get(key);
+        if (group) group.count += 1;
+        else groups.set(key, { species, sex, abdomenStatus, count: 1 });
+    }
+    return new Map(
+        [...bySession].map(([sessionId, groups]) => [
+            sessionId,
+            [...groups.values()],
+        ]),
+    );
 }

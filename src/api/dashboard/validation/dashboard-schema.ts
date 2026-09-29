@@ -89,6 +89,14 @@ export const dashboardSchema = z.object({
                 latitude: z.number(),
                 longitude: z.number(),
                 specimenCount: z.number(),
+                specimenGroups: z.array(
+                    z.object({
+                        species: z.string().nullable(),
+                        sex: z.string().nullable(),
+                        abdomenStatus: z.string().nullable(),
+                        count: z.number(),
+                    }),
+                ),
                 collectedAt: z.number(),
             }),
         ),
@@ -100,6 +108,14 @@ export const dashboardSchema = z.object({
                 deviceId: z.number(),
                 siteId: z.number(),
                 specimenCount: z.number(),
+                specimenGroups: z.array(
+                    z.object({
+                        species: z.string().nullable(),
+                        sex: z.string().nullable(),
+                        abdomenStatus: z.string().nullable(),
+                        count: z.number(),
+                    }),
+                ),
                 collectedAt: z.number(),
             }),
         ),
