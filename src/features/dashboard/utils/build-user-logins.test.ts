@@ -118,6 +118,41 @@ describe('buildLoginColumns', () => {
     });
 });
 
+describe('buildLoginColumns with folding', () => {
+    const period = { from: '2026-02', to: '2026-08' };
+    const withLogins = new Set(['2026-05', '2026-07']);
+
+    it('folds runs of two or more empty months, not a lone one', () => {
+        const columns = buildLoginColumns(period, new Set(), {
+            monthsWithLogins: withLogins,
+            unfolded: new Set(),
+        });
+        expect(columns.map(c => c.key)).toEqual([
+            'fold:2026-02',
+            '2026-05',
+            '2026-06',
+            '2026-07',
+            '2026-08',
+        ]);
+        expect(columns[0]).toMatchObject({
+            kind: 'folded',
+            months: ['2026-02', '2026-03', '2026-04'],
+        });
+    });
+
+    it('opens a folded run, marking its first month to fold it again', () => {
+        const columns = buildLoginColumns(period, new Set(), {
+            monthsWithLogins: withLogins,
+            unfolded: new Set(['fold:2026-02']),
+        });
+        expect(columns.slice(0, 3)).toEqual([
+            { kind: 'month', key: '2026-02', foldKey: 'fold:2026-02' },
+            { kind: 'month', key: '2026-03' },
+            { kind: 'month', key: '2026-04' },
+        ]);
+    });
+});
+
 describe('countLoginsByDayAndMonth', () => {
     it('counts each day and adds it to its month', () => {
         const counts = countLoginsByDayAndMonth([

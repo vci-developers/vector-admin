@@ -64,25 +64,66 @@ function daysInPeriod({ from, to }: Period): string[] {
 }
 
 export type LoginColumn =
-    | { kind: 'month'; key: MonthKey }
-    | { kind: 'day'; key: string; day: number };
+    /** `foldKey` marks the first month of an unfolded empty run. */
+    | { kind: 'month'; key: MonthKey; foldKey?: string }
+    | { kind: 'day'; key: string; day: number }
+    /** Two or more consecutive months with no logins, folded into one. */
+    | { kind: 'folded'; key: string; months: MonthKey[] };
+
+type Folding = {
+    monthsWithLogins: ReadonlySet<MonthKey>;
+    /** Keys of folded runs the viewer has opened. */
+    unfolded: ReadonlySet<string>;
+};
 
 /**
  * One column per day for a single month. Longer periods get one per month,
- * each followed by its days when that month is expanded.
+ * each followed by its days when that month is expanded; with `folding`, runs
+ * of two or more months without a login collapse into one column.
  */
 export function buildLoginColumns(
     period: Period,
     expandedMonths: ReadonlySet<MonthKey>,
+    folding?: Folding,
 ): LoginColumn[] {
     const months = monthsInRange(period.from, period.to);
     const days = (month: MonthKey): LoginColumn[] =>
         daysInMonth(month).map((key, i) => ({ kind: 'day', key, day: i + 1 }));
     if (months.length === 1) return days(months[0]);
-    return months.flatMap(month => [
-        { kind: 'month', key: month } as LoginColumn,
+    const monthColumns = (month: MonthKey, foldKey?: string): LoginColumn[] => [
+        { kind: 'month', key: month, ...(foldKey ? { foldKey } : {}) },
         ...(expandedMonths.has(month) ? days(month) : []),
-    ]);
+    ];
+    if (!folding) return months.flatMap(month => monthColumns(month));
+
+    const columns: LoginColumn[] = [];
+    let run: MonthKey[] = [];
+    const flush = () => {
+        const key = `fold:${run[0]}`;
+        if (run.length >= 2 && !folding.unfolded.has(key)) {
+            columns.push({ kind: 'folded', key, months: run });
+        } else {
+            run.forEach((month, i) =>
+                columns.push(
+                    ...monthColumns(
+                        month,
+                        run.length >= 2 && i === 0 ? key : undefined,
+                    ),
+                ),
+            );
+        }
+        run = [];
+    };
+    for (const month of months) {
+        if (folding.monthsWithLogins.has(month)) {
+            flush();
+            columns.push(...monthColumns(month));
+        } else {
+            run.push(month);
+        }
+    }
+    flush();
+    return columns;
 }
 
 /** Login counts keyed by both `YYYY-MM-DD` and `YYYY-MM`. */
