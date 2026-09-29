@@ -18,6 +18,7 @@ export const programMonthSessionSchema = z.object({
     isCertified: z.boolean(),
     deviceId: z.number(),
     siteId: z.number(),
+    siteName: z.string().nullable(),
     collectionDate: z.number().nullable(),
     submittedAt: z.number(),
     timeToConfirmation: z.number().nullable(),

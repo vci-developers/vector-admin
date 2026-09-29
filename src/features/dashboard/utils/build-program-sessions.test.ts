@@ -1,5 +1,6 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Session } from '@/api/session/validation/session-schema';
+import type { Site } from '@/api/site/validation/site-schema';
 import { describe, expect, it } from 'vitest';
 import { buildProgramSessions } from './build-program-sessions';
 
@@ -124,5 +125,38 @@ describe('buildProgramSessions', () => {
             geolocation: true,
             operatorId: true,
         });
+    });
+
+    it("names each Session's Site, falling back to village and district", () => {
+        const site = (siteId: number, fields: Partial<Site>): Site => ({
+            siteId,
+            name: null,
+            locationHierarchy: {},
+            ...fields,
+        });
+        const rows = buildProgramSessions(
+            snapshot({
+                sessions: [
+                    session(1, { siteId: 10 }),
+                    session(2, { siteId: 20, collectionDate: JAN_10 + HOUR }),
+                    session(3, {
+                        siteId: 99,
+                        collectionDate: JAN_10 + 2 * HOUR,
+                    }),
+                ],
+                sites: [
+                    site(10, { name: 'Bukatube HC' }),
+                    site(20, { villageName: 'Bukatube', district: 'Mayuge' }),
+                ],
+            }),
+            'Uganda',
+            { from: '2026-01', to: '2026-01' },
+        );
+
+        expect(rows.map(row => row.siteName)).toEqual([
+            'Bukatube HC',
+            'Bukatube, Mayuge',
+            null,
+        ]);
     });
 });

@@ -117,8 +117,8 @@ export default function PeriodSummary({
                 </CardContent>
             </Card>
             <SessionPanel
-                programNames={
-                    new Map(dashboard.programs.map(p => [p.programId, p.name]))
+                programs={
+                    new Map(dashboard.programs.map(p => [p.programId, p]))
                 }
                 period={period}
             />

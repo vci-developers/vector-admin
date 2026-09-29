@@ -1,5 +1,6 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { SessionState } from '@/api/session/validation/session-schema';
+import type { Site } from '@/api/site/validation/site-schema';
 import { checkRecordFields } from './check-record-fields';
 import { isCountedSession, sessionBucketTime } from './counted-sessions';
 import { isInsideCountry } from './country-bounding-boxes';
@@ -19,6 +20,8 @@ export type ProgramSession = {
     isCertified: boolean;
     deviceId: number;
     siteId: number;
+    /** Null when the Site is unknown or has no name or place fields. */
+    siteName: string | null;
     collectionDate: number | null;
     submittedAt: number;
     /** Milliseconds from createdAt to certifiedAt; null until certified. */
@@ -28,6 +31,17 @@ export type ProgramSession = {
 };
 
 const CERTIFIED_STATES: SessionState[] = ['CERTIFIED', 'SUBMITTED'];
+
+// Legacy Sites often have no name, only village and district.
+function siteDisplayName(site: Site | undefined): string | null {
+    if (!site) return null;
+    if (site.name?.trim()) return site.name.trim();
+    const place = [site.villageName, site.district]
+        .map(part => part?.trim())
+        .filter(Boolean)
+        .join(', ');
+    return place || null;
+}
 
 export function buildProgramSessions(
     snapshot: ProgramSnapshot,
@@ -43,6 +57,7 @@ export function buildProgramSessions(
             month <= period.to
         );
     });
+    const sitesById = new Map(snapshot.sites.map(site => [site.siteId, site]));
     const specimensBySession = Map.groupBy(
         snapshot.specimens,
         specimen => specimen.sessionId,
@@ -58,6 +73,7 @@ export function buildProgramSessions(
                 !!session.state && CERTIFIED_STATES.includes(session.state),
             deviceId: session.deviceId,
             siteId: session.siteId,
+            siteName: siteDisplayName(sitesById.get(session.siteId)),
             collectionDate: session.collectionDate,
             submittedAt: session.submittedAt,
             timeToConfirmation:

@@ -21,10 +21,18 @@ function PopoverContent({
     className,
     align = 'center',
     sideOffset = 4,
+    container,
     ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+    /**
+     * Where to portal the popover; defaults to the body. Inside a dialog or
+     * sheet, pass an element within it: the dialog blocks scrolling anywhere
+     * outside itself, which would freeze a long popover list.
+     */
+    container?: HTMLElement | null;
+}) {
     return (
-        <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Portal container={container}>
             <PopoverPrimitive.Content
                 data-slot="popover-content"
                 align={align}
