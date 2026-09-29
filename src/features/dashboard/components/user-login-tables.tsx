@@ -10,10 +10,15 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
-    monthsInRange,
-    monthStartDate,
-} from '@/features/dashboard/utils/month-key';
+    buildLoginColumns,
+    countLoginsByDayAndMonth,
+    type LoginColumn,
+} from '@/features/dashboard/utils/build-user-logins';
+import { monthStartDate } from '@/features/dashboard/utils/month-key';
+import { cn } from '@/utils/cn';
+import { ChevronRight } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useState } from 'react';
 
 type UserRow = UserLogins['users'][number];
 
@@ -53,8 +58,8 @@ export function UsersTable({
     const t = useTranslations('Users');
     const formatter = useFormatter();
     return (
-        <Table>
-            <TableHeader className="bg-card sticky top-0 z-10">
+        <Table containerClassName="max-h-96 overflow-auto">
+            <TableHeader className="bg-card sticky top-0 z-10 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                 <TableRow>
                     <TableHead>{t('name')}</TableHead>
                     <TableHead>{t('email')}</TableHead>
@@ -98,34 +103,40 @@ export function UsersTable({
     );
 }
 
-/** One column per day for a single month, per month for longer periods. */
+/**
+ * One column per day for a single month, per month for longer periods; a month
+ * with logins expands into its days.
+ */
 export function LoginsBreakdownTable({ users, period }: TablesProps) {
     const t = useTranslations('Users');
     const formatter = useFormatter();
-    const months = monthsInRange(period.from, period.to);
-    const byDay = months.length === 1;
-    const [year, monthNumber] = period.from.split('-').map(Number);
-    const columns = byDay
-        ? Array.from(
-              { length: new Date(Date.UTC(year, monthNumber, 0)).getUTCDate() },
-              (_, i) => ({
-                  key: `${period.from}-${String(i + 1).padStart(2, '0')}`,
-                  label: String(i + 1),
-              }),
-          )
-        : months.map(month => ({
-              key: month,
-              label: formatter.dateTime(monthStartDate(month), {
-                  month: 'short',
-                  year: '2-digit',
-                  timeZone: 'UTC',
-              }),
-          }));
-    const keyOf = (date: string) => (byDay ? date : date.slice(0, 7));
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    const columns = buildLoginColumns(period, expanded);
+    const monthsWithLogins = new Set(
+        users.flatMap(user => user.dailyLogins.map(d => d.date.slice(0, 7))),
+    );
+    const monthLabel = (month: string) =>
+        formatter.dateTime(monthStartDate(month), {
+            month: 'short',
+            year: '2-digit',
+            timeZone: 'UTC',
+        });
+    // Tints the days of an expanded month so they read as one group.
+    const dayTint = (column: LoginColumn) =>
+        column.kind === 'day' && expanded.size > 0 ? 'bg-muted/40' : '';
+
+    function toggle(month: string) {
+        setExpanded(current => {
+            const next = new Set(current);
+            if (next.has(month)) next.delete(month);
+            else next.add(month);
+            return next;
+        });
+    }
 
     return (
-        <Table>
-            <TableHeader className="bg-card sticky top-0 z-20">
+        <Table containerClassName="max-h-96 overflow-auto">
+            <TableHeader className="bg-card sticky top-0 z-20 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                 <TableRow>
                     <TableHead className="bg-card sticky left-0 z-10">
                         {t('name')}
@@ -133,9 +144,36 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                     {columns.map(column => (
                         <TableHead
                             key={column.key}
-                            className="px-1.5 text-center tabular-nums"
+                            className={cn(
+                                'px-1.5 text-center tabular-nums',
+                                dayTint(column),
+                            )}
                         >
-                            {column.label}
+                            {column.kind === 'day' ? (
+                                column.day
+                            ) : monthsWithLogins.has(column.key) ? (
+                                <button
+                                    type="button"
+                                    aria-expanded={expanded.has(column.key)}
+                                    aria-label={t('toggleDays', {
+                                        month: monthLabel(column.key),
+                                    })}
+                                    onClick={() => toggle(column.key)}
+                                    className="hover:bg-muted focus-visible:ring-ring/50 inline-flex cursor-pointer items-center gap-0.5 rounded-md px-1 py-0.5 outline-none focus-visible:ring-[3px]"
+                                >
+                                    <ChevronRight
+                                        aria-hidden="true"
+                                        className={cn(
+                                            'size-3.5 transition-transform',
+                                            expanded.has(column.key) &&
+                                                'rotate-90',
+                                        )}
+                                    />
+                                    {monthLabel(column.key)}
+                                </button>
+                            ) : (
+                                monthLabel(column.key)
+                            )}
                         </TableHead>
                     ))}
                     <TableHead className="bg-card sticky right-0 z-10 text-right">
@@ -145,13 +183,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
             </TableHeader>
             <TableBody>
                 {users.map(user => {
-                    const counts = new Map<string, number>();
-                    for (const { date, count } of user.dailyLogins) {
-                        counts.set(
-                            keyOf(date),
-                            (counts.get(keyOf(date)) ?? 0) + count,
-                        );
-                    }
+                    const counts = countLoginsByDayAndMonth(user.dailyLogins);
                     return (
                         <TableRow key={user.userId}>
                             <TableCell
@@ -165,7 +197,12 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                                 return (
                                     <TableCell
                                         key={column.key}
-                                        className={`px-1.5 text-center tabular-nums ${count ? '' : 'text-muted-foreground/40'}`}
+                                        className={cn(
+                                            'px-1.5 text-center tabular-nums',
+                                            !count &&
+                                                'text-muted-foreground/40',
+                                            dayTint(column),
+                                        )}
                                     >
                                         {count ?? 0}
                                     </TableCell>

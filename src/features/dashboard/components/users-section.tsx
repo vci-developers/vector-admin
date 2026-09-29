@@ -134,7 +134,7 @@ export default function UsersSection({
                                 {t('usersTitle')}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="max-h-96 overflow-auto px-2">
+                        <CardContent className="px-2">
                             <UsersTable {...tableProps} />
                         </CardContent>
                     </Card>
@@ -148,7 +148,7 @@ export default function UsersSection({
                                 )}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="max-h-96 overflow-auto px-2">
+                        <CardContent className="px-2">
                             <LoginsBreakdownTable {...tableProps} />
                         </CardContent>
                     </Card>

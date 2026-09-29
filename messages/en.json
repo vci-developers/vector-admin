@@ -226,6 +226,7 @@
         "usersTitle": "Users",
         "byDayTitle": "Logins by day",
         "byMonthTitle": "Logins by month",
+        "toggleDays": "Show or hide each day of {month}",
         "name": "Name",
         "email": "Email",
         "program": "Program",

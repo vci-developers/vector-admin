@@ -13,6 +13,7 @@ import {
     useDashboardFilters,
 } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { programSeriesColor } from '@/features/dashboard/utils/series-colors';
+import { cn } from '@/utils/cn';
 import { ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -52,7 +53,11 @@ export default function ProgramFilter({ programs }: { programs: Program[] }) {
                     {programs.map(program => (
                         <label
                             key={program.programId}
-                            className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                            className={cn(
+                                'hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors select-none',
+                                excluded.has(program.programId) &&
+                                    'text-muted-foreground',
+                            )}
                         >
                             <Checkbox
                                 checked={!excluded.has(program.programId)}
@@ -62,7 +67,11 @@ export default function ProgramFilter({ programs }: { programs: Program[] }) {
                             />
                             <span
                                 aria-hidden="true"
-                                className="size-2 shrink-0 rounded-full"
+                                className={cn(
+                                    'size-2 shrink-0 rounded-full transition-opacity',
+                                    excluded.has(program.programId) &&
+                                        'opacity-30',
+                                )}
                                 style={{
                                     background: programSeriesColor(
                                         program.programId,

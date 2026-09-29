@@ -49,16 +49,53 @@ export function buildUserLoginRows(
         );
 }
 
+/** `YYYY-MM-DD` for every day of the month. */
+function daysInMonth(month: MonthKey): string[] {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const count = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    return Array.from(
+        { length: count },
+        (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`,
+    );
+}
+
 function daysInPeriod({ from, to }: Period): string[] {
-    const days: string[] = [];
-    for (const month of monthsInRange(from, to)) {
-        const [year, monthNumber] = month.split('-').map(Number);
-        const count = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-        for (let day = 1; day <= count; day++) {
-            days.push(`${month}-${String(day).padStart(2, '0')}`);
+    return monthsInRange(from, to).flatMap(daysInMonth);
+}
+
+export type LoginColumn =
+    | { kind: 'month'; key: MonthKey }
+    | { kind: 'day'; key: string; day: number };
+
+/**
+ * One column per day for a single month. Longer periods get one per month,
+ * each followed by its days when that month is expanded.
+ */
+export function buildLoginColumns(
+    period: Period,
+    expandedMonths: ReadonlySet<MonthKey>,
+): LoginColumn[] {
+    const months = monthsInRange(period.from, period.to);
+    const days = (month: MonthKey): LoginColumn[] =>
+        daysInMonth(month).map((key, i) => ({ kind: 'day', key, day: i + 1 }));
+    if (months.length === 1) return days(months[0]);
+    return months.flatMap(month => [
+        { kind: 'month', key: month } as LoginColumn,
+        ...(expandedMonths.has(month) ? days(month) : []),
+    ]);
+}
+
+/** Login counts keyed by both `YYYY-MM-DD` and `YYYY-MM`. */
+export function countLoginsByDayAndMonth(
+    dailyLogins: UserLoginRow['dailyLogins'],
+): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const { date, count } of dailyLogins) {
+        for (const key of [date, date.slice(0, 7)]) {
+            counts.set(key, (counts.get(key) ?? 0) + count);
         }
     }
-    return days;
+    return counts;
 }
 
 export type SheetRows = (string | number)[][];
