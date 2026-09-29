@@ -22,7 +22,7 @@
     },
     "Dashboard": {
         "heading": "Program metrics",
-        "loading": "Loading program data… The first load after a refresh can take up to a minute.",
+        "loading": "Loading program data…",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
         "noProgramsSelected": "No programs selected. Choose at least one program."
