@@ -48,7 +48,8 @@ before (none for All time). _Avoid_: range, summary month, date range
 
 **Cycle Label**: The Collection Cycle(s) overlapping the Reporting Period, shown
 beside each Program in the summary so a quiet period can be read against where
-the program is in its cycle. Annotation only; never a bucket. Programs with no
+the program is in its cycle. Up to three are listed; more show as a span and
+count ("Cycles 350–672 · 45"). Annotation only; never a bucket. Programs with no
 Collection Schedule show none. _Avoid_: cycle view
 
 **Active Device**: A Device with ≥1 Session in the Reporting Period, counted
@@ -82,10 +83,14 @@ _Avoid_: site location (VectorVerify's geocoded position)
 
 **Specimen Location**: Where a Specimen appears on the map: its Session's GPS
 `latitude`/`longitude`, drawn as one point per Session sized by specimen count.
-The map covers the Reporting Period. The same in-country rule as Device Location
-applies; Sessions outside it are counted as unplaced with their specimens, never
-drawn. Recorded at upload, not at the trap. _Avoid_: trap location, site
-location
+The map covers the Reporting Period and shows specimens and devices together:
+specimen circles on a one-hue red scale by Session count (0 hollow, 1–4, 5–19,
+20–49, 50+; a cluster takes its worst Session's colour and is labelled with its
+total), device rounded squares (green Active, grey otherwise) drawn as badges up
+and to the right of their point so the two never hide each other. The same
+in-country rule as Device Location applies; Sessions outside it are counted as
+unplaced with their specimens, never drawn. Recorded at upload, not at the trap.
+_Avoid_: trap location, site location
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),

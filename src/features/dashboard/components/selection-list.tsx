@@ -3,29 +3,27 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Badge } from '@/components/ui/badge';
 import { useFormatter, useTranslations } from 'next-intl';
-import type { MapLayer } from './map-constants';
+import type { MapSelection } from './surveillance-map';
 
 type SelectionListProps = {
-    layer: MapLayer;
-    selectedIds: number[];
+    selection: MapSelection;
     dashboard: Dashboard;
     programNames: Map<number, string>;
 };
 
 export default function SelectionList({
-    layer,
-    selectedIds,
+    selection,
     dashboard,
     programNames,
 }: SelectionListProps) {
     const t = useTranslations('MapSection');
     const tDevices = useTranslations('Devices');
     const formatter = useFormatter();
-    const ids = new Set(selectedIds);
+    const ids = new Set(selection?.ids);
     const formatDate = (timestamp: number) =>
         formatter.dateTime(timestamp, { dateStyle: 'medium' });
 
-    if (selectedIds.length === 0) {
+    if (!selection || selection.ids.length === 0) {
         return (
             <p className="text-muted-foreground p-2 text-sm">
                 {t('selectHint')}
@@ -33,7 +31,7 @@ export default function SelectionList({
         );
     }
 
-    if (layer === 'specimens') {
+    if (selection.layer === 'specimens') {
         const sessions = dashboard.specimenPoints.placed
             .filter(point => ids.has(point.sessionId))
             .sort((a, b) => b.specimenCount - a.specimenCount);

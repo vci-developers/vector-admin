@@ -102,4 +102,19 @@ describe('loadProgramSnapshot', () => {
         expect(result).toMatchObject({ ok: false, error: { kind: 'server' } });
         expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it('shares one load between concurrent callers', async () => {
+        const fetchMock = stubApi(healthyApi);
+        await loadProgramSnapshot(7);
+        const callsForOneLoad = fetchMock.mock.calls.length;
+        fetchMock.mockClear();
+
+        const [first, second] = await Promise.all([
+            loadProgramSnapshot(7),
+            loadProgramSnapshot(7),
+        ]);
+
+        expect(fetchMock).toHaveBeenCalledTimes(callsForOneLoad);
+        expect(second).toBe(first);
+    });
 });

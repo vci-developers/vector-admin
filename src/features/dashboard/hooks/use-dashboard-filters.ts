@@ -1,4 +1,5 @@
 import { RANGE_PRESETS } from '@/features/dashboard/utils/resolve-reporting-range';
+import { MAP_LAYERS } from '@/features/dashboard/components/map-constants';
 import {
     parseAsArrayOf,
     parseAsInteger,
@@ -20,9 +21,9 @@ const dashboardFilterParsers = {
     ),
     // Program whose Session panel is open
     sessions: parseAsInteger,
-    layer: parseAsStringLiteral(['specimens', 'devices'] as const).withDefault(
-        'specimens',
-    ),
+    layers: parseAsArrayOf(parseAsStringLiteral(MAP_LAYERS)).withDefault([
+        ...MAP_LAYERS,
+    ]),
 };
 
 export function useDashboardFilters() {

@@ -60,9 +60,27 @@ export function programSnapshotTag(programId: number): string {
     return `program-snapshot-${programId}`;
 }
 
-export async function loadProgramSnapshot(
+type SnapshotResult = Result<ProgramSnapshot, NetworkError>;
+
+// 'use cache' does not merge calls that arrive while a cold load is running,
+// and a cold load is hundreds of pages; concurrent routes share one instead.
+const inFlight = new Map<number, Promise<SnapshotResult>>();
+
+export function loadProgramSnapshot(
     programId: number,
-): Promise<Result<ProgramSnapshot, NetworkError>> {
+): Promise<SnapshotResult> {
+    const pending =
+        inFlight.get(programId) ??
+        loadCachedProgramSnapshot(programId).finally(() =>
+            inFlight.delete(programId),
+        );
+    inFlight.set(programId, pending);
+    return pending;
+}
+
+async function loadCachedProgramSnapshot(
+    programId: number,
+): Promise<SnapshotResult> {
     'use cache';
     cacheTag(programSnapshotTag(programId));
 

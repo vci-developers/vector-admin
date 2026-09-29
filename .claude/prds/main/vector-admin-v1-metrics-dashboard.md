@@ -35,8 +35,9 @@ These supersede anything below that conflicts:
   month or range.
 - **Trend charts removed** (hard to read, low value); how to show change over
   time is open.
-- **Map first, specimens by default** (story 29 as revised), Devices on a
-  switch.
+- **Map first, specimens and devices together** (story 29 as revised): specimen
+  severity circles (red scale by count) and device badges (green active, grey
+  not), each layer toggleable, at least one always on.
 - **Unique Users and Logins** added (story 15b) from `GET /users/auth-events`.
 - **User login tables and report**, as in VectorVerify PR #197 (VCV-303) but
   across the selected Programs and the Reporting Period: a Users table (name,

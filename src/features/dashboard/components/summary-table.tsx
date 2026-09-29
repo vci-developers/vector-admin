@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
 import type { SummaryRow } from '@/features/dashboard/utils/summary-rows';
+import { cycleLabel } from '@/features/dashboard/utils/cycle-label';
 import { ChevronRight } from 'lucide-react';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { useTranslations } from 'next-intl';
@@ -25,6 +26,19 @@ type SummaryTableProps = {
     total: PeriodMetricsDto | null;
     totalIncomplete: boolean;
 };
+
+function CycleNote({ cycles }: { cycles: number[] }) {
+    const t = useTranslations('Summary');
+    const label = cycleLabel(cycles);
+    if (!label) return null;
+    return (
+        <p className="text-muted-foreground pl-4.5 text-xs whitespace-nowrap">
+            {label.kind === 'list'
+                ? t('cycles', { count: label.count, numbers: label.numbers })
+                : t('cycleRange', label)}
+        </p>
+    );
+}
 
 function FieldBreakdown({ metrics }: { metrics: PeriodMetricsDto }) {
     const t = useTranslations('Fields');
@@ -153,14 +167,7 @@ export default function SummaryTable({
                                             </Badge>
                                         )}
                                     </div>
-                                    {row.cycles.length > 0 && (
-                                        <p className="text-muted-foreground pl-4.5 text-xs">
-                                            {t('cycles', {
-                                                count: row.cycles.length,
-                                                numbers: row.cycles.join(', '),
-                                            })}
-                                        </p>
-                                    )}
+                                    <CycleNote cycles={row.cycles} />
                                 </TableCell>
                                 {METRICS.map(metric => (
                                     <TableCell
