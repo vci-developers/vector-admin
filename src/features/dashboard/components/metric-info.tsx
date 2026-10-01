@@ -1,18 +1,51 @@
 'use client';
 
+import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { MetricKey } from '@/features/dashboard/utils/metric-definitions';
+import {
+    METRICS,
+    type CalculationTerm,
+    type MetricKey,
+} from '@/features/dashboard/utils/metric-definitions';
 import { Info } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
+import MetricValue from './metric-value';
 
-/** An info icon whose tooltip says how the metric is derived. */
-export default function MetricInfo({ metric }: { metric: MetricKey }) {
+/** "94 Certified Sessions + 70 Submitted Sessions", bracketed when summed. */
+function Terms({
+    terms,
+    bracketed,
+}: {
+    terms: CalculationTerm[];
+    bracketed: boolean;
+}) {
+    const t = useTranslations('Metrics.terms');
+    const formatter = useFormatter();
+    const text = terms
+        .map(({ term, value }) => `${formatter.number(value)} ${t(term)}`)
+        .join(' + ');
+    return bracketed && terms.length > 1 ? `(${text})` : text;
+}
+
+/**
+ * An info icon whose tooltip says how the metric is derived and, given the
+ * period's metrics, the ratio worked out with its real numbers.
+ */
+export default function MetricInfo({
+    metric,
+    metrics,
+}: {
+    metric: MetricKey;
+    metrics?: PeriodMetricsDto;
+}) {
     const t = useTranslations('Metrics');
+    const definition = METRICS.find(m => m.key === metric);
+    const calculation = metrics && definition?.calculation?.(metrics);
     return (
         <TooltipProvider delayDuration={200}>
             <Tooltip>
@@ -31,7 +64,26 @@ export default function MetricInfo({ metric }: { metric: MetricKey }) {
                     side="top"
                     className="max-w-72 text-left font-normal"
                 >
-                    {t(`${metric}.description`)}
+                    <p>{t(`${metric}.description`)}</p>
+                    {calculation && definition && metrics && (
+                        <p className="mt-2 border-t border-current/20 pt-2 tabular-nums">
+                            <Terms
+                                terms={calculation.numerator}
+                                bracketed={false}
+                            />
+                            <br />
+                            {'÷ '}
+                            <Terms terms={calculation.denominator} bracketed />
+                            <br />
+                            {'= '}
+                            <span className="font-semibold">
+                                <MetricValue
+                                    value={definition.value(metrics)}
+                                    format={definition.format}
+                                />
+                            </span>
+                        </p>
+                    )}
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>

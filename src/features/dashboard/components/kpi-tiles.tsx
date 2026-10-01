@@ -46,7 +46,12 @@ export default function KpiTiles({
                     <Card key={metric.key} className="gap-1 px-4 py-3">
                         <p className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
                             {t(`${metric.key}.title`)}
-                            <MetricInfo metric={metric.key} />
+                            <MetricInfo
+                                metric={metric.key}
+                                metrics={
+                                    current && !incomplete ? current : undefined
+                                }
+                            />
                         </p>
                         <p className="text-2xl font-semibold tabular-nums">
                             {incomplete ? (

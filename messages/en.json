@@ -63,6 +63,14 @@
     },
     "Metrics": {
         "howDerived": "How {metric} is worked out",
+        "terms": {
+            "images": "Images",
+            "activeDevices": "Active Devices",
+            "completeRecords": "complete Records",
+            "records": "Records",
+            "submittedSessions": "Submitted",
+            "certifiedSessions": "Certified"
+        },
         "activeDevices": {
             "title": "Active Devices",
             "description": "Devices with at least one Session collected in the period, each counted once however many months it was active. Only Surveillance and Data collection Sessions count; Practice and Calibration are ignored."
