@@ -36,15 +36,20 @@ Ghana, Cameroon, Colombia and the United States of America (contiguous states
 only). A Program whose country has no box fails every geolocation check.
 
 **Reporting Period**: The one time filter for the whole page: a span of whole
-Reporting Months chosen from presets (Last month, Last 3 / 6 / 12 months, Year
-to date, All time) or a custom from/to month pair (the same month twice is a
-single month). Defaults to Last month, the unit the team sheet uses. Presets are
-relative, so a bookmarked preset tracks the calendar. The map, KPI tiles,
+Reporting Months chosen from presets (This month, Last month, Last 3 / 6 / 12
+months, Year to date, All time) or a custom from/to month pair (the same month
+twice is a single month). Defaults to Last month, the unit the team sheet uses.
+Presets are relative, so a bookmarked preset tracks the calendar. Rolling
+presets and Year to date end at the last complete month (Year to date in
+January is January alone). A period that includes the current month is **In
+Progress**: labelled as likely undercounted, because Sessions are uploaded
+after collection, and shown with no KPI comparison. The map, KPI tiles,
 summary table, Device Status and Session panel all show this period; there is no
 second month or range control. Counts are summed over the period, Active Devices
 and Unique Users are counted once each, and ratios are recomputed over the
 period, never averaged. KPI tiles compare with the same-length period just
-before (none for All time). _Avoid_: range, summary month, date range
+before (none for All time or an In Progress period). _Avoid_: range, summary
+month, date range
 
 **Cycle Label**: The Collection Cycle(s) overlapping the Reporting Period, shown
 beside each Program in the summary so a quiet period can be read against where

@@ -38,6 +38,7 @@
         "from": "From",
         "to": "To",
         "presets": {
+            "this-month": "This month",
             "last-month": "Last month",
             "3m": "3M",
             "6m": "6M",
@@ -117,6 +118,9 @@
         "copyFailed": "Copy failed",
         "openSessions": "Show {program} Sessions for this period",
         "previousMonths": "previous {count} months",
+        "inProgress": "In progress",
+        "inProgressHint": "{month} hasn't ended yet, so its numbers are still coming in.",
+        "periodInProgress": "{period}, in progress",
         "cycleRange": "Cycles {first}–{last} · {count}"
     },
     "Fields": {

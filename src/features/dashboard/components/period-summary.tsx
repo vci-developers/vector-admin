@@ -14,6 +14,7 @@ import {
     buildSummaryRows,
     summaryToTsv,
 } from '@/features/dashboard/utils/summary-rows';
+import { Badge } from '@/components/ui/badge';
 import { Check, Copy } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
@@ -41,15 +42,17 @@ export default function PeriodSummary({
     const incomplete = dashboard.failedProgramIds.length > 0;
     const length = monthsInRange(period.from, period.to).length;
     // A single month compares with the month before ("Oct"); longer periods
-    // with the same-length span before them.
-    const previousLabel = !previousTotal
-        ? null
-        : length === 1
-          ? formatter.dateTime(monthStartDate(addMonths(period.from, -1)), {
-                month: 'short',
-                timeZone: 'UTC',
-            })
-          : t('previousMonths', { count: length });
+    // with the same-length span before them. A period still in progress is
+    // not compared: its counts are still rising.
+    const previousLabel =
+        !previousTotal || period.inProgress
+            ? null
+            : length === 1
+              ? formatter.dateTime(monthStartDate(addMonths(period.from, -1)), {
+                    month: 'short',
+                    timeZone: 'UTC',
+                })
+              : t('previousMonths', { count: length });
 
     async function copyTable() {
         const tsv = summaryToTsv(
@@ -57,7 +60,11 @@ export default function PeriodSummary({
             { metrics: total, incomplete },
             {
                 header: [
-                    `${t('program')} (${period.label})`,
+                    `${t('program')} (${
+                        period.inProgress
+                            ? t('periodInProgress', { period: period.label })
+                            : period.label
+                    })`,
                     ...METRICS.map(metric => tMetrics(`${metric.key}.title`)),
                     ...FIELDS.map(field =>
                         t('fieldColumn', { field: tFields(field) }),
@@ -80,9 +87,14 @@ export default function PeriodSummary({
             className="flex flex-col gap-4"
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="summary-heading" className="text-lg font-semibold">
-                    {t('heading', { period: period.label })}
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                    <h2 id="summary-heading" className="text-lg font-semibold">
+                        {t('heading', { period: period.label })}
+                    </h2>
+                    {period.inProgress && (
+                        <Badge variant="outline">{t('inProgress')}</Badge>
+                    )}
+                </div>
                 <div className="flex items-center gap-2">
                     <span
                         aria-live="polite"
@@ -101,6 +113,16 @@ export default function PeriodSummary({
                     </Button>
                 </div>
             </div>
+            {period.inProgress && (
+                <p className="text-muted-foreground -mt-2 text-sm">
+                    {t('inProgressHint', {
+                        month: formatter.dateTime(monthStartDate(period.to), {
+                            month: 'long',
+                            timeZone: 'UTC',
+                        }),
+                    })}
+                </p>
+            )}
             <KpiTiles
                 current={total}
                 previous={previousTotal}

@@ -4,7 +4,10 @@ import { useGetDashboard } from '@/api/dashboard/hooks/use-get-dashboard';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { programTitle } from '@/features/dashboard/utils/program-title';
-import { resolveReportingRange } from '@/features/dashboard/utils/resolve-reporting-range';
+import {
+    isInProgress,
+    resolveReportingRange,
+} from '@/features/dashboard/utils/resolve-reporting-range';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
@@ -57,7 +60,12 @@ export default function DashboardView() {
 
     const dashboard = result.data;
     const { from, to } = dashboard.metrics;
-    const period = { from, to, label: periodLabel(from, to) };
+    const period = {
+        from,
+        to,
+        label: periodLabel(from, to),
+        inProgress: isInProgress(to, currentMonth),
+    };
     const failedNames = dashboard.programs
         .filter(program =>
             dashboard.failedProgramIds.includes(program.programId),

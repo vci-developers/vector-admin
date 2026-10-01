@@ -23,4 +23,10 @@ export function usePeriodLabel() {
     };
 }
 
-export type DisplayPeriod = { from: string; to: string; label: string };
+export type DisplayPeriod = {
+    from: string;
+    to: string;
+    label: string;
+    /** Includes the current month, so its counts are still rising. */
+    inProgress: boolean;
+};

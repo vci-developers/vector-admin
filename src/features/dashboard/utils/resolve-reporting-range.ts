@@ -1,6 +1,7 @@
 import type { MonthKey } from './month-key';
 
 export const RANGE_PRESETS = [
+    'this-month',
     'last-month',
     '3m',
     '6m',
@@ -27,6 +28,9 @@ function monthKey(year: number, monthIndex: number): MonthKey {
 }
 
 // Presets are relative to `now`, so a bookmarked preset tracks the current month.
+// Rolling presets end at the last complete month so they never compare a
+// partial month with whole ones; This month, All time and custom ranges may
+// include the current month, which is then in progress.
 export function resolveReportingRange(
     preset: RangePreset,
     custom: { from: string | null; to: string | null },
@@ -34,18 +38,17 @@ export function resolveReportingRange(
 ): ResolvedRange {
     const year = now.getFullYear();
     const month = now.getMonth();
-    const to = monthKey(year, month);
+    const current = monthKey(year, month);
+    const previous = monthKey(year, month - 1);
     const lastMonths = (count: number) => ({
-        from: monthKey(year, month - count + 1),
-        to,
+        from: monthKey(year, month - count),
+        to: previous,
     });
-
-    const lastMonth = () => {
-        const previous = monthKey(year, month - 1);
-        return { from: previous, to: previous };
-    };
+    const lastMonth = () => ({ from: previous, to: previous });
 
     switch (preset) {
+        case 'this-month':
+            return { from: current, to: current };
         case 'last-month':
             return lastMonth();
         case '3m':
@@ -53,9 +56,12 @@ export function resolveReportingRange(
         case '6m':
             return lastMonths(6);
         case 'ytd':
-            return { from: monthKey(year, 0), to };
+            // In January no month of the year is complete yet.
+            return month === 0
+                ? { from: current, to: current }
+                : { from: monthKey(year, 0), to: previous };
         case 'all':
-            return { to };
+            return { to: current };
         case 'custom':
             if (
                 isMonthKey(custom.from) &&
@@ -68,4 +74,9 @@ export function resolveReportingRange(
         case '12m':
             return lastMonths(12);
     }
+}
+
+/** A period is in progress when it includes the current month. */
+export function isInProgress(to: MonthKey, currentMonth: MonthKey): boolean {
+    return to >= currentMonth;
 }
