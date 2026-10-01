@@ -1,5 +1,6 @@
 import type {
     Dashboard,
+    LocationNodeDto,
     PeriodMetricsDto,
 } from '@/api/dashboard/validation/dashboard-schema';
 import { FIELDS, METRICS, type MetricFormat } from './metric-definitions';
@@ -35,6 +36,79 @@ export function buildSummaryRows(dashboard: Dashboard): SummaryRow[] {
             metrics: programMetrics?.metrics ?? null,
         };
     });
+}
+
+export const programLocationKey = (programId: number) => `program:${programId}`;
+
+export type LocationPlace = Pick<LocationNodeDto, 'name' | 'level'>;
+
+/**
+ * One summary row for a place, or for a chain of places merged into it. `key`
+ * is the deepest place's, so its children are listed under that key.
+ */
+export type LocationRow = {
+    key: string;
+    /** Broadest first; more than one when single-child places merged. */
+    places: LocationPlace[];
+    metrics: PeriodMetricsDto;
+    hasChildren: boolean;
+};
+
+function groupLocationChildren(
+    locations: LocationNodeDto[],
+): Map<string, LocationNodeDto[]> {
+    const children = new Map<string, LocationNodeDto[]>();
+    for (const node of locations) {
+        const parent = node.parentKey ?? programLocationKey(node.programId);
+        const list = children.get(parent);
+        if (list) list.push(node);
+        else children.set(parent, [node]);
+    }
+    return children;
+}
+
+// Zod builds every metrics object with the same key order.
+const sameMetrics = (a: PeriodMetricsDto, b: PeriodMetricsDto) =>
+    JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Rows under each parent key (a place's, or programLocationKey for a
+ * Program's top level). A place whose only child holds all of its data merges
+ * with that child into one row, as file trees compact single-child folders,
+ * so the same numbers are not repeated level after level. A place with data
+ * of its own (Sessions at its own Site) never merges.
+ */
+export function buildLocationRows(
+    locations: LocationNodeDto[],
+): Map<string, LocationRow[]> {
+    const children = groupLocationChildren(locations);
+    const rows = new Map<string, LocationRow[]>();
+
+    for (const [parentKey, nodes] of children) {
+        rows.set(
+            parentKey,
+            nodes.map(node => {
+                const places: LocationPlace[] = [node];
+                let deepest = node;
+                let next = children.get(deepest.key);
+                while (
+                    next?.length === 1 &&
+                    sameMetrics(next[0].metrics, deepest.metrics)
+                ) {
+                    deepest = next[0];
+                    places.push(deepest);
+                    next = children.get(deepest.key);
+                }
+                return {
+                    key: deepest.key,
+                    places: places.map(({ name, level }) => ({ name, level })),
+                    metrics: node.metrics,
+                    hasChildren: children.has(deepest.key),
+                };
+            }),
+        );
+    }
+    return rows;
 }
 
 // Plain, locale-free values so Excel parses them in any locale.

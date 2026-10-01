@@ -5,8 +5,10 @@ export const siteSchema = z.object({
     name: z.string().nullable(),
     district: z.string().nullish(),
     subCounty: z.string().nullish(),
+    healthCenter: z.string().nullish(),
     parish: z.string().nullish(),
     villageName: z.string().nullish(),
+    houseNumber: z.string().nullish(),
     // Keeps only string levels; the backend stores free-form JSON here.
     locationHierarchy: z
         .record(z.string(), z.unknown())

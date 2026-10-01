@@ -62,6 +62,22 @@ once however many months it was active. Distinct from VectorVerify's **Device
 Activity** (cycle-based, as-of-today). _Avoid_: Monthly Active Device (the
 period is not always a month)
 
+**Location Breakdown**: Each Program row of the summary table expands (after its
+field completeness) into its Site hierarchy, one level at a time down to the
+deepest level, each place showing the same metrics as the Program over the
+Sessions at Sites at or below it. Unique Users and Logins are blank for places:
+users log in to a Program, not a Site. A Device that moved is an Active Device
+in each place it used, so children's Active Devices can add up to more than
+their parent's; every other count adds up. Legacy Sites use District →
+Sub-county → Health Centre → Parish → Village → House, skipping "N/A" levels;
+newer Sites use their own `locationHierarchy` levels in order. Places with the
+same name under the same parent merge. A place whose only child holds all of its
+data shares that child's row ("Karenga Town Council › … › Loputuk", levels
+listed beneath), so identical numbers are not repeated level after level; a
+place with Sessions at its own Site keeps its own row. Sessions at a Site with
+no place names sit under "Unknown Site". Copy for Excel copies Program rows
+only. _Avoid_: device location (that is the map position)
+
 **Image**: One photo of a Specimen (`SpecimenImage`). A Specimen photographed
 three times is three Images. Counted in the Reporting Month of its Session's
 `collectionDate`, not its upload time. The team sheet still calls these Scans

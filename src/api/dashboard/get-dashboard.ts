@@ -10,6 +10,7 @@ import {
     buildPeriodMetrics,
     type ProgramData,
 } from '@/features/dashboard/utils/build-period-metrics';
+import { buildLocationTree } from '@/features/dashboard/utils/build-location-tree';
 import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
@@ -49,6 +50,9 @@ export async function getDashboard(
             programTimeZone(snapshot.collectionCycles),
         ),
     );
+    const locations = loaded.flatMap(programData =>
+        buildLocationTree(programData, period),
+    );
     const specimenPoints: Dashboard['specimenPoints'] = {
         placed: [],
         unplaced: [],
@@ -66,6 +70,7 @@ export async function getDashboard(
         failedProgramIds,
         metrics,
         devices,
+        locations,
         specimenPoints,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,
     });

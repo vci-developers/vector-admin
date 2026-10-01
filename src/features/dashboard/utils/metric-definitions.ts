@@ -18,6 +18,8 @@ export type MetricDefinition = {
     key: MetricKey;
     format: MetricFormat;
     value: (metrics: PeriodMetricsDto) => number | null;
+    /** Users log in to a Program, not a Site, so locations leave it blank. */
+    programOnly?: true;
 };
 
 export const METRICS: MetricDefinition[] = [
@@ -29,8 +31,13 @@ export const METRICS: MetricDefinition[] = [
         format: 'decimal',
         value: m => m.imagesPerActiveDevice,
     },
-    { key: 'uniqueUsers', format: 'count', value: m => m.uniqueUsers },
-    { key: 'logins', format: 'count', value: m => m.logins },
+    {
+        key: 'uniqueUsers',
+        format: 'count',
+        value: m => m.uniqueUsers,
+        programOnly: true,
+    },
+    { key: 'logins', format: 'count', value: m => m.logins, programOnly: true },
     {
         key: 'metadataCompleteness',
         format: 'percent',

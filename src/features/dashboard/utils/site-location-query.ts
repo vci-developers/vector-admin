@@ -2,7 +2,7 @@ import type { Site } from '@/api/site/validation/site-schema';
 
 // Ported from VectorVerify's geographical summary (buildSiteLocationQuery).
 // Legacy Sites carry village/parish/district fields; newer ones a hierarchy.
-function isLegacySite(site: Site): boolean {
+export function isLegacySite(site: Site): boolean {
     return Object.keys(site.locationHierarchy).length === 0;
 }
 

@@ -11,6 +11,7 @@ import {
     monthStartDate,
 } from '@/features/dashboard/utils/month-key';
 import {
+    buildLocationRows,
     buildSummaryRows,
     summaryToTsv,
 } from '@/features/dashboard/utils/summary-rows';
@@ -39,6 +40,10 @@ export default function PeriodSummary({
 
     const { total, previousTotal } = dashboard.metrics;
     const rows = useMemo(() => buildSummaryRows(dashboard), [dashboard]);
+    const locations = useMemo(
+        () => buildLocationRows(dashboard.locations),
+        [dashboard.locations],
+    );
     const incomplete = dashboard.failedProgramIds.length > 0;
     const length = monthsInRange(period.from, period.to).length;
     // A single month compares with the month before ("Oct"); longer periods
@@ -135,6 +140,7 @@ export default function PeriodSummary({
                         rows={rows}
                         total={total}
                         totalIncomplete={incomplete}
+                        locations={locations}
                     />
                 </CardContent>
             </Card>

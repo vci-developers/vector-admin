@@ -1,5 +1,7 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Program } from '@/api/program/validation/program-schema';
+import type { Session } from '@/api/session/validation/session-schema';
+import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import {
     checkRecordFields,
     REQUIRED_FIELDS,
@@ -63,16 +65,16 @@ export type DashboardMetrics = {
 
 export type ProgramData = { program: Program; snapshot: ProgramSnapshot };
 
-type Period = { from: MonthKey; to: MonthKey };
+export type Period = { from: MonthKey; to: MonthKey };
 
 // Only Uganda uploads to DHIS2; the API has no per-Program setting. Elsewhere
 // every Session would stay Certified and read as a 0% upload rate.
 const DHIS2_COUNTRIES = ['Uganda'];
 
-const inPeriod = (month: MonthKey, { from, to }: Period) =>
+export const inPeriod = (month: MonthKey, { from, to }: Period) =>
     month >= from && month <= to;
 
-function emptyCounts(): PeriodCounts {
+export function emptyCounts(): PeriodCounts {
     return {
         activeDevices: 0,
         images: 0,
@@ -95,7 +97,7 @@ function emptyCounts(): PeriodCounts {
 const ratio = (numerator: number, denominator: number) =>
     denominator === 0 ? null : numerator / denominator;
 
-function withRatios(
+export function withRatios(
     counts: PeriodCounts,
     loginsTracked: boolean,
 ): PeriodMetrics {
@@ -119,7 +121,7 @@ function withRatios(
 }
 
 // Devices and users belong to one Program, so per-Program distinct counts add up.
-function addCounts(total: PeriodCounts, counts: PeriodCounts) {
+export function addCounts(total: PeriodCounts, counts: PeriodCounts) {
     total.activeDevices += counts.activeDevices;
     total.images += counts.images;
     total.uniqueSpecimens += counts.uniqueSpecimens;
@@ -134,39 +136,47 @@ function addCounts(total: PeriodCounts, counts: PeriodCounts) {
     }
 }
 
-function countProgram(
-    { program, snapshot }: ProgramData,
+/** Counted Sessions whose Reporting Month falls in the period. */
+export function sessionsInPeriod(
+    sessions: Session[],
     period: Period,
-): PeriodCounts {
-    const timeZone = programTimeZone(snapshot.collectionCycles);
-    const counts = emptyCounts();
-    const activeDevices = new Set<number>();
-    const sessions = new Map(
-        snapshot.sessions
-            .filter(
-                session =>
-                    isCountedSession(session) &&
-                    inPeriod(
-                        monthKeyOf(sessionBucketTime(session), timeZone),
-                        period,
-                    ),
-            )
-            .map(session => [session.sessionId, session]),
+    timeZone: string,
+): Session[] {
+    return sessions.filter(
+        session =>
+            isCountedSession(session) &&
+            inPeriod(monthKeyOf(sessionBucketTime(session), timeZone), period),
     );
+}
 
-    const usesDhis2 = DHIS2_COUNTRIES.includes(program.country);
-    for (const session of sessions.values()) {
-        activeDevices.add(session.deviceId);
-        if (!usesDhis2) continue;
+export function specimensBySession(
+    specimens: Specimen[],
+): Map<number, Specimen[]> {
+    const bySession = new Map<number, Specimen[]>();
+    for (const specimen of specimens) {
+        const list = bySession.get(specimen.sessionId);
+        if (list) list.push(specimen);
+        else bySession.set(specimen.sessionId, [specimen]);
+    }
+    return bySession;
+}
+
+/**
+ * One Session's Records, Images and DHIS2 state. Active Devices are distinct
+ * across Sessions, so the caller counts those.
+ */
+export function addSessionCounts(
+    counts: PeriodCounts,
+    session: Session,
+    specimens: Specimen[],
+    country: string,
+) {
+    if (DHIS2_COUNTRIES.includes(country)) {
         if (session.state === 'CERTIFIED') counts.certifiedSessions += 1;
         if (session.state === 'SUBMITTED') counts.submittedSessions += 1;
     }
-    counts.activeDevices = activeDevices.size;
-
-    for (const specimen of snapshot.specimens) {
-        const session = sessions.get(specimen.sessionId);
-        if (!session) continue;
-        const checks = checkRecordFields(specimen, session, program.country);
+    for (const specimen of specimens) {
+        const checks = checkRecordFields(specimen, session, country);
         counts.uniqueSpecimens += 1;
         counts.images += specimen.images.length;
         counts.records += 1;
@@ -176,6 +186,31 @@ function countProgram(
             if (checks[field]) counts.fieldPasses[field] += 1;
         }
     }
+}
+
+function countProgram(
+    { program, snapshot }: ProgramData,
+    period: Period,
+): PeriodCounts {
+    const timeZone = programTimeZone(snapshot.collectionCycles);
+    const counts = emptyCounts();
+    const activeDevices = new Set<number>();
+    const specimens = specimensBySession(snapshot.specimens);
+
+    for (const session of sessionsInPeriod(
+        snapshot.sessions,
+        period,
+        timeZone,
+    )) {
+        activeDevices.add(session.deviceId);
+        addSessionCounts(
+            counts,
+            session,
+            specimens.get(session.sessionId) ?? [],
+            program.country,
+        );
+    }
+    counts.activeDevices = activeDevices.size;
 
     // The backend buckets logins by UTC day, so these use UTC months.
     for (const user of snapshot.userLogins) {

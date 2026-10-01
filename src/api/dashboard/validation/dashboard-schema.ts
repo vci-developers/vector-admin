@@ -59,6 +59,15 @@ export const deviceRowSchema = z.object({
     lastSubmittedAt: z.number().nullable(),
 });
 
+export const locationNodeSchema = z.object({
+    key: z.string(),
+    parentKey: z.string().nullable(),
+    programId: z.number(),
+    level: z.string().nullable(),
+    name: z.string().nullable(),
+    metrics: periodMetricsSchema,
+});
+
 export const dashboardSchema = z.object({
     programs: z.array(programSchema),
     selectedProgramIds: z.array(z.number()),
@@ -79,6 +88,8 @@ export const dashboardSchema = z.object({
     }),
     /** Device Status over the period. */
     devices: z.array(deviceRowSchema),
+    /** Each Program's metrics per location; parentKey null at the top. */
+    locations: z.array(locationNodeSchema),
     specimenPoints: z.object({
         placed: z.array(
             z.object({
@@ -126,4 +137,5 @@ export const dashboardSchema = z.object({
 export const getDashboardResponseSchema = resultSchema(dashboardSchema);
 
 export type Dashboard = z.infer<typeof dashboardSchema>;
+export type LocationNodeDto = z.infer<typeof locationNodeSchema>;
 export type PeriodMetricsDto = z.infer<typeof periodMetricsSchema>;

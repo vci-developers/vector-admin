@@ -1,6 +1,14 @@
-import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
+import type {
+    LocationNodeDto,
+    PeriodMetricsDto,
+} from '@/api/dashboard/validation/dashboard-schema';
 import { describe, expect, it } from 'vitest';
-import { summaryToTsv, type SummaryRow } from './summary-rows';
+import {
+    buildLocationRows,
+    programLocationKey,
+    summaryToTsv,
+    type SummaryRow,
+} from './summary-rows';
 
 const metrics: PeriodMetricsDto = {
     activeDevices: 4,
@@ -69,5 +77,68 @@ describe('summaryToTsv', () => {
         const [, , failed, total] = tsv.split('\n');
         expect(failed).toBe(`Ghana${'\t'.repeat(12)}`);
         expect(total).toBe(`Total${'\tIncomplete'.repeat(12)}`);
+    });
+});
+
+describe('buildLocationRows', () => {
+    const place = (
+        key: string,
+        parentKey: string | null,
+        images: number,
+    ): LocationNodeDto => ({
+        key,
+        parentKey,
+        programId: 1,
+        level: `Level of ${key}`,
+        name: key,
+        metrics: { ...metrics, images },
+    });
+    const top = programLocationKey(1);
+    const names = (rows: ReturnType<typeof buildLocationRows>, key: string) =>
+        rows.get(key)?.map(row => row.places.map(p => p.name).join(' › '));
+
+    it('merges a chain of single children that share every number', () => {
+        const rows = buildLocationRows([
+            place('district', null, 10),
+            place('subCounty', 'district', 10),
+            place('parish', 'subCounty', 10),
+            place('house1', 'parish', 6),
+            place('house2', 'parish', 4),
+        ]);
+
+        expect(names(rows, top)).toEqual(['district › subCounty › parish']);
+        expect(rows.get(top)?.[0]).toMatchObject({
+            key: 'parish',
+            hasChildren: true,
+        });
+        expect(names(rows, 'parish')).toEqual(['house1', 'house2']);
+    });
+
+    it('keeps a place with data of its own apart from its only child', () => {
+        const rows = buildLocationRows([
+            place('region', null, 10),
+            place('sentinelSite', 'region', 7),
+        ]);
+
+        expect(names(rows, top)).toEqual(['region']);
+        expect(names(rows, 'region')).toEqual(['sentinelSite']);
+    });
+
+    it('merges down to a leaf, which then has no children', () => {
+        const rows = buildLocationRows([
+            place('village', null, 3),
+            place('house', 'village', 3),
+        ]);
+
+        expect(rows.get(top)).toEqual([
+            expect.objectContaining({
+                key: 'house',
+                places: [
+                    { name: 'village', level: 'Level of village' },
+                    { name: 'house', level: 'Level of house' },
+                ],
+                hasChildren: false,
+            }),
+        ]);
     });
 });
