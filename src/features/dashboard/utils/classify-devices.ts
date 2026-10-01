@@ -8,7 +8,6 @@ export type DeviceStatus = 'ACTIVE' | 'INACTIVE' | 'NEVER_USED';
 
 export type DeviceRow = {
     deviceId: number;
-    ssaid: string | null;
     model: string;
     programId: number;
     status: DeviceStatus;
@@ -66,7 +65,6 @@ export function classifyDevices(
 
         return {
             deviceId: device.deviceId,
-            ssaid: device.ssaid,
             model: device.model,
             programId: device.programId,
             status,

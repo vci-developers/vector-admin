@@ -10,7 +10,6 @@ const device = (
     overrides: Partial<DeviceRow> = {},
 ): DeviceRow => ({
     deviceId,
-    ssaid: null,
     model: 'm',
     programId: 7,
     status: 'ACTIVE',

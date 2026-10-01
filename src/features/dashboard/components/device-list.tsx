@@ -42,7 +42,6 @@ export default function DeviceList({
             <TableHeader className="bg-card sticky top-0 z-10 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                 <TableRow>
                     <TableHead>{t('deviceId')}</TableHead>
-                    <TableHead>{t('ssaid')}</TableHead>
                     <TableHead>{t('model')}</TableHead>
                     <TableHead>{t('program')}</TableHead>
                     <TableHead>{t('status')}</TableHead>
@@ -55,13 +54,6 @@ export default function DeviceList({
                     <TableRow key={device.deviceId}>
                         <TableCell className="tabular-nums">
                             {device.deviceId}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                            {device.ssaid ?? (
-                                <span className="text-muted-foreground">
-                                    {t('unknown')}
-                                </span>
-                            )}
                         </TableCell>
                         <TableCell>{device.model}</TableCell>
                         <TableCell>

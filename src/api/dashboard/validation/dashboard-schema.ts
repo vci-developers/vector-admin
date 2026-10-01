@@ -48,7 +48,6 @@ export const periodMetricsSchema = z.object({
 
 export const deviceRowSchema = z.object({
     deviceId: z.number(),
-    ssaid: z.string().nullable(),
     model: z.string(),
     programId: z.number(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'NEVER_USED']),

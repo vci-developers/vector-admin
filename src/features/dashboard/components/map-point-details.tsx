@@ -92,10 +92,6 @@ export function DeviceDetails({
             </p>
             <p className="text-muted-foreground text-xs">
                 {device.model}
-                {' · '}
-                <span className="font-mono">
-                    {device.ssaid ?? tDevices('unknown')}
-                </span>
             </p>
             <p className="text-muted-foreground text-xs">
                 {programLine}

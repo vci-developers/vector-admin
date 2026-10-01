@@ -129,12 +129,10 @@
         "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {bySite} placed by Site · {unplaced} without a location",
         "legend": "Map colours",
         "deviceId": "Device ID",
-        "ssaid": "Android ID",
         "model": "Model",
         "program": "Program",
         "status": "Status",
         "lastSubmitted": "Last submitted",
-        "unknown": "Unknown",
         "never": "Never",
         "statuses": {
             "ACTIVE": "Active",
