@@ -147,13 +147,16 @@ summary; a cluster's popup zooms in (or fans out points sharing one spot) on
 request. The popup and the panel name the clicked place in the Site hierarchy
 ("Ashanti › Ejura Sekyeredumase › Ejura"): a point's whole path, or for a
 cluster or the whole map only the places all of it shares, with how many Sites
-it spans, so the path sharpens as zooming splits clusters. A device uses its
-latest Session's Site. The panel beside the map charts specimens per week
-(periods of up to three months) or per month, stacked by species, sex or abdomen
-status, for the clicked point, cluster or device, or for everything on the map
-when nothing is clicked; each value keeps its colour whatever is clicked, and
-the Sessions or devices behind the chart are listed under it. _Avoid_: layer
-filter
+it spans, so the path sharpens as zooming splits clusters. A search box on the
+map finds places at any level of the Site hierarchy by name, and Sessions,
+devices and Sites by number; picking one zooms to it and selects it as a click
+would. It searches only what the map shows, so the map filters still apply. A
+device uses its latest Session's Site. The panel beside the map charts specimens
+per week (periods of up to three months) or per month, stacked by species, sex
+or abdomen status, for the clicked point, cluster or device, or for everything
+on the map when nothing is clicked; each value keeps its colour whatever is
+clicked, and the Sessions or devices behind the chart are listed under it.
+_Avoid_: layer filter
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Its **Required Metadata Fields** are species identification (the Specimen's),

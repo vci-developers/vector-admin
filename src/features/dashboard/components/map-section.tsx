@@ -25,7 +25,8 @@ import SelectionPanel from './selection-panel';
 import MapFilters from './map-filters';
 import MapGaps from './map-gaps';
 import MapLegend from './map-legend';
-import type { MapSelection } from './surveillance-map';
+import MapSearch from './map-search';
+import type { MapFocus, MapSelection } from './surveillance-map';
 
 // Leaflet touches window on import.
 const SurveillanceMap = dynamic(() => import('./surveillance-map'), {
@@ -45,6 +46,7 @@ export default function MapSection({
     const [{ layers, exclude }] = useDashboardFilters();
     const { filters: mapFilters, specimenFilter } = useMapFilters();
     const [selection, setSelection] = useState<MapSelection>(null);
+    const [focus, setFocus] = useState<MapFocus>(null);
     const showSpecimens = layers.includes('specimens');
     const showDevices = layers.includes('devices');
 
@@ -218,7 +220,23 @@ export default function MapSection({
                         dataKey={`${period.from}:${period.to}:${dashboard.selectedProgramIds.join(',')}`}
                         selection={selection}
                         onSelect={setSelection}
+                        focus={focus}
                     />
+                    {/* Beside Leaflet's zoom buttons. */}
+                    <div className="absolute top-2.5 left-14 z-[1000]">
+                        <MapSearch
+                            sessions={showSpecimens ? view.sessions.placed : []}
+                            devices={showDevices ? view.devices.placed : []}
+                            onPick={({ layer, ids }) => {
+                                setSelection({ layer, ids });
+                                setFocus(current => ({
+                                    layer,
+                                    ids,
+                                    seq: (current?.seq ?? 0) + 1,
+                                }));
+                            }}
+                        />
+                    </div>
                     {nothingPlaced && (
                         <p className="bg-card/95 absolute top-1/2 left-1/2 z-[1000] max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-md border px-4 py-3 text-center text-sm shadow-sm">
                             {t('emptyMap', { period: period.label })}

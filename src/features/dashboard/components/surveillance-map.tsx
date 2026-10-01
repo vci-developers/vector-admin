@@ -26,6 +26,8 @@ import { DeviceDetails, SessionDetails } from './map-point-details';
 import SpecimenSummary, { type SummarySession } from './specimen-summary';
 
 export type MapSelection = { layer: MapLayer; ids: number[] } | null;
+/** Points to zoom to; a new `seq` zooms again, even to the same points. */
+export type MapFocus = { layer: MapLayer; ids: number[]; seq: number } | null;
 
 type SurveillanceMapProps = {
     layers: MapLayer[];
@@ -40,6 +42,7 @@ type SurveillanceMapProps = {
     dataKey: string;
     selection: MapSelection;
     onSelect: (selection: MapSelection) => void;
+    focus: MapFocus;
 };
 
 const SHADOW = 'box-shadow:0 1px 3px rgba(0,0,0,.35)';
@@ -323,6 +326,35 @@ function MapPopup({
     );
 }
 
+function FlyToFocus({
+    focus,
+    positions,
+}: {
+    focus: MapFocus;
+    positions: Record<MapLayer, Map<number, L.LatLngTuple>>;
+}) {
+    const map = useMap();
+    const seq = focus?.seq;
+    useEffect(() => {
+        if (!focus) return;
+        const points = focus.ids.flatMap(id => {
+            const point = positions[focus.layer].get(id);
+            return point ? [point] : [];
+        });
+        if (points.length > 0)
+            map.flyToBounds(points, {
+                padding: [48, 48],
+                maxZoom: 14,
+                // Leaflet's default scales with distance: seconds for a jump
+                // across continents, with markers hidden the whole time.
+                duration: 1,
+            });
+        // Only a new search pick zooms; data changes leave the view alone.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [seq, map]);
+    return null;
+}
+
 type ClusterClick = L.LeafletMouseEvent & { layer: L.MarkerCluster };
 
 export default function SurveillanceMap({
@@ -335,6 +367,7 @@ export default function SurveillanceMap({
     dataKey,
     selection,
     onSelect,
+    focus,
 }: SurveillanceMapProps) {
     // Every click opens a popup; the panel beside the map lists the same ids.
     const [openPopup, setOpenPopup] = useState<OpenPopup | null>(null);
@@ -471,6 +504,13 @@ export default function SurveillanceMap({
             <FitToPoints
                 points={fitPoints}
                 fitKey={`${layers.join(',')}:${fitKey}`}
+            />
+            <FlyToFocus
+                focus={focus}
+                positions={{
+                    specimens: sessionPositions,
+                    devices: devicePositions,
+                }}
             />
             {showSpecimens && (
                 <MarkerClusterGroup
