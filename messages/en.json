@@ -247,6 +247,8 @@
         "emptyMap": "Nothing with an in-country location in {period}. Try a longer period or check the unplaced counts above.",
         "selectedNone": "Selection",
         "placedBySite": "Placed at Site location (no GPS): {site}",
+        "locationUnknown": "Location unknown",
+        "locationSites": "{count, plural, one {# Site} other {# Sites}}",
         "locatingSites": "{count, plural, one {Locating # Site…} other {Locating # Sites…}}",
         "legendBySite": "Dashed outline: Site location (no GPS)",
         "gapsTitle": "Not on the map",

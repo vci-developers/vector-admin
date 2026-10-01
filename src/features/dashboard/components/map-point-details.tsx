@@ -9,6 +9,7 @@ import type {
 } from '@/features/dashboard/utils/place-by-site';
 import { programTitle } from '@/features/dashboard/utils/program-title';
 import { useFormatter, useTranslations } from 'next-intl';
+import LocationPath from './location-path';
 
 function PlacementNote({ placement }: { placement: Placement }) {
     const t = useTranslations('MapSection');
@@ -59,6 +60,7 @@ export function SessionDetails({
                 {' · '}
                 {formatDate(session.collectedAt)}
             </p>
+            <LocationPath items={[session]} />
             <PlacementNote placement={session.placement} />
         </div>
     );
@@ -90,9 +92,7 @@ export function DeviceDetails({
                     {tDevices(`statuses.${device.status}`)}
                 </Badge>
             </p>
-            <p className="text-muted-foreground text-xs">
-                {device.model}
-            </p>
+            <p className="text-muted-foreground text-xs">{device.model}</p>
             <p className="text-muted-foreground text-xs">
                 {programLine}
                 {' · '}
@@ -102,6 +102,7 @@ export function DeviceDetails({
                           date: formatDate(device.lastSubmittedAt),
                       })}
             </p>
+            <LocationPath items={[device]} />
             <PlacementNote placement={device.placement} />
         </div>
     );

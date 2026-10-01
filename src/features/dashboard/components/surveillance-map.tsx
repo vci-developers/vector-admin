@@ -21,6 +21,7 @@ import {
     ZERO_CATCH_COLOR,
     type MapLayer,
 } from './map-constants';
+import LocationPath from './location-path';
 import { DeviceDetails, SessionDetails } from './map-point-details';
 import SpecimenSummary, { type SummarySession } from './specimen-summary';
 
@@ -187,9 +188,19 @@ function ClusterContent({
     const t = useTranslations('MapSection');
     const ids = new Set(open.ids);
     const clusterDevices = devices.filter(d => ids.has(d.deviceId));
+    const clusterSessions = specimenPoints.filter(p => ids.has(p.sessionId));
     const active = clusterDevices.filter(d => d.status === 'ACTIVE').length;
     return (
         <>
+            <div className="mb-1">
+                <LocationPath
+                    items={
+                        open.layer === 'specimens'
+                            ? clusterSessions
+                            : clusterDevices
+                    }
+                />
+            </div>
             {/* Specimen clusters: the summary's first line already counts Sessions. */}
             {open.layer === 'devices' && (
                 <>
@@ -205,9 +216,7 @@ function ClusterContent({
                 </>
             )}
             {open.layer === 'specimens' ? (
-                <SpecimenSummary
-                    sessions={specimenPoints.filter(p => ids.has(p.sessionId))}
-                />
+                <SpecimenSummary sessions={clusterSessions} />
             ) : (
                 <PopupSummary
                     sessions={clusterDevices.flatMap(

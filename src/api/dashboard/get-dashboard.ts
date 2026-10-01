@@ -10,7 +10,10 @@ import {
     buildPeriodMetrics,
     type ProgramData,
 } from '@/features/dashboard/utils/build-period-metrics';
-import { buildLocationTree } from '@/features/dashboard/utils/build-location-tree';
+import {
+    buildLocationTree,
+    siteLocationPath,
+} from '@/features/dashboard/utils/build-location-tree';
 import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
@@ -62,6 +65,11 @@ export async function getDashboard(
         specimenPoints.placed.push(...points.placed);
         specimenPoints.unplaced.push(...points.unplaced);
     }
+    const sitePaths = Object.fromEntries(
+        loaded.flatMap(({ snapshot }) =>
+            snapshot.sites.map(site => [site.siteId, siteLocationPath(site)]),
+        ),
+    );
     const fetchTimes = loaded.map(({ snapshot }) => snapshot.fetchedAt);
 
     return ok({
@@ -71,6 +79,7 @@ export async function getDashboard(
         metrics,
         devices,
         locations,
+        sitePaths,
         specimenPoints,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,
     });

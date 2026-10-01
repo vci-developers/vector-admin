@@ -1,5 +1,6 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import type { SiteLocations } from '@/api/site-locations/validation/site-locations-schema';
+import type { LocationLevel } from './build-location-tree';
 
 type DeviceRow = Dashboard['devices'][number];
 type Point = { latitude: number; longitude: number };
@@ -12,14 +13,19 @@ export type Placement =
 /** Why something is not on the map. */
 export type UnplacedReason = 'locating' | 'noLocation';
 
-export type PlacedDevice = DeviceRow & {
-    position: Point;
-    placement: Placement;
-};
+/** Its Site's place names, broadest first; empty when unknown. */
+type Located = { location: LocationLevel[] };
+
+export type PlacedDevice = DeviceRow &
+    Located & {
+        position: Point;
+        placement: Placement;
+    };
 export type UnplacedDevice = DeviceRow & { reason: UnplacedReason };
-export type PlacedSession = Dashboard['specimenPoints']['placed'][number] & {
-    placement: Placement;
-};
+export type PlacedSession = Dashboard['specimenPoints']['placed'][number] &
+    Located & {
+        placement: Placement;
+    };
 export type UnplacedSession =
     Dashboard['specimenPoints']['unplaced'][number] & {
         reason: UnplacedReason;
@@ -52,6 +58,8 @@ function siteFallback(siteId: number | null, sites: SiteState): SiteFallback {
 
 // GPS always wins; the Site is only a fallback for what GPS cannot place.
 export function placeBySite(dashboard: Dashboard, sites: SiteState) {
+    const locationOf = (siteId: number | null): LocationLevel[] =>
+        (siteId !== null && dashboard.sitePaths[siteId]) || [];
     const devices = {
         placed: [] as PlacedDevice[],
         unplaced: [] as UnplacedDevice[],
@@ -63,20 +71,27 @@ export function placeBySite(dashboard: Dashboard, sites: SiteState) {
                 ...device,
                 position: device.position,
                 placement: { by: 'gps' },
+                location: locationOf(device.siteId),
             });
             continue;
         }
         const fallback = siteFallback(device.siteId, sites);
         if ('reason' in fallback)
             devices.unplaced.push({ ...device, reason: fallback.reason });
-        else devices.placed.push({ ...device, ...fallback });
+        else
+            devices.placed.push({
+                ...device,
+                ...fallback,
+                location: locationOf(device.siteId),
+            });
     }
 
     const sessions = {
-        placed: dashboard.specimenPoints.placed.map(point => ({
+        placed: dashboard.specimenPoints.placed.map((point): PlacedSession => ({
             ...point,
-            placement: { by: 'gps' } as Placement,
-        })) as PlacedSession[],
+            placement: { by: 'gps' },
+            location: locationOf(point.siteId),
+        })),
         unplaced: [] as UnplacedSession[],
     };
     for (const session of dashboard.specimenPoints.unplaced) {
@@ -89,6 +104,7 @@ export function placeBySite(dashboard: Dashboard, sites: SiteState) {
                 latitude: fallback.position.latitude,
                 longitude: fallback.position.longitude,
                 placement: fallback.placement,
+                location: locationOf(session.siteId),
             });
         }
     }

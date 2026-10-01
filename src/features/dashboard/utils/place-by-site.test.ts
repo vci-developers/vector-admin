@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { placeBySite, sitesToLocate } from './place-by-site';
 
 const KAMPALA = { latitude: 0.35, longitude: 32.58 };
+const KAMPALA_PATH = [
+    { level: 'District', name: 'Kampala' },
+    { level: 'Village', name: 'Kololo' },
+];
 
 type DeviceRow = Dashboard['devices'][number];
 const device = (
@@ -35,6 +39,7 @@ function dashboard(
     return {
         devices,
         specimenPoints: { placed: [], unplaced: unplacedSessions },
+        sitePaths: { 10: KAMPALA_PATH },
     } as unknown as Dashboard;
 }
 
@@ -87,6 +92,19 @@ describe('placeBySite', () => {
         expect(sessions.unplaced.map(s => [s.sessionId, s.reason])).toEqual([
             [2, 'noLocation'],
         ]);
+    });
+
+    it("gives each placed point its Site's place names", () => {
+        const { devices, sessions } = placeBySite(
+            dashboard(
+                [device(1, { siteId: 10 }), device(2, { position: KAMPALA })],
+                [session(1, 10)],
+            ),
+            sites,
+        );
+
+        expect(devices.placed.map(d => d.location)).toEqual([KAMPALA_PATH, []]);
+        expect(sessions.placed[0].location).toEqual(KAMPALA_PATH);
     });
 
     it('ignores never-used devices', () => {

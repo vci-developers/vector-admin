@@ -16,6 +16,7 @@ export type SpecimenPoint = {
     sessionId: number;
     programId: number;
     deviceId: number;
+    siteId: number;
     latitude: number;
     longitude: number;
     specimenCount: number;
@@ -25,9 +26,7 @@ export type SpecimenPoint = {
 };
 
 /** A Session without an in-country fix; the map may place it at its Site. */
-export type UnplacedSession = Omit<SpecimenPoint, 'latitude' | 'longitude'> & {
-    siteId: number;
-};
+export type UnplacedSession = Omit<SpecimenPoint, 'latitude' | 'longitude'>;
 
 export type SpecimenPoints = {
     placed: SpecimenPoint[];
@@ -81,6 +80,7 @@ export function buildSpecimenPoints(
             sessionId: session.sessionId,
             programId: snapshot.programId,
             deviceId: session.deviceId,
+            siteId: session.siteId,
             latitude: session.latitude,
             longitude: session.longitude,
             specimenCount,

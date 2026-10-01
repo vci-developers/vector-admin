@@ -59,6 +59,11 @@ export const deviceRowSchema = z.object({
     lastSubmittedAt: z.number().nullable(),
 });
 
+export const locationLevelSchema = z.object({
+    level: z.string(),
+    name: z.string(),
+});
+
 export const locationNodeSchema = z.object({
     key: z.string(),
     parentKey: z.string().nullable(),
@@ -90,12 +95,15 @@ export const dashboardSchema = z.object({
     devices: z.array(deviceRowSchema),
     /** Each Program's metrics per location; parentKey null at the top. */
     locations: z.array(locationNodeSchema),
+    /** Each Site's place names, broadest first, keyed by siteId. */
+    sitePaths: z.record(z.string(), z.array(locationLevelSchema)),
     specimenPoints: z.object({
         placed: z.array(
             z.object({
                 sessionId: z.number(),
                 programId: z.number(),
                 deviceId: z.number(),
+                siteId: z.number(),
                 latitude: z.number(),
                 longitude: z.number(),
                 specimenCount: z.number(),

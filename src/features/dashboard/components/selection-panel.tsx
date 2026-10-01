@@ -18,6 +18,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import SelectionChart, { CHART_VIEWS, type ChartView } from './selection-chart';
 import SelectionList from './selection-list';
+import LocationPath from './location-path';
 import { HiddenNote, type SummarySession } from './specimen-summary';
 import type { MapSelection } from './surveillance-map';
 
@@ -59,12 +60,14 @@ export default function SelectionPanel({
     const [view, setView] = useState<ChartView>('pie');
 
     const selected = useMemo(() => {
-        if (!selection) return { sessions, programIds: [] as number[] };
+        if (!selection)
+            return { sessions, located: sessions, programIds: [] as number[] };
         const ids = new Set(selection.ids);
         if (selection.layer === 'specimens') {
             const picked = sessions.filter(s => ids.has(s.sessionId));
             return {
                 sessions: picked,
+                located: picked,
                 programIds: [...new Set(picked.map(s => s.programId))],
             };
         }
@@ -74,6 +77,7 @@ export default function SelectionPanel({
             sessions: picked.flatMap(
                 d => sessionsByDevice.get(d.deviceId) ?? [],
             ),
+            located: picked,
             programIds: [...new Set(picked.map(d => d.programId))],
         };
     }, [selection, sessions, devices, sessionsByDevice]);
@@ -111,6 +115,7 @@ export default function SelectionPanel({
                             {programLine}
                         </p>
                     )}
+                    <LocationPath items={selected.located} />
                 </div>
                 {selection && (
                     <Button
