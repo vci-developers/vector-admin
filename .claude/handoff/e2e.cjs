@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Usage: node .claude/handoff/e2e.cjs <dir with state.json>; needs `yarn dev` on :3000.
 const { chromium } = require('/Users/colemanel/Documents/CBID/vector-verify/node_modules/playwright');
 const S = process.argv[2];
