@@ -58,37 +58,38 @@
         "noValue": "No value"
     },
     "Metrics": {
+        "howDerived": "How {metric} is worked out",
         "activeDevices": {
             "title": "Active Devices",
-            "description": "Devices with at least one Session in the period, each counted once."
+            "description": "Devices with at least one Session collected in the period, each counted once however many months it was active. Only Surveillance and Data collection Sessions count; Practice and Calibration are ignored."
         },
-        "scans": {
-            "title": "Scans",
-            "description": "Specimen images, by when their Session was collected."
+        "images": {
+            "title": "Images",
+            "description": "Every photo of a Specimen from Surveillance and Data collection Sessions, counted in the month the Session was collected (Program's timezone). A Specimen photographed three times counts three times."
         },
         "uniqueSpecimens": {
             "title": "Unique Specimens",
-            "description": "Specimens, however many Scans each has."
+            "description": "Specimens from Surveillance and Data collection Sessions collected in the period, each counted once however many Images it has."
         },
-        "scansPerActiveDevice": {
-            "title": "Scans per Active Device",
-            "description": "Scans ÷ Active Devices. Blank when no devices were active."
+        "imagesPerActiveDevice": {
+            "title": "Images per Active Device",
+            "description": "Images ÷ Active Devices, for the same Programs and period. Blank when no devices were active."
         },
         "metadataCompleteness": {
             "title": "Metadata Completeness",
-            "description": "Share of Records with species, capture date, in-country geolocation and operator ID all present."
+            "description": "Share of Specimens whose record has all four: a species, a capture date, Session GPS inside the Program's country, and an operator name. Open a Program's row to see each field."
         },
         "dhis2UploadRate": {
             "title": "DHIS2 Upload Rate",
-            "description": "Submitted ÷ (Certified + Submitted) Sessions. Blank when a Program has none."
+            "description": "Submitted ÷ (Certified + Submitted) Sessions collected in the period. A failed or never-attempted upload stays Certified. Uganda only; blank for other Programs, which don't use DHIS2."
         },
         "uniqueUsers": {
             "title": "Unique Users",
-            "description": "VectorVerify users who logged in during the period (UTC months), each counted once. Blank before login tracking began."
+            "description": "VectorVerify users (reviewers, not field collectors) who logged in during the period, each counted once. Uses UTC months. Blank before login tracking began."
         },
         "logins": {
             "title": "Logins",
-            "description": "VectorVerify logins during the period (UTC months), all users. Blank before login tracking began."
+            "description": "Every VectorVerify login during the period, all users. Uses UTC months. Blank before login tracking began."
         }
     },
     "MonthPicker": {

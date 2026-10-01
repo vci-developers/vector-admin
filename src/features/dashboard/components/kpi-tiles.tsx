@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { METRICS } from '@/features/dashboard/utils/metric-definitions';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
+import MetricInfo from './metric-info';
 import MetricValue from './metric-value';
 
 type KpiTilesProps = {
@@ -43,11 +44,9 @@ export default function KpiTiles({
 
                 return (
                     <Card key={metric.key} className="gap-1 px-4 py-3">
-                        <p
-                            className="text-muted-foreground text-xs font-medium"
-                            title={t(`${metric.key}.description`)}
-                        >
+                        <p className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
                             {t(`${metric.key}.title`)}
+                            <MetricInfo metric={metric.key} />
                         </p>
                         <p className="text-2xl font-semibold tabular-nums">
                             {incomplete ? (

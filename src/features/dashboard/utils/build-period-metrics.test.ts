@@ -94,7 +94,7 @@ describe('buildPeriodMetrics', () => {
         ]);
     });
 
-    it('counts every image as a Scan and each Specimen once', () => {
+    it('counts every Image and each Specimen once', () => {
         const metrics = buildPeriodMetrics(
             [
                 program(1, {
@@ -106,9 +106,9 @@ describe('buildPeriodMetrics', () => {
         );
 
         expect(metrics.programs[0].metrics).toMatchObject({
-            scans: 4,
+            images: 4,
             uniqueSpecimens: 2,
-            scansPerActiveDevice: 4,
+            imagesPerActiveDevice: 4,
         });
     });
 
@@ -132,7 +132,7 @@ describe('buildPeriodMetrics', () => {
     it('leaves ratios blank when their denominator is 0', () => {
         const metrics = buildPeriodMetrics([program(1, {})], january);
         expect(metrics.programs[0].metrics).toMatchObject({
-            scansPerActiveDevice: null,
+            imagesPerActiveDevice: null,
             metadataCompleteness: null,
             dhis2UploadRate: null,
         });
@@ -154,6 +154,28 @@ describe('buildPeriodMetrics', () => {
         );
 
         expect(metrics.programs[0].metrics.dhis2UploadRate).toBeCloseTo(2 / 3);
+    });
+
+    it('leaves DHIS2 upload blank outside Uganda and out of the total', () => {
+        const metrics = buildPeriodMetrics(
+            [
+                program(1, {
+                    sessions: [
+                        session(1, { state: 'SUBMITTED' }),
+                        session(2, { state: 'CERTIFIED' }),
+                    ],
+                }),
+                program(
+                    2,
+                    { sessions: [session(3, { state: 'CERTIFIED' })] },
+                    'Kenya',
+                ),
+            ],
+            january,
+        );
+
+        expect(metrics.programs[1].metrics.dhis2UploadRate).toBeNull();
+        expect(metrics.total.dhis2UploadRate).toBeCloseTo(1 / 2);
     });
 
     it('scores metadata completeness per Record and per field', () => {
@@ -234,8 +256,8 @@ describe('buildPeriodMetrics', () => {
 
         expect(metrics.total).toMatchObject({
             activeDevices: 3,
-            scans: 6,
-            scansPerActiveDevice: 2,
+            images: 6,
+            imagesPerActiveDevice: 2,
         });
     });
 

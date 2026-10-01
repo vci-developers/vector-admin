@@ -4,9 +4,9 @@ export type MetricFormat = 'count' | 'decimal' | 'percent';
 
 export type MetricKey =
     | 'activeDevices'
-    | 'scans'
+    | 'images'
     | 'uniqueSpecimens'
-    | 'scansPerActiveDevice'
+    | 'imagesPerActiveDevice'
     | 'metadataCompleteness'
     | 'dhis2UploadRate'
     | 'uniqueUsers'
@@ -22,12 +22,12 @@ export type MetricDefinition = {
 
 export const METRICS: MetricDefinition[] = [
     { key: 'activeDevices', format: 'count', value: m => m.activeDevices },
-    { key: 'scans', format: 'count', value: m => m.scans },
+    { key: 'images', format: 'count', value: m => m.images },
     { key: 'uniqueSpecimens', format: 'count', value: m => m.uniqueSpecimens },
     {
-        key: 'scansPerActiveDevice',
+        key: 'imagesPerActiveDevice',
         format: 'decimal',
-        value: m => m.scansPerActiveDevice,
+        value: m => m.imagesPerActiveDevice,
     },
     { key: 'uniqueUsers', format: 'count', value: m => m.uniqueUsers },
     { key: 'logins', format: 'count', value: m => m.logins },

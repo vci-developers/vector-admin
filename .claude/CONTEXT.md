@@ -62,15 +62,16 @@ once however many months it was active. Distinct from VectorVerify's **Device
 Activity** (cycle-based, as-of-today). _Avoid_: Monthly Active Device (the
 period is not always a month)
 
-**Scan**: One image of a Specimen (`SpecimenImage`). A Specimen imaged three
-times is three Scans. Counted in the Reporting Month of its Session's
-`collectionDate`, not its upload time. _Avoid_: image count, capture
+**Image**: One photo of a Specimen (`SpecimenImage`). A Specimen photographed
+three times is three Images. Counted in the Reporting Month of its Session's
+`collectionDate`, not its upload time. The team sheet still calls these Scans
+until its column is renamed. _Avoid_: Scan (reads as one per mosquito), capture
 
-**Unique Specimen**: One Specimen, however many Scans it has. Counted in the
+**Unique Specimen**: One Specimen, however many Images it has. Counted in the
 Reporting Month of its Session's `collectionDate`. _Avoid_: specimen count
-(ambiguous with Scans)
+(ambiguous with Images)
 
-**Scans per Active Device**: Scans ÷ Active Devices for the same Program and
+**Images per Active Device**: Images ÷ Active Devices for the same Program and
 Reporting Period. Undefined (not zero) when there are no Active Devices.
 
 **Device Status**: For the Reporting Period, every registered Device
@@ -146,7 +147,9 @@ per field. _Avoid_: submission, entry
 Program and Reporting Month. Estimates "attempted records successfully
 uploaded": a failed upload and a never-attempted one both stay `CERTIFIED`, so
 it reads as "share of send-ready data that reached DHIS2". Counted in Sessions
-because Submission is per Session. Blank for Programs that don't use DHIS2.
+because Submission is per Session. Only Uganda uses DHIS2, and the API has no
+per-Program setting, so Programs in other countries show it blank and stay out
+of the Total.
 
 **Unique Users**: VectorVerify web-app users (VCOs and other reviewers, not
 field collectors) of a Program who logged in at least once in the Reporting

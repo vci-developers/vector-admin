@@ -19,7 +19,7 @@ import type { ResolvedRange } from './resolve-reporting-range';
 export type PeriodCounts = {
     /** Devices with ≥1 Session in the period, each counted once. */
     activeDevices: number;
-    scans: number;
+    images: number;
     uniqueSpecimens: number;
     records: number;
     completeRecords: number;
@@ -38,7 +38,7 @@ export type PeriodCounts = {
 export type PeriodMetrics = Omit<PeriodCounts, 'uniqueUsers' | 'logins'> & {
     uniqueUsers: number | null;
     logins: number | null;
-    scansPerActiveDevice: number | null;
+    imagesPerActiveDevice: number | null;
     metadataCompleteness: number | null;
     fieldCompleteness: Record<RequiredField, number | null>;
     dhis2UploadRate: number | null;
@@ -65,13 +65,17 @@ export type ProgramData = { program: Program; snapshot: ProgramSnapshot };
 
 type Period = { from: MonthKey; to: MonthKey };
 
+// Only Uganda uploads to DHIS2; the API has no per-Program setting. Elsewhere
+// every Session would stay Certified and read as a 0% upload rate.
+const DHIS2_COUNTRIES = ['Uganda'];
+
 const inPeriod = (month: MonthKey, { from, to }: Period) =>
     month >= from && month <= to;
 
 function emptyCounts(): PeriodCounts {
     return {
         activeDevices: 0,
-        scans: 0,
+        images: 0,
         uniqueSpecimens: 0,
         records: 0,
         completeRecords: 0,
@@ -99,7 +103,7 @@ function withRatios(
         ...counts,
         uniqueUsers: loginsTracked ? counts.uniqueUsers : null,
         logins: loginsTracked ? counts.logins : null,
-        scansPerActiveDevice: ratio(counts.scans, counts.activeDevices),
+        imagesPerActiveDevice: ratio(counts.images, counts.activeDevices),
         metadataCompleteness: ratio(counts.completeRecords, counts.records),
         fieldCompleteness: {
             species: ratio(counts.fieldPasses.species, counts.records),
@@ -117,7 +121,7 @@ function withRatios(
 // Devices and users belong to one Program, so per-Program distinct counts add up.
 function addCounts(total: PeriodCounts, counts: PeriodCounts) {
     total.activeDevices += counts.activeDevices;
-    total.scans += counts.scans;
+    total.images += counts.images;
     total.uniqueSpecimens += counts.uniqueSpecimens;
     total.records += counts.records;
     total.completeRecords += counts.completeRecords;
@@ -150,8 +154,10 @@ function countProgram(
             .map(session => [session.sessionId, session]),
     );
 
+    const usesDhis2 = DHIS2_COUNTRIES.includes(program.country);
     for (const session of sessions.values()) {
         activeDevices.add(session.deviceId);
+        if (!usesDhis2) continue;
         if (session.state === 'CERTIFIED') counts.certifiedSessions += 1;
         if (session.state === 'SUBMITTED') counts.submittedSessions += 1;
     }
@@ -162,7 +168,7 @@ function countProgram(
         if (!session) continue;
         const checks = checkRecordFields(specimen, session, program.country);
         counts.uniqueSpecimens += 1;
-        counts.scans += specimen.images.length;
+        counts.images += specimen.images.length;
         counts.records += 1;
         if (REQUIRED_FIELDS.every(field => checks[field]))
             counts.completeRecords += 1;

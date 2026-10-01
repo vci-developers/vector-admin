@@ -20,6 +20,7 @@ import { ChevronRight } from 'lucide-react';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { useTranslations } from 'next-intl';
 import { Fragment, useState } from 'react';
+import MetricInfo from './metric-info';
 import MetricValue from './metric-value';
 
 type SummaryTableProps = {
@@ -107,7 +108,8 @@ export default function SummaryTable({
                             key={metric.key}
                             className="text-right whitespace-normal"
                         >
-                            {tMetrics(`${metric.key}.title`)}
+                            {tMetrics(`${metric.key}.title`)}{' '}
+                            <MetricInfo metric={metric.key} />
                         </TableHead>
                     ))}
                 </TableRow>

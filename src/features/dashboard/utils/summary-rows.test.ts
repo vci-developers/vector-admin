@@ -4,7 +4,7 @@ import { summaryToTsv, type SummaryRow } from './summary-rows';
 
 const metrics: PeriodMetricsDto = {
     activeDevices: 4,
-    scans: 1234,
+    images: 1234,
     uniqueSpecimens: 1000,
     records: 1000,
     completeRecords: 456,
@@ -18,7 +18,7 @@ const metrics: PeriodMetricsDto = {
     submittedSessions: 0,
     uniqueUsers: 3,
     logins: 12,
-    scansPerActiveDevice: 308.5,
+    imagesPerActiveDevice: 308.5,
     metadataCompleteness: 0.456,
     fieldCompleteness: {
         species: 1,

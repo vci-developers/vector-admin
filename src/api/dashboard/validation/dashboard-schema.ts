@@ -31,7 +31,7 @@ const nullableRatio = z.number().nullable();
 
 export const periodMetricsSchema = z.object({
     activeDevices: z.number(),
-    scans: z.number(),
+    images: z.number(),
     uniqueSpecimens: z.number(),
     records: z.number(),
     completeRecords: z.number(),
@@ -40,7 +40,7 @@ export const periodMetricsSchema = z.object({
     submittedSessions: z.number(),
     uniqueUsers: z.number().nullable(),
     logins: z.number().nullable(),
-    scansPerActiveDevice: nullableRatio,
+    imagesPerActiveDevice: nullableRatio,
     metadataCompleteness: nullableRatio,
     fieldCompleteness: fieldRecord(nullableRatio),
     dhis2UploadRate: nullableRatio,
