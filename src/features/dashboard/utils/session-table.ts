@@ -6,6 +6,7 @@ type SessionRow = {
     deviceId: number;
     siteId: number;
     siteName: string | null;
+    location: { level: string; name: string }[];
     collectionDate: number | null;
     submittedAt: number;
     timeToConfirmation: number | null;
@@ -44,20 +45,92 @@ export const MISSING_OPTIONS = [
 export type MissingOption = (typeof MISSING_OPTIONS)[number];
 export type StateOption = SessionState | 'UNKNOWN';
 
-/** Each list holds the values to keep; an empty list keeps everything. */
+/**
+ * Each list holds the values to keep; an empty list keeps everything. Places
+ * are keys from buildPlaceOptions; a place keeps every Site beneath it.
+ */
 export type SessionFilters = {
     states: StateOption[];
     deviceIds: number[];
-    siteIds: number[];
+    places: string[];
     missing: MissingOption[];
+    /** Words that must each appear in the Session, device, Site or place. */
+    search: string;
 };
 
 export const NO_FILTERS: SessionFilters = {
     states: [],
     deviceIds: [],
-    siteIds: [],
+    places: [],
     missing: [],
+    search: '',
 };
+
+/** One place, or a Site, in the Site filter's tree. */
+export type PlaceOption = {
+    key: string;
+    parentKey: string | null;
+    /** e.g. "District"; null for the Site itself. */
+    level: string | null;
+    name: string;
+    siteId: number | null;
+    /** Sessions at or below it. */
+    count: number;
+};
+
+/** The row's places broadest first, then its Site, each keyed by its path. */
+function placePath(row: SessionRow): Omit<PlaceOption, 'count'>[] {
+    const places: Omit<PlaceOption, 'count'>[] = [];
+    let parentKey: string | null = null;
+    for (const { level, name } of row.location) {
+        const key: string = `${parentKey ?? ''}/${encodeURIComponent(level)}=${encodeURIComponent(name)}`;
+        places.push({ key, parentKey, level, name, siteId: null });
+        parentKey = key;
+    }
+    places.push({
+        key: `${parentKey ?? ''}/#${row.siteId}`,
+        parentKey,
+        level: null,
+        name: row.siteName ?? '',
+        siteId: row.siteId,
+    });
+    return places;
+}
+
+/**
+ * The Site hierarchy of the given Sessions as a tree (District › … › Site, or
+ * Region › … › Site), each place with its Session count. Siblings run from
+ * most Sessions to fewest. Sites always end a branch, so two Sites in one
+ * village can still be told apart.
+ */
+export function buildPlaceOptions(rows: SessionRow[]): PlaceOption[] {
+    const options = new Map<string, PlaceOption>();
+    for (const row of rows) {
+        for (const place of placePath(row)) {
+            const option = options.get(place.key);
+            if (option) option.count += 1;
+            else options.set(place.key, { ...place, count: 1 });
+        }
+    }
+    return [...options.values()].sort(
+        (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+    );
+}
+
+function matchesSearch(row: SessionRow, search: string): boolean {
+    const words = search.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return true;
+    const text = [
+        row.sessionId,
+        row.deviceId,
+        `#${row.siteId}`,
+        row.siteName ?? '',
+        ...row.location.map(place => place.name),
+    ]
+        .join(' ')
+        .toLocaleLowerCase();
+    return words.every(word => text.includes(word));
+}
 
 // Workflow order, so sorting by State reads as progress through Review.
 const STATE_ORDER: StateOption[] = [
@@ -104,7 +177,11 @@ export function filterSessionRows<Row extends SessionRow>(
         row =>
             keep(filters.states, stateOf(row)) &&
             keep(filters.deviceIds, row.deviceId) &&
-            keep(filters.siteIds, row.siteId) &&
+            (filters.places.length === 0 ||
+                placePath(row).some(place =>
+                    filters.places.includes(place.key),
+                )) &&
+            matchesSearch(row, filters.search) &&
             (filters.missing.length === 0 ||
                 missingOf(row).some(m => filters.missing.includes(m))),
     );

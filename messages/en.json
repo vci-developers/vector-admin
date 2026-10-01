@@ -173,6 +173,10 @@
         "noLocation": "No geocoded location"
     },
     "Sessions": {
+        "search": "Search Sessions",
+        "searchPlaceholder": "Search Session, device, Site or place",
+        "expandPlace": "Show places in {place}",
+        "collapsePlace": "Hide places in {place}",
         "title": "{program} · {period}",
         "description": "Sessions collected in the period.",
         "summary": "{count, plural, one {# Session} other {# Sessions}}, {uncertified} not yet certified. Uncertified first, oldest first.",

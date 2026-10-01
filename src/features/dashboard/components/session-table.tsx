@@ -18,6 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
+    buildPlaceOptions,
     filterSessionRows,
     MISSING_OPTIONS,
     missingOf,
@@ -36,9 +37,11 @@ import {
     ArrowUpDown,
     Clock,
     ListFilter,
+    Search,
 } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState, type ReactNode } from 'react';
+import PlaceFilterMenu from './place-filter-menu';
 
 type SessionRow = ProgramSessions['sessions'][number];
 
@@ -257,8 +260,6 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
     const options = useMemo(() => {
         const states = countBy(rows.map(stateOf));
         const devices = countBy(rows.map(r => r.deviceId));
-        const sites = countBy(rows.map(r => r.siteId));
-        const siteNames = new Map(rows.map(r => [r.siteId, r.siteName]));
         const missing = countBy(rows.flatMap(missingOf));
         const byCount = <V,>(a: FilterOption<V>, b: FilterOption<V>) =>
             b.count - a.count;
@@ -275,13 +276,7 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                     label: t('deviceOption', { id: value }),
                 }))
                 .sort(byCount),
-            sites: [...sites]
-                .map(([value, count]) => ({
-                    value,
-                    count,
-                    label: `${siteNames.get(value) ?? t('unnamedSite')} #${value}`,
-                }))
-                .sort(byCount),
+            places: buildPlaceOptions(rows),
             missing: MISSING_OPTIONS.filter(m => missing.has(m)).map(m => ({
                 value: m,
                 count: missing.get(m) ?? 0,
@@ -310,8 +305,21 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
     return (
         <div ref={setMenuRoot} className="flex min-h-0 flex-1 flex-col gap-1">
             {/* Always rendered, so sorting or filtering never shifts the table. */}
-            <div className="text-muted-foreground flex h-7 items-center justify-between gap-2 px-2 text-xs">
-                <span aria-live="polite">
+            <div className="text-muted-foreground flex h-9 items-center justify-between gap-2 px-2 text-xs">
+                <label className="border-input focus-within:border-ring focus-within:ring-ring/50 flex h-8 w-72 items-center gap-1.5 rounded-md border px-2 focus-within:ring-[3px]">
+                    <Search className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="sr-only">{t('search')}</span>
+                    <input
+                        type="search"
+                        value={filters.search}
+                        onChange={event =>
+                            setFilter('search')(event.target.value)
+                        }
+                        placeholder={t('searchPlaceholder')}
+                        className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
+                    />
+                </label>
+                <span aria-live="polite" className="ml-auto">
                     {t('showing', {
                         shown: formatter.number(shown.length),
                         total: formatter.number(rows.length),
@@ -365,12 +373,12 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                         {head(
                             'site',
                             t('site'),
-                            <FilterMenu
+                            <PlaceFilterMenu
                                 column={t('site')}
-                                options={options.sites}
-                                selected={filters.siteIds}
+                                options={options.places}
+                                selected={filters.places}
                                 container={menuRoot}
-                                onChange={setFilter('siteIds')}
+                                onChange={setFilter('places')}
                             />,
                         )}
                         {head('collectionDate', t('collected'))}

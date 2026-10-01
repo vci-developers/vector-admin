@@ -1,3 +1,4 @@
+import { locationLevelSchema } from '@/api/dashboard/validation/dashboard-schema';
 import { sessionStateSchema } from '@/api/session/validation/session-schema';
 import { resultSchema } from '@/lib/result/result-schema';
 import { z } from 'zod';
@@ -19,6 +20,7 @@ export const programMonthSessionSchema = z.object({
     deviceId: z.number(),
     siteId: z.number(),
     siteName: z.string().nullable(),
+    location: z.array(locationLevelSchema),
     collectionDate: z.number().nullable(),
     submittedAt: z.number(),
     timeToConfirmation: z.number().nullable(),

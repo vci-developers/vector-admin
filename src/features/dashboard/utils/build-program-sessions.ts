@@ -1,6 +1,7 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { SessionState } from '@/api/session/validation/session-schema';
 import type { Site } from '@/api/site/validation/site-schema';
+import { siteLocationPath, type LocationLevel } from './build-location-tree';
 import { checkRecordFields } from './check-record-fields';
 import { isCountedSession, sessionBucketTime } from './counted-sessions';
 import { isInsideCountry } from './country-bounding-boxes';
@@ -22,6 +23,8 @@ export type ProgramSession = {
     siteId: number;
     /** Null when the Site is unknown or has no name or place fields. */
     siteName: string | null;
+    /** The Site's place names, broadest first; empty when unknown. */
+    location: LocationLevel[];
     collectionDate: number | null;
     submittedAt: number;
     /** Milliseconds from createdAt to certifiedAt; null until certified. */
@@ -66,6 +69,7 @@ export function buildProgramSessions(
     const rows = sessions.map(session => {
         const specimens = specimensBySession.get(session.sessionId) ?? [];
         const certifiedAt = session.certifiedBy?.certifiedAt ?? null;
+        const site = sitesById.get(session.siteId);
         return {
             sessionId: session.sessionId,
             state: session.state ?? null,
@@ -73,7 +77,8 @@ export function buildProgramSessions(
                 !!session.state && CERTIFIED_STATES.includes(session.state),
             deviceId: session.deviceId,
             siteId: session.siteId,
-            siteName: siteDisplayName(sitesById.get(session.siteId)),
+            siteName: siteDisplayName(site),
+            location: site ? siteLocationPath(site) : [],
             collectionDate: session.collectionDate,
             submittedAt: session.submittedAt,
             timeToConfirmation:

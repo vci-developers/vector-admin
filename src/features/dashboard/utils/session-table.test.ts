@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildPlaceOptions,
     filterSessionRows,
     NO_FILTERS,
     nextSort,
@@ -14,6 +15,10 @@ const row = (sessionId: number, overrides: Partial<Row> = {}): Row => ({
     deviceId: 1,
     siteId: 1,
     siteName: 'Bukatube',
+    location: [
+        { level: 'District', name: 'Buyende' },
+        { level: 'Village', name: 'Bukatube' },
+    ],
     collectionDate: 1000,
     submittedAt: 2000,
     timeToConfirmation: null,
@@ -122,7 +127,7 @@ describe('filterSessionRows', () => {
                 filterSessionRows(rows, {
                     ...NO_FILTERS,
                     states: ['IN_REVIEW'],
-                    siteIds: [1],
+                    places: ['/District=Buyende/Village=Bukatube/#1'],
                 }),
             ),
         ).toEqual([3]);
@@ -140,6 +145,86 @@ describe('filterSessionRows', () => {
         expect(
             ids(filterSessionRows(rows, { ...NO_FILTERS, missing: ['none'] })),
         ).toEqual([1, 2]);
+    });
+});
+
+describe('Site hierarchy filter', () => {
+    const gulu = [{ level: 'District', name: 'Gulu' }];
+    const rows = [
+        row(1),
+        row(2, { siteId: 2, siteName: 'Bukatube East' }),
+        row(3, { siteId: 3, siteName: 'Gulu HC', location: gulu }),
+        row(4, { siteId: 4, siteName: null, location: [] }),
+    ];
+    const options = buildPlaceOptions(rows);
+    const keyOf = (name: string) =>
+        options.find(option => option.name === name)!.key;
+
+    it('nests places broadest first with their Session counts', () => {
+        type Tree = [string, string | null, number, Tree[]];
+        const tree = (parentKey: string | null): Tree[] =>
+            options
+                .filter(option => option.parentKey === parentKey)
+                .map(({ key, name, level, count }) => [
+                    name,
+                    level,
+                    count,
+                    tree(key),
+                ]);
+        expect(tree(null)).toEqual([
+            [
+                'Buyende',
+                'District',
+                2,
+                [
+                    [
+                        'Bukatube',
+                        'Village',
+                        2,
+                        [
+                            ['Bukatube', null, 1, []],
+                            ['Bukatube East', null, 1, []],
+                        ],
+                    ],
+                ],
+            ],
+            // A Site with no place names sits at the top.
+            ['', null, 1, []],
+            ['Gulu', 'District', 1, [['Gulu HC', null, 1, []]]],
+        ]);
+    });
+
+    it('keeps every Session at or below a chosen place', () => {
+        const keep = (...places: string[]) =>
+            ids(filterSessionRows(rows, { ...NO_FILTERS, places }));
+        expect(keep(keyOf('Buyende'))).toEqual([1, 2]);
+        expect(keep(keyOf('Bukatube East'))).toEqual([2]);
+        expect(keep(keyOf('Gulu'), keyOf('Bukatube East'))).toEqual([2, 3]);
+    });
+});
+
+describe('Session search', () => {
+    const rows = [
+        row(101, { deviceId: 7 }),
+        row(202, {
+            siteId: 3,
+            siteName: 'Gulu HC',
+            location: [{ level: 'District', name: 'Gulu' }],
+        }),
+    ];
+    const search = (text: string) =>
+        ids(filterSessionRows(rows, { ...NO_FILTERS, search: text }));
+
+    it('matches Session, device, Site and place, ignoring case', () => {
+        expect(search('202')).toEqual([202]);
+        expect(search('#3')).toEqual([202]);
+        expect(search('buyende')).toEqual([101]);
+        expect(search('  ')).toEqual([101, 202]);
+    });
+
+    it('needs every word to match', () => {
+        expect(search('gulu hc')).toEqual([202]);
+        expect(search('gulu buyende')).toEqual([]);
     });
 });
 
