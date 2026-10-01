@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { useMapFilters } from '@/features/dashboard/hooks/use-map-filters';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
@@ -20,7 +20,7 @@ import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
-import DeviceList from './device-list';
+import DeviceListCard from './device-list-card';
 import SelectionPanel from './selection-panel';
 import MapFilters from './map-filters';
 import MapGaps from './map-gaps';
@@ -258,30 +258,20 @@ export default function MapSection({
                         { key: 'unplaced', devices: view.devices.unplaced },
                         { key: 'neverUsed', devices: view.neverUsed },
                     ].map(({ key, devices }) => (
-                        <Card key={key} className="gap-2 py-4">
-                            <CardHeader className="px-4">
-                                <CardTitle className="text-sm">
-                                    {tDevices(`${key}.heading`, {
-                                        count: devices.length,
-                                    })}
-                                </CardTitle>
-                                <p className="text-muted-foreground text-xs">
-                                    {tDevices(`${key}.description`)}
-                                </p>
-                            </CardHeader>
-                            <CardContent className="px-2">
-                                <DeviceList
-                                    devices={devices}
-                                    programs={view.programs}
-                                    emptyMessage={tDevices(`${key}.empty`)}
-                                    locationNotes={
-                                        key === 'unplaced'
-                                            ? locationNotes
-                                            : undefined
-                                    }
-                                />
-                            </CardContent>
-                        </Card>
+                        <DeviceListCard
+                            key={key}
+                            heading={tDevices(`${key}.heading`, {
+                                count: devices.length,
+                            })}
+                            description={tDevices(`${key}.description`)}
+                            emptyMessage={tDevices(`${key}.empty`)}
+                            devices={devices}
+                            programs={view.programs}
+                            locationNotes={
+                                key === 'unplaced' ? locationNotes : undefined
+                            }
+                            collapsible={key === 'neverUsed'}
+                        />
                     ))}
                 </div>
             )}
