@@ -33,8 +33,12 @@ export default function RefreshControl({
                     <span className="text-muted-foreground">
                         {t('lastUpdated', {
                             time: formatter.dateTime(lastUpdatedAt, {
-                                dateStyle: 'medium',
-                                timeStyle: 'short',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                timeZoneName: 'short',
                             }),
                         })}
                     </span>
