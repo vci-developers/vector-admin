@@ -74,7 +74,9 @@ export default function DashboardView() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div className="bg-background/95 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
+            {/* Above the tables' sticky headers (up to z-20), below popovers
+                and the session sheet (z-50). */}
+            <div className="bg-background/95 z-30 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
                 <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
                     <ProgramFilter programs={dashboard.programs} />
                     <RangePicker range={range} currentMonth={currentMonth} />
