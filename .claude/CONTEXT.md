@@ -37,8 +37,9 @@ only). A Program whose country has no box fails every geolocation check.
 
 **Reporting Period**: The one time filter for the whole page: a span of whole
 Reporting Months chosen from presets (This month, Last month, Last 3 / 6 / 12
-months, Year to date, All time) or a custom from/to month pair (the same month
-twice is a single month). Defaults to Last month, the unit the team sheet uses.
+months, Year to date, All time), a single chosen Month (picked from a grid or
+stepped with arrows) or a custom from/to month pair (picking either end past the
+other moves both). Defaults to Last month, the unit the team sheet uses.
 Presets are relative, so a bookmarked preset tracks the calendar. Rolling
 presets and Year to date end at the last complete month (Year to date in
 January is January alone). A period that includes the current month is **In

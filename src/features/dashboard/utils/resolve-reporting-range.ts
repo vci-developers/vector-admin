@@ -8,6 +8,7 @@ export const RANGE_PRESETS = [
     '12m',
     'ytd',
     'all',
+    'month',
     'custom',
 ] as const;
 
@@ -29,8 +30,9 @@ function monthKey(year: number, monthIndex: number): MonthKey {
 
 // Presets are relative to `now`, so a bookmarked preset tracks the current month.
 // Rolling presets end at the last complete month so they never compare a
-// partial month with whole ones; This month, All time and custom ranges may
-// include the current month, which is then in progress.
+// partial month with whole ones; This month, All time, a chosen month and
+// custom ranges may include the current month, which is then in progress.
+// A chosen month (`month`) is kept in `to`.
 export function resolveReportingRange(
     preset: RangePreset,
     custom: { from: string | null; to: string | null },
@@ -62,6 +64,10 @@ export function resolveReportingRange(
                 : { from: monthKey(year, 0), to: previous };
         case 'all':
             return { to: current };
+        case 'month':
+            return isMonthKey(custom.to)
+                ? { from: custom.to, to: custom.to }
+                : lastMonth();
         case 'custom':
             if (
                 isMonthKey(custom.from) &&

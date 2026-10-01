@@ -37,6 +37,9 @@
         "range": "Period",
         "from": "From",
         "to": "To",
+        "month": "Month",
+        "previousMonth": "Previous month",
+        "nextMonth": "Next month",
         "presets": {
             "this-month": "This month",
             "last-month": "Last month",
@@ -45,6 +48,7 @@
             "12m": "12M",
             "ytd": "YTD",
             "all": "All",
+            "month": "Month",
             "custom": "Custom"
         }
     },

@@ -5,6 +5,26 @@ const noCustom = { from: null, to: null };
 const march2026 = new Date(2026, 2, 15);
 
 describe('resolveReportingRange', () => {
+    it('covers just the chosen month for Month', () => {
+        expect(
+            resolveReportingRange(
+                'month',
+                { from: null, to: '2025-06' },
+                march2026,
+            ),
+        ).toEqual({ from: '2025-06', to: '2025-06' });
+    });
+
+    it('falls back to last month when Month has no valid month', () => {
+        expect(
+            resolveReportingRange(
+                'month',
+                { from: null, to: 'June' },
+                march2026,
+            ),
+        ).toEqual({ from: '2026-02', to: '2026-02' });
+    });
+
     it('defaults to the last complete month', () => {
         expect(
             resolveReportingRange('last-month', noCustom, march2026),
