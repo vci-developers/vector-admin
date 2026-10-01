@@ -257,7 +257,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                             )}
                         </TableHead>
                     ))}
-                    <TableHead className="bg-card sticky right-0 z-10 pr-4 pl-3 text-right">
+                    <TableHead className="bg-card sticky right-0 z-10 pl-3 text-right">
                         {t('total')}
                     </TableHead>
                 </TableRow>
@@ -293,7 +293,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="bg-card sticky right-0 pr-4 pl-3 text-right font-medium tabular-nums">
+                            <TableCell className="bg-card sticky right-0 pl-3 text-right font-medium tabular-nums">
                                 {user.logins}
                             </TableCell>
                         </TableRow>
@@ -323,7 +323,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                             </TableCell>
                         );
                     })}
-                    <TableCell className="bg-card sticky right-0 pr-4 pl-3 text-right tabular-nums">
+                    <TableCell className="bg-card sticky right-0 pl-3 text-right tabular-nums">
                         {formatter.number(
                             users.reduce((sum, user) => sum + user.logins, 0),
                         )}

@@ -18,7 +18,12 @@ function Table({
         >
             <table
                 data-slot="table"
-                className={cn('w-full caption-bottom text-sm', className)}
+                className={cn(
+                    // Room for overlay scrollbars, which draw over content. A
+                    // margin, not container padding, so sticky footers stay flush.
+                    'mb-2 w-full caption-bottom text-sm [&_tr>:first-child]:pl-3 [&_tr>:last-child]:pr-4',
+                    className,
+                )}
                 {...props}
             />
         </div>
@@ -50,7 +55,9 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
         <tfoot
             data-slot="table-footer"
             className={cn(
-                'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0',
+                // Extra bottom room: a sticky footer sits under the overlay
+                // horizontal scrollbar while the table scrolls sideways.
+                'bg-muted/50 border-t font-medium [&_td]:pb-4 [&>tr]:last:border-b-0',
                 className,
             )}
             {...props}
