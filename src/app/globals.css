@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Set on <html> by themeScript: the saved choice, or the system's. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -72,41 +75,40 @@
     --chart-grid: #eceeec;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0b1220;
-        --foreground: #f3f4f6;
-        --card: #0f1a2b;
-        --card-foreground: #f3f4f6;
-        --popover: #0f1a2b;
-        --popover-foreground: #f3f4f6;
-        --primary: #6edb81;
-        --primary-foreground: #052012;
-        --secondary: #4dbd8c;
-        --secondary-foreground: #052012;
-        --accent: #1e3a2f;
-        --accent-foreground: #bff7d0;
-        --muted: #1a2233;
-        --muted-foreground: #94a3b8;
-        --destructive: #ff6b6b;
-        --destructive-foreground: #0b1220;
-        --warning: #ffca1b;
-        --warning-foreground: #0b1220;
-        --border: #2a3345;
-        --input: #313a4f;
-        --ring: #6edb81;
+:root[data-theme='dark'] {
+    color-scheme: dark;
+    --background: #0b1220;
+    --foreground: #f3f4f6;
+    --card: #0f1a2b;
+    --card-foreground: #f3f4f6;
+    --popover: #0f1a2b;
+    --popover-foreground: #f3f4f6;
+    --primary: #6edb81;
+    --primary-foreground: #052012;
+    --secondary: #4dbd8c;
+    --secondary-foreground: #052012;
+    --accent: #1e3a2f;
+    --accent-foreground: #bff7d0;
+    --muted: #1a2233;
+    --muted-foreground: #94a3b8;
+    --destructive: #ff6b6b;
+    --destructive-foreground: #0b1220;
+    --warning: #ffca1b;
+    --warning-foreground: #0b1220;
+    --border: #2a3345;
+    --input: #313a4f;
+    --ring: #6edb81;
 
-        --series-1: #3987e5;
-        --series-2: #d95926;
-        --series-3: #199e70;
-        --series-4: #c98500;
-        --series-5: #d55181;
-        --series-6: #008300;
-        --series-7: #9085e9;
-        --series-8: #e66767;
-        --series-other: #6b7280;
-        --chart-grid: #1f2a3c;
-    }
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --series-other: #6b7280;
+    --chart-grid: #1f2a3c;
 }
 
 @layer base {

@@ -6,6 +6,7 @@ import { ViewerTimeZoneProvider } from '@/components/providers/viewer-time-zone-
 import { NextIntlClientProvider } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { themeScript } from '@/features/dashboard/utils/theme-script';
 
 const geistSans = Geist({
     variable: '--font-geist-sans',
@@ -29,7 +30,12 @@ export default function RootLayout({
         <html
             lang="en"
             className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+            // themeScript sets data-theme before React hydrates
+            suppressHydrationWarning
         >
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+            </head>
             <body className="flex min-h-full flex-col">
                 <NextIntlClientProvider>
                     <ViewerTimeZoneProvider>

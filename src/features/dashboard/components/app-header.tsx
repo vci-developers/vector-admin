@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server';
+import ThemeToggle from './theme-toggle';
 
 export default async function AppHeader() {
     const t = await getTranslations('App');
@@ -11,13 +12,16 @@ export default async function AppHeader() {
                         {t('tagline')}
                     </span>
                 </p>
-                {/* Plain anchor: the logout route handler must run, not a client transition */}
-                <a
-                    href="/api/auth/logout"
-                    className="text-muted-foreground hover:text-foreground text-sm"
-                >
-                    {t('signOut')}
-                </a>
+                <div className="flex items-center gap-4">
+                    <ThemeToggle />
+                    {/* Plain anchor: the logout route handler must run, not a client transition */}
+                    <a
+                        href="/api/auth/logout"
+                        className="text-muted-foreground hover:text-foreground text-sm"
+                    >
+                        {t('signOut')}
+                    </a>
+                </div>
             </div>
         </header>
     );

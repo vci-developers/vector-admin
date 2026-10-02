@@ -3,7 +3,13 @@
         "title": "VectorAdmin",
         "description": "Cross-program adoption and data-quality metrics for VectorCam",
         "tagline": "Program metrics",
-        "signOut": "Sign out"
+        "signOut": "Sign out",
+        "theme": {
+            "label": "Theme",
+            "system": "Match system theme",
+            "light": "Light theme",
+            "dark": "Dark theme"
+        }
     },
     "Auth": {
         "title": "Sign in to VectorAdmin",
