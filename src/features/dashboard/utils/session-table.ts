@@ -7,6 +7,8 @@ type SessionRow = {
     siteId: number;
     siteName: string | null;
     location: { level: string; name: string }[];
+    collectorName: string;
+    createdAt: number | null;
     collectionDate: number | null;
     submittedAt: number;
     timeToConfirmation: number | null;
@@ -23,6 +25,8 @@ export const SORTABLE_COLUMNS = [
     'state',
     'deviceId',
     'site',
+    'collectorName',
+    'createdAt',
     'collectionDate',
     'submittedAt',
     'timeToConfirmation',
@@ -54,7 +58,7 @@ export type SessionFilters = {
     deviceIds: number[];
     places: string[];
     missing: MissingOption[];
-    /** Words that must each appear in the Session, device, Site or place. */
+    /** Words that must each appear in the Session, device, Site, collector or place. */
     search: string;
 };
 
@@ -125,6 +129,7 @@ function matchesSearch(row: SessionRow, search: string): boolean {
         row.deviceId,
         `#${row.siteId}`,
         row.siteName ?? '',
+        row.collectorName,
         ...row.location.map(place => place.name),
     ]
         .join(' ')
@@ -160,6 +165,8 @@ function valueOf(row: SessionRow, column: SortColumn): number | string | null {
             return STATE_ORDER.indexOf(stateOf(row));
         case 'site':
             return (row.siteName ?? '').toLocaleLowerCase() || null;
+        case 'collectorName':
+            return row.collectorName.toLocaleLowerCase() || null;
         case 'missing':
             return missingOf(row).filter(m => m !== 'none').length;
         default:

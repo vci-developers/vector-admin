@@ -23,6 +23,7 @@ export const sessionSchema = z.object({
     type: sessionTypeSchema,
     state: sessionStateSchema.optional(),
     collectorName: z.string(),
+    collectorTitle: z.string().nullish(),
     collectionDate: z.number().nullable(),
     createdAt: z.number().nullable(),
     submittedAt: z.number(),

@@ -19,6 +19,8 @@ const row = (sessionId: number, overrides: Partial<Row> = {}): Row => ({
         { level: 'District', name: 'Buyende' },
         { level: 'Village', name: 'Bukatube' },
     ],
+    collectorName: 'Okello James',
+    createdAt: 1000,
     collectionDate: 1000,
     submittedAt: 2000,
     timeToConfirmation: null,
@@ -220,6 +222,17 @@ describe('Session search', () => {
         expect(search('#3')).toEqual([202]);
         expect(search('buyende')).toEqual([101]);
         expect(search('  ')).toEqual([101, 202]);
+    });
+
+    it('matches the collector who entered the Session', () => {
+        expect(
+            ids(
+                filterSessionRows(
+                    [row(1), row(2, { collectorName: 'Akello Grace' })],
+                    { ...NO_FILTERS, search: 'grace' },
+                ),
+            ),
+        ).toEqual([2]);
     });
 
     it('needs every word to match', () => {

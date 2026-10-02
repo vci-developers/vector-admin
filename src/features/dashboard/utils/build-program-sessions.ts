@@ -25,6 +25,11 @@ export type ProgramSession = {
     siteName: string | null;
     /** The Site's place names, broadest first; empty when unknown. */
     location: LocationLevel[];
+    /** "Entered by": the collector named on the Session's metadata form. */
+    collectorName: string;
+    collectorTitle: string | null;
+    /** "Date entered": when the Session was created on the phone. */
+    createdAt: number | null;
     collectionDate: number | null;
     submittedAt: number;
     /** Milliseconds from createdAt to certifiedAt; null until certified. */
@@ -79,6 +84,9 @@ export function buildProgramSessions(
             siteId: session.siteId,
             siteName: siteDisplayName(site),
             location: site ? siteLocationPath(site) : [],
+            collectorName: session.collectorName.trim(),
+            collectorTitle: session.collectorTitle?.trim() || null,
+            createdAt: session.createdAt,
             collectionDate: session.collectionDate,
             submittedAt: session.submittedAt,
             timeToConfirmation:

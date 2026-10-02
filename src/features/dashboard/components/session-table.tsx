@@ -252,6 +252,11 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
     const [menuRoot, setMenuRoot] = useState<HTMLDivElement | null>(null);
     const formatDate = (timestamp: number) =>
         formatter.dateTime(timestamp, { dateStyle: 'medium' });
+    const formatDateTime = (timestamp: number) =>
+        formatter.dateTime(timestamp, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
 
     const shown = useMemo(
         () => sortSessionRows(filterSessionRows(rows, filters), sort),
@@ -381,6 +386,8 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                                 onChange={setFilter('places')}
                             />,
                         )}
+                        {head('collectorName', t('enteredBy'))}
+                        {head('createdAt', t('dateEntered'))}
                         {head('collectionDate', t('collected'))}
                         {head('submittedAt', t('submitted'))}
                         {head('timeToConfirmation', t('timeToConfirmation'))}
@@ -401,7 +408,7 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                     {shown.length === 0 && (
                         <TableRow>
                             <TableCell
-                                colSpan={8}
+                                colSpan={10}
                                 className="text-muted-foreground py-6 text-center"
                             >
                                 {t('noMatches')}
@@ -445,6 +452,27 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                                 <span className="text-muted-foreground text-xs tabular-nums">
                                     #{row.siteId}
                                 </span>
+                            </TableCell>
+                            <TableCell>
+                                {row.collectorName || (
+                                    <span className="text-muted-foreground">
+                                        {t('noCollector')}
+                                    </span>
+                                )}
+                                {row.collectorTitle && (
+                                    <span className="text-muted-foreground block text-xs">
+                                        {row.collectorTitle}
+                                    </span>
+                                )}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                                {row.createdAt === null ? (
+                                    <span className="text-muted-foreground">
+                                        {t('noDate')}
+                                    </span>
+                                ) : (
+                                    formatDateTime(row.createdAt)
+                                )}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
                                 {row.collectionDate === null ? (

@@ -174,7 +174,7 @@
     },
     "Sessions": {
         "search": "Search Sessions",
-        "searchPlaceholder": "Search Session, device, Site or place",
+        "searchPlaceholder": "Search Session, device, Site, collector or place",
         "expandPlace": "Show places in {place}",
         "collapsePlace": "Hide places in {place}",
         "title": "{program} · {period}",
@@ -188,6 +188,9 @@
         "device": "Device",
         "site": "Site",
         "unnamedSite": "Unnamed Site",
+        "enteredBy": "Entered by",
+        "noCollector": "No name",
+        "dateEntered": "Date entered",
         "collected": "Collected",
         "submitted": "Submitted",
         "timeToConfirmation": "Time to confirmation",
