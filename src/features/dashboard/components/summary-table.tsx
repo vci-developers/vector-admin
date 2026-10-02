@@ -266,6 +266,14 @@ export default function SummaryTable({
                         )}
                     </span>
                     <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={selected.length === 0}
+                        onClick={() => setSelected([])}
+                    >
+                        {t('deselectAll')}
+                    </Button>
+                    <Button
                         variant="outline"
                         size="sm"
                         disabled={selected.length === 0}

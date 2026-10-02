@@ -164,7 +164,8 @@
         },
         "timingHowDerived": "How {stat} is worked out",
         "fieldsGroup": "Fields present (%)",
-        "timingGroup": "Time between images (s)"
+        "timingGroup": "Time between images (s)",
+        "deselectAll": "Deselect all"
     },
     "Fields": {
         "species": "Species ID",
