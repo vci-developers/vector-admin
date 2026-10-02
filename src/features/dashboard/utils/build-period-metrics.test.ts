@@ -63,7 +63,12 @@ function program(
             devices: [],
             collectionCycles: [],
             userLogins: [],
-            sites: [],
+            sites: [1, 2, 3].map(siteId => ({
+                siteId,
+                name: null,
+                district: 'Gulu',
+                locationHierarchy: {},
+            })),
             fetchedAt: 0,
             ...snapshot,
         },
@@ -138,22 +143,31 @@ describe('buildPeriodMetrics', () => {
         });
     });
 
-    it('rates DHIS2 upload as SUBMITTED over CERTIFIED plus SUBMITTED', () => {
+    it('rates DHIS2 upload as Records in Submitted Sessions over all Records', () => {
         const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [
                         session(1, { state: 'SUBMITTED' }),
                         session(2, { state: 'CERTIFIED' }),
-                        session(3, { state: 'SUBMITTED' }),
-                        session(4, { state: 'NEEDS_REVIEW' }),
+                        session(3),
+                    ],
+                    specimens: [
+                        specimen(1, 1),
+                        specimen(2, 1),
+                        specimen(3, 2),
+                        specimen(4, 3),
                     ],
                 }),
             ],
             january,
         );
 
-        expect(metrics.programs[0].metrics.dhis2UploadRate).toBeCloseTo(2 / 3);
+        expect(metrics.programs[0].metrics).toMatchObject({
+            submittedRecords: 2,
+            dhis2Records: 4,
+            dhis2UploadRate: 0.5,
+        });
     });
 
     it('leaves DHIS2 upload blank outside Uganda and out of the total', () => {
@@ -164,10 +178,14 @@ describe('buildPeriodMetrics', () => {
                         session(1, { state: 'SUBMITTED' }),
                         session(2, { state: 'CERTIFIED' }),
                     ],
+                    specimens: [specimen(1, 1), specimen(2, 2)],
                 }),
                 program(
                     2,
-                    { sessions: [session(3, { state: 'CERTIFIED' })] },
+                    {
+                        sessions: [session(3, { state: 'CERTIFIED' })],
+                        specimens: [specimen(3, 3)],
+                    },
                     'Kenya',
                 ),
             ],
@@ -219,13 +237,13 @@ describe('buildPeriodMetrics', () => {
         );
     });
 
-    it('ignores practice and calibration Sessions', () => {
+    it('fails location for a Session with no District and no GPS', () => {
         const metrics = buildPeriodMetrics(
             [
                 program(1, {
                     sessions: [
-                        session(1, { type: 'PRACTICE' }),
-                        session(2, { type: 'CALIBRATION', deviceId: 2 }),
+                        session(1, { latitude: null }),
+                        session(2, { siteId: 99, latitude: null }),
                     ],
                     specimens: [specimen(1, 1), specimen(2, 2)],
                 }),
@@ -233,9 +251,49 @@ describe('buildPeriodMetrics', () => {
             january,
         );
 
-        expect(metrics.programs[0].metrics).toMatchObject({
-            activeDevices: 0,
-            uniqueSpecimens: 0,
+        expect(metrics.programs[0].metrics.fieldCompleteness.geolocation).toBe(
+            0.5,
+        );
+    });
+
+    it('pools every gap between images across Sessions and Programs', () => {
+        const images = (...seconds: number[]) =>
+            seconds.map((s, i) => ({ id: i, capturedAt: JAN_10 + s * 1000 }));
+        const timed = (
+            id: number,
+            sessionId: number,
+            ...seconds: number[]
+        ) => ({
+            ...specimen(id, sessionId),
+            images: images(...seconds),
+        });
+        const metrics = buildPeriodMetrics(
+            [
+                program(1, {
+                    sessions: [session(1), session(2)],
+                    // Session 1: 10 s, then 20 s across two specimens
+                    specimens: [
+                        timed(1, 1, 0, 10),
+                        timed(2, 1, 30),
+                        timed(3, 2, 0, 40),
+                    ],
+                }),
+                program(2, {
+                    sessions: [session(3)],
+                    specimens: [timed(4, 3, 0, 50)],
+                }),
+            ],
+            january,
+        );
+
+        expect(metrics.programs[0].metrics.timing).toMatchObject({
+            count: 3,
+            median: 20,
+        });
+        expect(metrics.total.timing).toMatchObject({
+            count: 4,
+            median: 30,
+            mean: 30,
         });
     });
 

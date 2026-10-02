@@ -1,4 +1,5 @@
 import { programSchema } from '@/api/program/validation/program-schema';
+import { sessionTypeSchema } from '@/api/session/validation/session-schema';
 import { resultSchema } from '@/lib/result/result-schema';
 import { z } from 'zod';
 
@@ -9,11 +10,25 @@ const programIdListSchema = z
     .regex(/^(\d+(,\d+)*)?$/)
     .transform(value => (value === '' ? [] : value.split(',').map(Number)));
 
+/** The page-wide Session filter, shared by every dashboard query. */
+export const sessionScopeQuerySchema = z.object({
+    types: z
+        .string()
+        .transform(value => (value === '' ? [] : value.split(',')))
+        .pipe(z.array(sessionTypeSchema))
+        .default(['SURVEILLANCE']),
+    testSites: z
+        .enum(['true', 'false'])
+        .transform(value => value === 'true')
+        .default(false),
+});
+
 export const getDashboardQuerySchema = z
     .object({
         exclude: programIdListSchema.default([]),
         from: monthKeySchema.optional(),
         to: monthKeySchema,
+        ...sessionScopeQuerySchema.shape,
     })
     .refine(({ from, to }) => !from || from <= to, 'from must not be after to');
 
@@ -36,14 +51,25 @@ export const periodMetricsSchema = z.object({
     records: z.number(),
     completeRecords: z.number(),
     fieldPasses: fieldRecord(z.number()),
-    certifiedSessions: z.number(),
-    submittedSessions: z.number(),
+    dhis2Records: z.number(),
+    submittedRecords: z.number(),
     uniqueUsers: z.number().nullable(),
     logins: z.number().nullable(),
     imagesPerActiveDevice: nullableRatio,
     metadataCompleteness: nullableRatio,
     fieldCompleteness: fieldRecord(nullableRatio),
     dhis2UploadRate: nullableRatio,
+    /** Seconds between consecutive images; null with no gap to time. */
+    timing: z
+        .object({
+            count: z.number(),
+            median: z.number(),
+            p25: z.number(),
+            p75: z.number(),
+            mean: z.number(),
+            sd: z.number().nullable(),
+        })
+        .nullable(),
 });
 
 export const deviceRowSchema = z.object({
@@ -64,9 +90,7 @@ export const locationLevelSchema = z.object({
     name: z.string(),
 });
 
-export const locationNodeSchema = z.object({
-    key: z.string(),
-    parentKey: z.string().nullable(),
+export const areaMetricsSchema = z.object({
     programId: z.number(),
     level: z.string().nullable(),
     name: z.string().nullable(),
@@ -83,7 +107,6 @@ export const dashboardSchema = z.object({
         programs: z.array(
             z.object({
                 programId: z.number(),
-                hasCountryBox: z.boolean(),
                 metrics: periodMetricsSchema,
                 cycles: z.array(z.number()),
             }),
@@ -93,8 +116,8 @@ export const dashboardSchema = z.object({
     }),
     /** Device Status over the period. */
     devices: z.array(deviceRowSchema),
-    /** Each Program's metrics per location; parentKey null at the top. */
-    locations: z.array(locationNodeSchema),
+    /** Each Program's metrics per top-level area (District, Region). */
+    areas: z.array(areaMetricsSchema),
     /** Each Site's place names, broadest first, keyed by siteId. */
     sitePaths: z.record(z.string(), z.array(locationLevelSchema)),
     specimenPoints: z.object({
@@ -145,5 +168,5 @@ export const dashboardSchema = z.object({
 export const getDashboardResponseSchema = resultSchema(dashboardSchema);
 
 export type Dashboard = z.infer<typeof dashboardSchema>;
-export type LocationNodeDto = z.infer<typeof locationNodeSchema>;
+export type AreaMetricsDto = z.infer<typeof areaMetricsSchema>;
 export type PeriodMetricsDto = z.infer<typeof periodMetricsSchema>;

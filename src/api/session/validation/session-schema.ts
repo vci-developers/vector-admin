@@ -29,10 +29,6 @@ export const sessionSchema = z.object({
     submittedAt: z.number(),
     latitude: z.number().nullable(),
     longitude: z.number().nullable(),
-    certifiedBy: z
-        .object({ certifiedAt: z.number().nullable() })
-        .nullable()
-        .optional(),
 });
 
 export const getSessionsPageSchema = z
@@ -41,3 +37,4 @@ export const getSessionsPageSchema = z
 
 export type Session = z.infer<typeof sessionSchema>;
 export type SessionState = z.infer<typeof sessionStateSchema>;
+export type SessionType = z.infer<typeof sessionTypeSchema>;

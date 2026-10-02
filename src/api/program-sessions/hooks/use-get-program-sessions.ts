@@ -6,17 +6,20 @@ import type { NetworkError } from '@/lib/network/network-error';
 import { err, type Result } from '@/lib/result/result';
 import {
     programSessionsKeys,
-    type Period,
+    type ProgramSessionsParams,
 } from '@/api/program-sessions/program-sessions-keys';
 import { useQuery } from '@tanstack/react-query';
 
 async function fetchProgramSessions(
     programId: number,
-    period: Period,
+    { from, to, types, testSites }: ProgramSessionsParams,
 ): Promise<Result<ProgramSessions, NetworkError>> {
     const searchParams = new URLSearchParams({
         programId: String(programId),
-        ...period,
+        from,
+        to,
+        types: types.join(','),
+        testSites: String(testSites),
     });
     const response = await fetch(`/api/program-sessions?${searchParams}`, {
         credentials: 'include',
@@ -33,11 +36,11 @@ async function fetchProgramSessions(
 
 export function useGetProgramSessions(
     programId: number | null,
-    period: Period,
+    params: ProgramSessionsParams,
 ) {
     return useQuery({
-        queryKey: programSessionsKeys.sessions(programId, period),
-        queryFn: () => fetchProgramSessions(programId ?? 0, period),
+        queryKey: programSessionsKeys.sessions(programId, params),
+        queryFn: () => fetchProgramSessions(programId ?? 0, params),
         enabled: programId !== null,
     });
 }

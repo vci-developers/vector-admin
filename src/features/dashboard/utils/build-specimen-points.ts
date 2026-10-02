@@ -1,6 +1,6 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
-import { isCountedSession, sessionBucketTime } from './counted-sessions';
+import { sessionBucketTime } from './counted-sessions';
 import { isInsideCountry } from './country-bounding-boxes';
 import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
 
@@ -47,11 +47,7 @@ export function buildSpecimenPoints(
     for (const session of snapshot.sessions) {
         const collectedAt = sessionBucketTime(session);
         const month = monthKeyOf(collectedAt, timeZone);
-        if (
-            !isCountedSession(session) ||
-            month < period.from ||
-            month > period.to
-        ) {
+        if (month < period.from || month > period.to) {
             continue;
         }
 

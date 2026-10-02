@@ -1,6 +1,6 @@
 import type { Device } from '@/api/device/validation/device-schema';
 import type { Session } from '@/api/session/validation/session-schema';
-import { isCountedSession, sessionBucketTime } from './counted-sessions';
+import { sessionBucketTime } from './counted-sessions';
 import { isInsideCountry } from './country-bounding-boxes';
 import { monthKeyOf, type MonthKey } from './month-key';
 
@@ -34,7 +34,7 @@ export function classifyDevices(
     const isLater = (session: Session, current?: Session) =>
         !current || session.submittedAt > current.submittedAt;
 
-    for (const session of sessions.filter(isCountedSession)) {
+    for (const session of sessions) {
         if (isLater(session, latestSession.get(session.deviceId))) {
             latestSession.set(session.deviceId, session);
         }

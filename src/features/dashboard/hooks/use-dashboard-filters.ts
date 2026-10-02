@@ -1,7 +1,9 @@
 import { RANGE_PRESETS } from '@/features/dashboard/utils/resolve-reporting-range';
 import { MAP_LAYERS } from '@/features/dashboard/components/map-constants';
+import { sessionTypeSchema } from '@/api/session/validation/session-schema';
 import {
     parseAsArrayOf,
+    parseAsBoolean,
     parseAsInteger,
     parseAsString,
     parseAsStringLiteral,
@@ -19,6 +21,11 @@ const dashboardFilterParsers = {
     exclude: parseAsArrayOf(parseAsInteger).withDefault(
         HIDDEN_BY_DEFAULT_PROGRAM_IDS,
     ),
+    types: parseAsArrayOf(
+        parseAsStringLiteral(sessionTypeSchema.options),
+    ).withDefault(['SURVEILLANCE']),
+    // Include the Test Site ("Other"), the testing and training catch-all
+    testSites: parseAsBoolean.withDefault(false),
     // Program whose Session panel is open
     sessions: parseAsInteger,
     layers: parseAsArrayOf(parseAsStringLiteral(MAP_LAYERS)).withDefault([

@@ -1,14 +1,9 @@
 import type {
-    LocationNodeDto,
+    Dashboard,
     PeriodMetricsDto,
 } from '@/api/dashboard/validation/dashboard-schema';
 import { describe, expect, it } from 'vitest';
-import {
-    buildLocationRows,
-    programLocationKey,
-    summaryToTsv,
-    type SummaryRow,
-} from './summary-rows';
+import { buildSummaryGroups, summaryToTsv } from './summary-rows';
 
 const metrics: PeriodMetricsDto = {
     activeDevices: 4,
@@ -22,8 +17,8 @@ const metrics: PeriodMetricsDto = {
         geolocation: 456,
         operatorId: 1000,
     },
-    certifiedSessions: 0,
-    submittedSessions: 0,
+    dhis2Records: 0,
+    submittedRecords: 0,
     uniqueUsers: 3,
     logins: 12,
     imagesPerActiveDevice: 308.5,
@@ -35,110 +30,82 @@ const metrics: PeriodMetricsDto = {
         operatorId: 1,
     },
     dhis2UploadRate: null,
-};
-
-const row = (
-    name: string,
-    rowMetrics: PeriodMetricsDto | null,
-): SummaryRow => ({
-    programId: 1,
-    name,
-    country: 'Uganda',
-    color: 'var(--series-1)',
-    hasCountryBox: true,
-    cycles: [],
-    metrics: rowMetrics,
-});
-
-const labels = {
-    header: ['Program', 'A'],
-    total: 'Total',
-    incomplete: 'Incomplete',
+    timing: { count: 3, median: 20, p25: 15, p75: 25.25, mean: 20, sd: null },
 };
 
 describe('summaryToTsv', () => {
-    it('writes locale-free values and blanks for undefined ratios', () => {
-        const tsv = summaryToTsv(
-            [row('Uganda', metrics)],
-            { metrics, incomplete: false },
-            labels,
-        );
-        expect(tsv.split('\n')[1]).toBe(
-            'Uganda\t4\t1234\t1000\t308.5\t3\t12\t45.6%\t\t100.0%\t100.0%\t45.6%\t100.0%',
-        );
+    it('writes values only in sheet order, locale-free, blanks where undefined', () => {
+        expect(summaryToTsv([metrics]).split('\t')).toEqual([
+            '4',
+            '1234',
+            '1000',
+            '308.5',
+            '3',
+            '12',
+            '45.6%',
+            '',
+            '100.0%',
+            '100.0%',
+            '45.6%',
+            '100.0%',
+            '20.0',
+            '15.0',
+            '25.3',
+            '20.0',
+            '',
+        ]);
     });
 
-    it('blanks a failed Program and never totals a partial selection', () => {
-        const tsv = summaryToTsv(
-            [row('Uganda', metrics), row('Ghana', null)],
-            { metrics, incomplete: true },
-            labels,
-        );
-        const [, , failed, total] = tsv.split('\n');
-        expect(failed).toBe(`Ghana${'\t'.repeat(12)}`);
-        expect(total).toBe(`Total${'\tIncomplete'.repeat(12)}`);
+    it('puts each row on its own line and blanks a failed Program', () => {
+        const lines = summaryToTsv([
+            { ...metrics, uniqueUsers: null, logins: null, timing: null },
+            null,
+        ]).split('\n');
+
+        expect(lines).toHaveLength(2);
+        expect(lines[0].split('\t').slice(4, 6)).toEqual(['', '']);
+        expect(lines[1]).toBe('\t'.repeat(16));
     });
 });
 
-describe('buildLocationRows', () => {
-    const place = (
-        key: string,
-        parentKey: string | null,
-        images: number,
-    ): LocationNodeDto => ({
-        key,
-        parentKey,
-        programId: 1,
-        level: `Level of ${key}`,
-        name: key,
-        metrics: { ...metrics, images },
-    });
-    const top = programLocationKey(1);
-    const names = (rows: ReturnType<typeof buildLocationRows>, key: string) =>
-        rows.get(key)?.map(row => row.places.map(p => p.name).join(' › '));
+describe('buildSummaryGroups', () => {
+    it('lists each selected Program with its areas, then its total', () => {
+        const dashboard: Dashboard = {
+            programs: [
+                { programId: 1, name: 'NMED', country: 'Uganda' },
+                { programId: 2, name: 'KEMRI', country: 'Kenya' },
+            ],
+            selectedProgramIds: [1, 2],
+            failedProgramIds: [2],
+            metrics: {
+                from: '2026-01',
+                to: '2026-01',
+                programs: [{ programId: 1, metrics, cycles: [5] }],
+                total: metrics,
+                previousTotal: null,
+            },
+            areas: [
+                { programId: 1, level: 'District', name: 'Gulu', metrics },
+                { programId: 1, level: null, name: null, metrics },
+            ],
+            devices: [],
+            sitePaths: {},
+            specimenPoints: { placed: [], unplaced: [] },
+            lastUpdatedAt: null,
+        };
 
-    it('merges a chain of single children that share every number', () => {
-        const rows = buildLocationRows([
-            place('district', null, 10),
-            place('subCounty', 'district', 10),
-            place('parish', 'subCounty', 10),
-            place('house1', 'parish', 6),
-            place('house2', 'parish', 4),
-        ]);
+        const [uganda, kenya] = buildSummaryGroups(dashboard);
 
-        expect(names(rows, top)).toEqual(['district › subCounty › parish']);
-        expect(rows.get(top)?.[0]).toMatchObject({
-            key: 'parish',
-            hasChildren: true,
+        expect(uganda).toMatchObject({
+            level: 'District',
+            cycles: [5],
+            areas: [{ name: 'Gulu' }, { name: null }],
+            total: { metrics },
         });
-        expect(names(rows, 'parish')).toEqual(['house1', 'house2']);
-    });
-
-    it('keeps a place with data of its own apart from its only child', () => {
-        const rows = buildLocationRows([
-            place('region', null, 10),
-            place('sentinelSite', 'region', 7),
-        ]);
-
-        expect(names(rows, top)).toEqual(['region']);
-        expect(names(rows, 'region')).toEqual(['sentinelSite']);
-    });
-
-    it('merges down to a leaf, which then has no children', () => {
-        const rows = buildLocationRows([
-            place('village', null, 3),
-            place('house', 'village', 3),
-        ]);
-
-        expect(rows.get(top)).toEqual([
-            expect.objectContaining({
-                key: 'house',
-                places: [
-                    { name: 'village', level: 'Level of village' },
-                    { name: 'house', level: 'Level of house' },
-                ],
-                hasChildren: false,
-            }),
-        ]);
+        expect(kenya).toMatchObject({
+            level: null,
+            areas: [],
+            total: { metrics: null },
+        });
     });
 });

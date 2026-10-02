@@ -22,6 +22,27 @@ admin token (ADR-0001) and computes everything itself.
 
 Terms below are defined in vector-admin's `CONTEXT.md`.
 
+## Revisions (2026-10-02, team-sheet view)
+
+These supersede everything below, including the 2026-09-28 revisions:
+
+- **Session Filter** in the toolbar: Session types (default Surveillance only)
+  and the Test Site ("Other", left out by default), applied to the whole page
+  and kept in the URL.
+- **The summary table is the team-sheet view**: per Program, one row per Area
+  (District or Region) with data, then "Program total"; the Location Breakdown
+  drill-down and the per-Program field-completeness row are removed. Columns
+  and copy as in CONTEXT.md (**Team-sheet view**); copy is values only.
+- **Geolocation is now Location**: the Site sits under an Area, or failing that
+  the Session's GPS is inside the country. The "No country box" badge is removed.
+- **DHIS2 Upload Rate** is Records in Submitted Sessions ÷ all Records
+  (CONTEXT.md), replacing Submitted ÷ (Certified + Submitted) Sessions.
+- **Time between images** (median, 25th, 75th, mean, SD seconds) joins the
+  table; every gap counts, retakes and pauses included.
+- **Time to Confirmation is removed** from the Session panel (story 26 dropped):
+  Submitted Sessions have a null `certifiedAt`, so it read "Not confirmed" for
+  them, and it is not needed.
+
 ## Revisions (2026-09-28, after the first build was reviewed)
 
 These supersede anything below that conflicts:

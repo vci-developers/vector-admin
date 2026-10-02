@@ -1,14 +1,19 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Program } from '@/api/program/validation/program-schema';
 import type { Session } from '@/api/session/validation/session-schema';
+import type { Site } from '@/api/site/validation/site-schema';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
+import {
+    timeSessionImages,
+    timingStats,
+    type TimingStats,
+} from './build-handling-time';
 import {
     checkRecordFields,
     REQUIRED_FIELDS,
     type RequiredField,
 } from './check-record-fields';
-import { isCountedSession, sessionBucketTime } from './counted-sessions';
-import { hasCountryBox } from './country-bounding-boxes';
+import { sessionBucketTime } from './counted-sessions';
 import {
     addMonths,
     monthKeyOf,
@@ -26,8 +31,12 @@ export type PeriodCounts = {
     records: number;
     completeRecords: number;
     fieldPasses: Record<RequiredField, number>;
-    certifiedSessions: number;
-    submittedSessions: number;
+    /** Records in DHIS2 countries, the DHIS2 Upload Rate's denominator. */
+    dhis2Records: number;
+    /** Of those, Records whose Session is Submitted (sent to DHIS2). */
+    submittedRecords: number;
+    /** Seconds between consecutive images within each Session, pooled. */
+    imageGaps: number[];
     /** VectorVerify users who logged in during the period, each counted once. */
     uniqueUsers: number;
     logins: number;
@@ -37,18 +46,22 @@ export type PeriodCounts = {
  * Ratios are null when their denominator is 0, and user counts are null when
  * the period ends before login tracking began, so blanks never read as 0.
  */
-export type PeriodMetrics = Omit<PeriodCounts, 'uniqueUsers' | 'logins'> & {
+export type PeriodMetrics = Omit<
+    PeriodCounts,
+    'uniqueUsers' | 'logins' | 'imageGaps'
+> & {
     uniqueUsers: number | null;
     logins: number | null;
     imagesPerActiveDevice: number | null;
     metadataCompleteness: number | null;
     fieldCompleteness: Record<RequiredField, number | null>;
     dhis2UploadRate: number | null;
+    /** Time between images; null with no gap to time. */
+    timing: TimingStats | null;
 };
 
 export type ProgramPeriodMetrics = {
     programId: number;
-    hasCountryBox: boolean;
     metrics: PeriodMetrics;
     /** Collection Cycles overlapping the period. */
     cycles: number[];
@@ -87,8 +100,9 @@ export function emptyCounts(): PeriodCounts {
             geolocation: 0,
             operatorId: 0,
         },
-        certifiedSessions: 0,
-        submittedSessions: 0,
+        dhis2Records: 0,
+        submittedRecords: 0,
+        imageGaps: [],
         uniqueUsers: 0,
         logins: 0,
     };
@@ -98,7 +112,7 @@ const ratio = (numerator: number, denominator: number) =>
     denominator === 0 ? null : numerator / denominator;
 
 export function withRatios(
-    counts: PeriodCounts,
+    { imageGaps, ...counts }: PeriodCounts,
     loginsTracked: boolean,
 ): PeriodMetrics {
     return {
@@ -113,10 +127,8 @@ export function withRatios(
             geolocation: ratio(counts.fieldPasses.geolocation, counts.records),
             operatorId: ratio(counts.fieldPasses.operatorId, counts.records),
         },
-        dhis2UploadRate: ratio(
-            counts.submittedSessions,
-            counts.certifiedSessions + counts.submittedSessions,
-        ),
+        dhis2UploadRate: ratio(counts.submittedRecords, counts.dhis2Records),
+        timing: timingStats(imageGaps),
     };
 }
 
@@ -127,8 +139,9 @@ export function addCounts(total: PeriodCounts, counts: PeriodCounts) {
     total.uniqueSpecimens += counts.uniqueSpecimens;
     total.records += counts.records;
     total.completeRecords += counts.completeRecords;
-    total.certifiedSessions += counts.certifiedSessions;
-    total.submittedSessions += counts.submittedSessions;
+    total.dhis2Records += counts.dhis2Records;
+    total.submittedRecords += counts.submittedRecords;
+    total.imageGaps.push(...counts.imageGaps);
     total.uniqueUsers += counts.uniqueUsers;
     total.logins += counts.logins;
     for (const field of REQUIRED_FIELDS) {
@@ -136,22 +149,18 @@ export function addCounts(total: PeriodCounts, counts: PeriodCounts) {
     }
 }
 
-/** Counted Sessions whose Reporting Month falls in the period. */
+/** Sessions whose Reporting Month falls in the period. */
 export function sessionsInPeriod(
     sessions: Session[],
     period: Period,
     timeZone: string,
 ): Session[] {
-    return sessions.filter(
-        session =>
-            isCountedSession(session) &&
-            inPeriod(monthKeyOf(sessionBucketTime(session), timeZone), period),
+    return sessions.filter(session =>
+        inPeriod(monthKeyOf(sessionBucketTime(session), timeZone), period),
     );
 }
 
-export function specimensBySession(
-    specimens: Specimen[],
-): Map<number, Specimen[]> {
+function specimensBySession(specimens: Specimen[]): Map<number, Specimen[]> {
     const bySession = new Map<number, Specimen[]>();
     for (const specimen of specimens) {
         const list = bySession.get(specimen.sessionId);
@@ -162,21 +171,18 @@ export function specimensBySession(
 }
 
 /**
- * One Session's Records, Images and DHIS2 state. Active Devices are distinct
- * across Sessions, so the caller counts those.
+ * One Session's Records, Images, DHIS2 state and gaps between images. Active
+ * Devices are distinct across Sessions, so the caller counts those.
  */
-export function addSessionCounts(
+function addSessionCounts(
     counts: PeriodCounts,
     session: Session,
     specimens: Specimen[],
+    site: Site | undefined,
     country: string,
 ) {
-    if (DHIS2_COUNTRIES.includes(country)) {
-        if (session.state === 'CERTIFIED') counts.certifiedSessions += 1;
-        if (session.state === 'SUBMITTED') counts.submittedSessions += 1;
-    }
     for (const specimen of specimens) {
-        const checks = checkRecordFields(specimen, session, country);
+        const checks = checkRecordFields(specimen, session, site, country);
         counts.uniqueSpecimens += 1;
         counts.images += specimen.images.length;
         counts.records += 1;
@@ -186,31 +192,48 @@ export function addSessionCounts(
             if (checks[field]) counts.fieldPasses[field] += 1;
         }
     }
+    if (DHIS2_COUNTRIES.includes(country)) {
+        counts.dhis2Records += specimens.length;
+        if (session.state === 'SUBMITTED')
+            counts.submittedRecords += specimens.length;
+    }
+    counts.imageGaps.push(
+        ...timeSessionImages(specimens.flatMap(specimen => specimen.images))
+            .gaps,
+    );
 }
 
-function countProgram(
+/** Counts for the given Sessions; users and logins are left at 0. */
+export function countSessions(
+    sessions: Session[],
     { program, snapshot }: ProgramData,
-    period: Period,
 ): PeriodCounts {
-    const timeZone = programTimeZone(snapshot.collectionCycles);
     const counts = emptyCounts();
-    const activeDevices = new Set<number>();
     const specimens = specimensBySession(snapshot.specimens);
-
-    for (const session of sessionsInPeriod(
-        snapshot.sessions,
-        period,
-        timeZone,
-    )) {
-        activeDevices.add(session.deviceId);
+    const sites = new Map(snapshot.sites.map(site => [site.siteId, site]));
+    for (const session of sessions) {
         addSessionCounts(
             counts,
             session,
             specimens.get(session.sessionId) ?? [],
+            sites.get(session.siteId),
             program.country,
         );
     }
-    counts.activeDevices = activeDevices.size;
+    counts.activeDevices = new Set(sessions.map(s => s.deviceId)).size;
+    return counts;
+}
+
+function countProgram(programData: ProgramData, period: Period): PeriodCounts {
+    const { snapshot } = programData;
+    const counts = countSessions(
+        sessionsInPeriod(
+            snapshot.sessions,
+            period,
+            programTimeZone(snapshot.collectionCycles),
+        ),
+        programData,
+    );
 
     // The backend buckets logins by UTC day, so these use UTC months.
     for (const user of snapshot.userLogins) {
@@ -241,9 +264,9 @@ function overlappingCycles(
 function earliestDataMonth(programs: ProgramData[]): MonthKey | undefined {
     const months = programs.flatMap(({ snapshot }) => {
         const timeZone = programTimeZone(snapshot.collectionCycles);
-        return snapshot.sessions
-            .filter(isCountedSession)
-            .map(session => monthKeyOf(sessionBucketTime(session), timeZone));
+        return snapshot.sessions.map(session =>
+            monthKeyOf(sessionBucketTime(session), timeZone),
+        );
     });
     return months.reduce<MonthKey | undefined>(
         (earliest, month) => (!earliest || month < earliest ? month : earliest),
@@ -283,7 +306,6 @@ export function buildPeriodMetrics(
 
     const programMetrics = programs.map(programData => ({
         programId: programData.program.programId,
-        hasCountryBox: hasCountryBox(programData.program.country),
         metrics: withRatios(
             countProgram(programData, period),
             loginsTracked(period),

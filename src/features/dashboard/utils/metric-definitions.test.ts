@@ -19,8 +19,8 @@ const metrics: PeriodMetricsDto = {
         geolocation: 700,
         operatorId: 1000,
     },
-    certifiedSessions: 30,
-    submittedSessions: 10,
+    dhis2Records: 40,
+    submittedRecords: 10,
     uniqueUsers: 3,
     logins: 12,
     imagesPerActiveDevice: 1234 / 4,
@@ -32,6 +32,7 @@ const metrics: PeriodMetricsDto = {
         operatorId: 1,
     },
     dhis2UploadRate: 10 / 40,
+    timing: null,
 };
 
 describe('METRICS calculations', () => {

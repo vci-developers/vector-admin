@@ -22,10 +22,6 @@ const COUNTRY_BOUNDING_BOXES: Record<string, BoundingBox> = {
     },
 };
 
-export function hasCountryBox(country: string): boolean {
-    return country in COUNTRY_BOUNDING_BOXES;
-}
-
 export function isInsideCountry(
     latitude: number | null,
     longitude: number | null,

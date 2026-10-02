@@ -1,4 +1,4 @@
-import type { LocationLevel } from './build-location-tree';
+import type { LocationLevel } from './site-location-path';
 
 type MapLayer = 'specimens' | 'devices';
 

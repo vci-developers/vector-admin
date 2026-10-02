@@ -39,6 +39,35 @@ function snapshot(overrides: Partial<ProgramSnapshot>): ProgramSnapshot {
 }
 
 describe('buildProgramSessions', () => {
+    it('times every gap between its images, across specimens', () => {
+        const image = (id: number, seconds: number) => ({
+            id,
+            capturedAt: JAN_10 + seconds * 1000,
+        });
+        const [row] = buildProgramSessions(
+            snapshot({
+                sessions: [session(1)],
+                specimens: [
+                    {
+                        id: 10,
+                        sessionId: 1,
+                        images: [image(1, 0), image(2, 12)],
+                        thumbnailImage: null,
+                    },
+                    {
+                        id: 11,
+                        sessionId: 1,
+                        images: [image(3, 40)],
+                        thumbnailImage: null,
+                    },
+                ],
+            }),
+            'Uganda',
+            { from: '2026-01', to: '2026-01' },
+        );
+        expect(row.handling).toEqual({ images: 3, gaps: [12, 28] });
+    });
+
     it('lists uncertified Sessions first, each group oldest first', () => {
         const rows = buildProgramSessions(
             snapshot({
@@ -65,12 +94,11 @@ describe('buildProgramSessions', () => {
         expect(rows.map(row => row.sessionId)).toEqual([3, 2, 4, 1]);
     });
 
-    it('keeps only counted Sessions from the requested month', () => {
+    it('keeps only Sessions from the requested month', () => {
         const rows = buildProgramSessions(
             snapshot({
                 sessions: [
                     session(1),
-                    session(2, { type: 'PRACTICE' }),
                     session(3, { collectionDate: Date.UTC(2026, 1, 3) }),
                 ],
             }),
@@ -79,25 +107,6 @@ describe('buildProgramSessions', () => {
         );
 
         expect(rows.map(row => row.sessionId)).toEqual([1]);
-    });
-
-    it('measures Time to Confirmation from createdAt to certifiedAt', () => {
-        const [certified, pending] = buildProgramSessions(
-            snapshot({
-                sessions: [
-                    session(1, {
-                        state: 'CERTIFIED',
-                        certifiedBy: { certifiedAt: JAN_10 + 5 * HOUR },
-                    }),
-                    session(2),
-                ],
-            }),
-            'Uganda',
-            { from: '2026-01', to: '2026-01' },
-        ).sort((a, b) => a.sessionId - b.sessionId);
-
-        expect(certified.timeToConfirmation).toBe(5 * HOUR);
-        expect(pending.timeToConfirmation).toBeNull();
     });
 
     it('reports which Required Metadata Fields are missing', () => {

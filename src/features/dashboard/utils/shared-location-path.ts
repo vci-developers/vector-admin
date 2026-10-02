@@ -1,4 +1,4 @@
-import type { LocationLevel } from './build-location-tree';
+import type { LocationLevel } from './site-location-path';
 
 /**
  * The place names every path shares, broadest first: all of a single path, and

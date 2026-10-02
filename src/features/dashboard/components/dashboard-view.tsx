@@ -17,6 +17,7 @@ import PeriodSummary from './period-summary';
 import ProgramFilter from './program-filter';
 import RangePicker from './range-picker';
 import RefreshControl from './refresh-control';
+import SessionFilter from './session-filter';
 import UsersSection from './users-section';
 
 function currentMonthKey(now: Date) {
@@ -41,6 +42,8 @@ export default function DashboardView() {
 
     const dashboardQuery = useGetDashboard({
         exclude: filters.exclude,
+        types: filters.types,
+        testSites: filters.testSites,
         ...range,
     });
     const result = dashboardQuery.data;
@@ -79,6 +82,7 @@ export default function DashboardView() {
             <div className="bg-background/95 z-30 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
                 <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
                     <ProgramFilter programs={dashboard.programs} />
+                    <SessionFilter />
                     <RangePicker range={range} currentMonth={currentMonth} />
                 </div>
                 <RefreshControl

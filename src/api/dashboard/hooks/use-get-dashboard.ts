@@ -16,6 +16,8 @@ async function fetchDashboard(
     const searchParams = new URLSearchParams({
         exclude: params.exclude.join(','),
         to: params.to,
+        types: params.types.join(','),
+        testSites: String(params.testSites),
         ...(params.from ? { from: params.from } : {}),
     });
 

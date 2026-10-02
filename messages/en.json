@@ -50,7 +50,13 @@
             "all": "All",
             "month": "Month",
             "custom": "Custom"
-        }
+        },
+        "sessionTypes": "Session types",
+        "sessionTypesSummary": "{count, plural, =0 {No Session types} other {# Session types}}",
+        "withTestSite": "with test Site",
+        "includeTestSite": "Include the test Site (Other)",
+        "testSiteHint": "Uganda's catch-all for testing and training, outside any District.",
+        "resetSessions": "Reset to default"
     },
     "Refresh": {
         "lastUpdated": "Updated {time}",
@@ -68,35 +74,35 @@
             "activeDevices": "Active Devices",
             "completeRecords": "complete Records",
             "records": "Records",
-            "submittedSessions": "Submitted",
-            "certifiedSessions": "Certified"
+            "submittedRecords": "Records submitted",
+            "dhis2Records": "Records"
         },
         "activeDevices": {
-            "title": "Active Devices",
-            "description": "Devices with at least one Session collected in the period, each counted once however many months it was active. Only Surveillance and Data collection Sessions count; Practice and Calibration are ignored."
+            "title": "Active devices",
+            "description": "Devices with at least one Session collected in the period, each counted once however many months it was active. Counts only the Session types chosen in the Sessions filter."
         },
         "images": {
             "title": "Images",
-            "description": "Every photo of a Specimen from Surveillance and Data collection Sessions, counted in the month the Session was collected (Program's timezone). A Specimen photographed three times counts three times."
+            "description": "Every photo of a Specimen, counted in the month the Session was collected (Program's timezone). A Specimen photographed three times counts three times."
         },
         "uniqueSpecimens": {
-            "title": "Unique Specimens",
-            "description": "Specimens from Surveillance and Data collection Sessions collected in the period, each counted once however many Images it has."
+            "title": "Unique specimens",
+            "description": "Specimens collected in the period, each counted once however many Images it has."
         },
         "imagesPerActiveDevice": {
-            "title": "Images per Active Device",
+            "title": "Images / device",
             "description": "Images ÷ Active Devices, for the same Programs and period. Blank when no devices were active."
         },
         "metadataCompleteness": {
-            "title": "Metadata Completeness",
-            "description": "Share of Specimens whose record has all four: a species, a capture date, Session GPS inside the Program's country, and an operator name. Open a Program's row to see each field."
+            "title": "Metadata complete",
+            "description": "Share of Specimens whose record has all four: a species, a capture date, a location (its Site's District, or else the Session's GPS inside the country), and an operator name."
         },
         "dhis2UploadRate": {
-            "title": "DHIS2 Upload Rate",
-            "description": "Submitted ÷ (Certified + Submitted) Sessions collected in the period. A failed or never-attempted upload stays Certified. Uganda only; blank for other Programs, which don't use DHIS2."
+            "title": "DHIS2 upload",
+            "description": "Records sent to DHIS2 (their Session is Submitted) ÷ all Records. Uganda only."
         },
         "uniqueUsers": {
-            "title": "Unique Users",
+            "title": "Unique users",
             "description": "VectorVerify users (reviewers, not field collectors) who logged in during the period, each counted once. Uses UTC months. Blank before login tracking began."
         },
         "logins": {
@@ -115,33 +121,49 @@
     },
     "Summary": {
         "heading": "Summary, {period}",
-        "program": "Program",
         "total": "Total",
         "incomplete": "Incomplete",
         "failed": "Failed to load",
-        "noCountryBox": "No country box",
-        "noCountryBoxHint": "No bounding box for this Program's country, so geolocation always fails.",
-        "details": "Details",
-        "toggleFields": "Show field completeness and locations for {program}",
-        "toggleLocation": "Show or hide places within {location}",
-        "unknownSite": "Unknown Site",
-        "fieldCompleteness": "Field completeness",
-        "fieldColumn": "{field} completeness",
         "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}",
-        "copy": "Copy for Excel",
-        "copied": "Copied",
+        "copied": "Copied values",
         "copyFailed": "Copy failed",
         "openSessions": "Show {program} Sessions for this period",
         "previousMonths": "previous {count} months",
         "inProgress": "In progress",
         "inProgressHint": "{month} hasn't ended yet, so its numbers are still coming in.",
         "periodInProgress": "{period}, in progress",
-        "cycleRange": "Cycles {first}–{last} · {count}"
+        "cycleRange": "Cycles {first}–{last} · {count}",
+        "area": "Area",
+        "programTotal": "Program total",
+        "noArea": "No {level}",
+        "timing": {
+            "median": "Median",
+            "p25": "25th pct",
+            "p75": "75th pct",
+            "mean": "Mean",
+            "sd": "SD"
+        },
+        "timingNote": "Times are seconds between consecutive images in a Session, pauses and retakes included.",
+        "selectRow": "Select {row}",
+        "copy": "Copy",
+        "copyRow": "Copy {row} values",
+        "copySelected": "Copy selected ({count})",
+        "noAreaNoLevel": "No area",
+        "timingInfo": {
+            "median": "The middle gap: half the gaps between consecutive images are shorter. Every gap in every Session in the period, pooled (Excel MEDIAN).",
+            "p25": "A quarter of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.25).",
+            "p75": "Three quarters of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.75).",
+            "mean": "Sum of every gap between consecutive images ÷ number of gaps. Long pauses pull it up, so it sits above the median.",
+            "sd": "How spread out the gaps are (Excel STDEV.S, sample standard deviation). Blank with fewer than two gaps."
+        },
+        "timingHowDerived": "How {stat} is worked out",
+        "fieldsGroup": "Fields present (%)",
+        "timingGroup": "Time between images (s)"
     },
     "Fields": {
-        "species": "Species",
+        "species": "Species ID",
         "captureDate": "Capture date",
-        "geolocation": "Geolocation",
+        "geolocation": "Location",
         "operatorId": "Operator ID"
     },
     "Devices": {
@@ -191,12 +213,14 @@
         "enteredBy": "Entered by",
         "noCollector": "No name",
         "dateEntered": "Date entered",
+        "timeBetweenImages": "Time between images",
+        "medianGap": "{seconds} s median",
+        "noGap": "No gap",
+        "imageCount": "{count, plural, =0 {no images} one {# image} other {# images}}",
         "collected": "Collected",
         "submitted": "Submitted",
-        "timeToConfirmation": "Time to confirmation",
         "missing": "Missing fields",
         "noDate": "No date",
-        "notConfirmed": "Not confirmed",
         "noneMissing": "None",
         "missingSpecies": "Species ({count} of {total})",
         "sortBy": "Sort by {column}",
@@ -215,11 +239,6 @@
             "SUBMITTED": "Submitted",
             "NOT_APPLICABLE": "Not applicable",
             "UNKNOWN": "Unknown"
-        },
-        "duration": {
-            "minutes": "{count} min",
-            "hours": "{count, plural, one {# hour} other {# hours}}",
-            "days": "{count, plural, one {# day} other {# days}}"
         }
     },
     "MapFilters": {
@@ -362,5 +381,11 @@
         "logins": "Logins",
         "lastLogin": "Last login",
         "total": "Total"
+    },
+    "SessionTypes": {
+        "SURVEILLANCE": "Surveillance",
+        "DATA_COLLECTION": "Data collection",
+        "PRACTICE": "Practice",
+        "CALIBRATION": "Calibration"
     }
 }

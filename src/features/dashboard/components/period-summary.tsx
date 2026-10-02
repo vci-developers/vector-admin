@@ -1,24 +1,17 @@
 'use client';
 
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
-import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
 import {
     addMonths,
     monthsInRange,
     monthStartDate,
 } from '@/features/dashboard/utils/month-key';
-import {
-    buildLocationRows,
-    buildSummaryRows,
-    summaryToTsv,
-} from '@/features/dashboard/utils/summary-rows';
+import { buildSummaryGroups } from '@/features/dashboard/utils/summary-rows';
 import { Badge } from '@/components/ui/badge';
-import { Check, Copy } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import KpiTiles from './kpi-tiles';
 import SessionPanel from './session-panel';
 import SummaryTable from './summary-table';
@@ -31,19 +24,10 @@ export default function PeriodSummary({
     period: DisplayPeriod;
 }) {
     const t = useTranslations('Summary');
-    const tMetrics = useTranslations('Metrics');
-    const tFields = useTranslations('Fields');
     const formatter = useFormatter();
-    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>(
-        'idle',
-    );
 
     const { total, previousTotal } = dashboard.metrics;
-    const rows = useMemo(() => buildSummaryRows(dashboard), [dashboard]);
-    const locations = useMemo(
-        () => buildLocationRows(dashboard.locations),
-        [dashboard.locations],
-    );
+    const groups = useMemo(() => buildSummaryGroups(dashboard), [dashboard]);
     const incomplete = dashboard.failedProgramIds.length > 0;
     const length = monthsInRange(period.from, period.to).length;
     // A single month compares with the month before ("Oct"); longer periods
@@ -59,33 +43,6 @@ export default function PeriodSummary({
                 })
               : t('previousMonths', { count: length });
 
-    async function copyTable() {
-        const tsv = summaryToTsv(
-            rows,
-            { metrics: total, incomplete },
-            {
-                header: [
-                    `${t('program')} (${
-                        period.inProgress
-                            ? t('periodInProgress', { period: period.label })
-                            : period.label
-                    })`,
-                    ...METRICS.map(metric => tMetrics(`${metric.key}.title`)),
-                    ...FIELDS.map(field =>
-                        t('fieldColumn', { field: tFields(field) }),
-                    ),
-                ],
-                total: t('total'),
-                incomplete: t('incomplete'),
-            },
-        );
-        const copied = await navigator.clipboard
-            .writeText(tsv)
-            .then(() => true)
-            .catch(() => false);
-        setCopyState(copied ? 'copied' : 'failed');
-    }
-
     return (
         <section
             aria-labelledby="summary-heading"
@@ -99,23 +56,6 @@ export default function PeriodSummary({
                     {period.inProgress && (
                         <Badge variant="outline">{t('inProgress')}</Badge>
                     )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <span
-                        aria-live="polite"
-                        className="text-muted-foreground text-sm"
-                    >
-                        {copyState === 'copied' && t('copied')}
-                        {copyState === 'failed' && (
-                            <span className="text-destructive">
-                                {t('copyFailed')}
-                            </span>
-                        )}
-                    </span>
-                    <Button variant="outline" size="sm" onClick={copyTable}>
-                        {copyState === 'copied' ? <Check /> : <Copy />}
-                        {t('copy')}
-                    </Button>
                 </div>
             </div>
             {period.inProgress && (
@@ -137,10 +77,9 @@ export default function PeriodSummary({
             <Card className="py-2">
                 <CardContent className="px-2">
                     <SummaryTable
-                        rows={rows}
+                        groups={groups}
                         total={total}
                         totalIncomplete={incomplete}
-                        locations={locations}
                     />
                 </CardContent>
             </Card>

@@ -24,10 +24,13 @@ export default function SessionPanel({
     period: DisplayPeriod;
 }) {
     const t = useTranslations('Sessions');
-    const [{ sessions: programId }, setFilters] = useDashboardFilters();
+    const [{ sessions: programId, types, testSites }, setFilters] =
+        useDashboardFilters();
     const query = useGetProgramSessions(programId, {
         from: period.from,
         to: period.to,
+        types,
+        testSites,
     });
     const program = programId === null ? undefined : programs.get(programId);
     const result = query.data;

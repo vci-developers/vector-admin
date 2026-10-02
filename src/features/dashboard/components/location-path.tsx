@@ -1,6 +1,6 @@
 'use client';
 
-import type { LocationLevel } from '@/features/dashboard/utils/build-location-tree';
+import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
 import { sharedLocationPath } from '@/features/dashboard/utils/shared-location-path';
 import { MapPin } from 'lucide-react';
 import { useTranslations } from 'next-intl';

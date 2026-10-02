@@ -7,6 +7,7 @@ import type {
     ProgramSessions,
 } from '@/api/program-sessions/validation/program-sessions-schema';
 import { buildProgramSessions } from '@/features/dashboard/utils/build-program-sessions';
+import { scopeSnapshot } from '@/features/dashboard/utils/counted-sessions';
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, ok, type Result } from '@/lib/result/result';
 
@@ -14,6 +15,7 @@ export async function getProgramSessions({
     programId,
     from,
     to,
+    ...scope
 }: GetProgramSessionsQuery): Promise<Result<ProgramSessions, NetworkError>> {
     const programs = await loadPrograms();
     if (!programs.ok) return programs;
@@ -28,9 +30,13 @@ export async function getProgramSessions({
         programId,
         from,
         to,
-        sessions: buildProgramSessions(snapshot.data, program.country, {
-            from,
-            to,
-        }),
+        sessions: buildProgramSessions(
+            scopeSnapshot(snapshot.data, scope),
+            program.country,
+            {
+                from,
+                to,
+            },
+        ),
     });
 }

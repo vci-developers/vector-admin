@@ -3,6 +3,7 @@
 import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-schema';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Table,
     TableBody,
@@ -12,195 +13,70 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { FIELDS, METRICS } from '@/features/dashboard/utils/metric-definitions';
+import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
+import { cycleLabel } from '@/features/dashboard/utils/cycle-label';
+import { programTitle } from '@/features/dashboard/utils/program-title';
 import {
-    programLocationKey,
-    type LocationRow,
+    SHEET_COLUMNS,
+    summaryToTsv,
+    type SheetColumn,
+    type SummaryGroup,
     type SummaryRow,
 } from '@/features/dashboard/utils/summary-rows';
-import { programTitle } from '@/features/dashboard/utils/program-title';
-import { cycleLabel } from '@/features/dashboard/utils/cycle-label';
 import { cn } from '@/utils/cn';
-import { ChevronRight } from 'lucide-react';
-import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
+import { Check, Copy } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Fragment, useState } from 'react';
-import MetricInfo from './metric-info';
+import MetricInfo, { InfoTip } from './metric-info';
 import MetricValue from './metric-value';
 
-type SummaryTableProps = {
-    rows: SummaryRow[];
-    total: PeriodMetricsDto | null;
-    totalIncomplete: boolean;
-    /** From buildLocationRows: each place's rows, keyed by parent. */
-    locations: Map<string, LocationRow[]>;
-};
+const METRIC_COLUMNS = SHEET_COLUMNS.filter(c => c.kind === 'metric');
+const FIELD_COLUMNS = SHEET_COLUMNS.filter(c => c.kind === 'field');
+const TIMING_COLUMNS = SHEET_COLUMNS.filter(c => c.kind === 'timing');
+// Checkbox and name stay in view while the numbers scroll sideways; solid
+// colours so the numbers don't show through, matching the row's hover and
+// selected shades.
+const PINNED =
+    'bg-card sticky left-0 z-[1] shadow-[inset_-1px_0_0_var(--border)] group-hover/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] group-data-[state=selected]/row:bg-muted';
 
-function ExpandToggle({
-    isOpen,
-    label,
-    onToggle,
-}: {
-    isOpen: boolean;
-    label: string;
-    onToggle: () => void;
-}) {
-    return (
-        <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-expanded={isOpen}
-            aria-label={label}
-            onClick={onToggle}
-        >
-            <ChevronRight
-                className={
-                    isOpen
-                        ? 'rotate-90 transition-transform'
-                        : 'transition-transform'
-                }
-            />
-        </Button>
-    );
-}
+// A faint rule and extra room before the field and timing groups.
+const DIVIDER = 'border-border/60 border-l pl-4';
+const GROUP_STARTS: SheetColumn[] = [FIELD_COLUMNS[0], TIMING_COLUMNS[0]];
 
-type LocationRowsProps = {
-    parentKey: string;
-    depth: number;
-    locations: Map<string, LocationRow[]>;
-    expanded: Set<string>;
-    onToggle: (key: string) => void;
-};
+// Checkbox and name, the sheet's columns, copy button.
+const COLUMN_COUNT = SHEET_COLUMNS.length + 2;
+const GRAND_TOTAL_KEY = 'total';
 
-// Each level indents by INDENT; a guide line runs down from each open
-// ancestor's chevron, centred in its 1.5rem button, past the cell's 0.5rem pad.
-const INDENT_REM = 1.25;
-const guideLeft = (ancestorDepth: number) =>
-    `${0.5 + (ancestorDepth - 1) * INDENT_REM + 0.75}rem`;
-
-/**
- * "A › B › C" on one line. The merged ancestors are muted and shorten first,
- * so the deepest place, whose children are listed under the row, stays whole.
- */
-function PlaceTrail({
-    parts,
-    className,
-}: {
-    parts: string[];
-    className?: string;
-}) {
-    const ancestors = parts.slice(0, -1);
-    return (
-        <span className={cn('flex min-w-0', className)}>
-            {ancestors.length > 0 && (
-                <>
-                    <span className="text-muted-foreground min-w-0 truncate">
-                        {ancestors.join(' › ')}
-                    </span>
-                    <span
-                        className="text-muted-foreground shrink-0 px-1"
-                        aria-hidden="true"
-                    >
-                        ›
-                    </span>
-                </>
-            )}
-            <span className="max-w-full shrink-0 truncate">{parts.at(-1)}</span>
-        </span>
-    );
-}
-
-/** A parent's places, each followed by its own places when expanded. */
-function LocationRows({
-    parentKey,
-    depth,
-    locations,
-    expanded,
-    onToggle,
-}: LocationRowsProps) {
+function ColumnHeader({ column }: { column: SheetColumn }) {
+    const tMetrics = useTranslations('Metrics');
+    const tFields = useTranslations('Fields');
     const t = useTranslations('Summary');
-    return locations.get(parentKey)?.map(row => {
-        const names = row.places.map(place => place.name ?? t('unknownSite'));
-        const levels = row.places.flatMap(place =>
-            place.level ? [place.level] : [],
-        );
-        const isOpen = expanded.has(row.key);
-        return (
-            <Fragment key={row.key}>
-                <TableRow>
-                    <TableCell />
-                    <TableCell className="relative">
-                        {Array.from({ length: depth - 1 }, (_, index) => (
-                            <span
-                                key={index}
-                                aria-hidden="true"
-                                className="bg-border absolute inset-y-0 w-px"
-                                style={{ left: guideLeft(index + 1) }}
-                            />
-                        ))}
-                        {/* Zero width, then the column's: labels fit the Program
-                            column instead of widening it, so opening a Program
-                            never shifts the metric columns. */}
-                        <div
-                            className="flex w-0 min-w-full items-center gap-1"
-                            style={{
-                                paddingLeft: `${(depth - 1) * INDENT_REM}rem`,
-                            }}
-                        >
-                            {row.hasChildren ? (
-                                <ExpandToggle
-                                    isOpen={isOpen}
-                                    label={t('toggleLocation', {
-                                        location: names.join(', '),
-                                    })}
-                                    onToggle={() => onToggle(row.key)}
-                                />
-                            ) : (
-                                <span
-                                    className="size-6 shrink-0"
-                                    aria-hidden="true"
-                                />
-                            )}
-                            <div
-                                className="min-w-0 flex-1 overflow-hidden"
-                                title={names.join(' › ')}
-                            >
-                                <PlaceTrail parts={names} />
-                                {levels.length > 0 && (
-                                    <PlaceTrail
-                                        parts={levels}
-                                        className="text-muted-foreground text-xs"
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </TableCell>
-                    {METRICS.map(metric => (
-                        <TableCell
-                            key={metric.key}
-                            className="text-right tabular-nums"
-                        >
-                            {!metric.programOnly && (
-                                <MetricValue
-                                    value={metric.value(row.metrics)}
-                                    format={metric.format}
-                                />
-                            )}
-                        </TableCell>
-                    ))}
-                </TableRow>
-                {isOpen && (
-                    <LocationRows
-                        parentKey={row.key}
-                        depth={depth + 1}
-                        locations={locations}
-                        expanded={expanded}
-                        onToggle={onToggle}
-                    />
-                )}
-            </Fragment>
-        );
-    });
+    switch (column.kind) {
+        case 'metric':
+            return (
+                <>
+                    {tMetrics(`${column.key}.title`)}
+                    {'\u00a0'}
+                    <MetricInfo metric={column.key} />
+                </>
+            );
+        case 'field':
+            return tFields(column.key);
+        case 'timing':
+            return (
+                <>
+                    {t(`timing.${column.key}`)}
+                    {'\u00a0'}
+                    <InfoTip
+                        label={t('timingHowDerived', {
+                            stat: t(`timing.${column.key}`),
+                        })}
+                    >
+                        {t(`timingInfo.${column.key}`)}
+                    </InfoTip>
+                </>
+            );
+    }
 }
 
 /** Under the country: the Program name, then its Cycle Label. */
@@ -214,210 +90,330 @@ function ProgramNote({
     const t = useTranslations('Summary');
     const label = cycleLabel(cycles);
     return (
-        <div className="text-muted-foreground pl-4.5 text-xs">
-            {name && <p>{name}</p>}
-            {label && (
-                <p className="whitespace-nowrap">
-                    {label.kind === 'list'
-                        ? t('cycles', {
-                              count: label.count,
-                              numbers: label.numbers,
-                          })
-                        : t('cycleRange', label)}
-                </p>
-            )}
-        </div>
+        <span className="text-muted-foreground text-xs font-normal">
+            {name}
+            {name && label && ' · '}
+            {label &&
+                (label.kind === 'list'
+                    ? t('cycles', {
+                          count: label.count,
+                          numbers: label.numbers,
+                      })
+                    : t('cycleRange', label))}
+        </span>
     );
 }
 
-function FieldBreakdown({ metrics }: { metrics: PeriodMetricsDto }) {
-    const t = useTranslations('Fields');
+type RowProps = {
+    label: string;
+    metrics: PeriodMetricsDto | null;
+    incomplete?: boolean;
+    emphasis?: boolean;
+    /** Position in Copy selected, from 1; null when not ticked. */
+    pick: number | null;
+    isCopied: boolean;
+    onSelect: (selected: boolean) => void;
+    onCopy: () => void;
+};
+
+function SheetRow({
+    label,
+    metrics,
+    incomplete = false,
+    emphasis = false,
+    pick,
+    isCopied,
+    onSelect,
+    onCopy,
+}: RowProps) {
+    const t = useTranslations('Summary');
+    const canCopy = metrics !== null && !incomplete;
     return (
-        <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            {FIELDS.map(field => (
-                <div key={field} className="flex gap-2">
-                    <dt className="text-muted-foreground">{t(field)}</dt>
-                    <dd className="font-medium tabular-nums">
-                        <MetricValue
-                            value={metrics.fieldCompleteness[field]}
-                            format="percent"
-                        />
-                    </dd>
+        // The checkbox stays the keyboard control; clicking anywhere else on
+        // the row is a shortcut for it.
+        <TableRow
+            data-state={pick !== null ? 'selected' : undefined}
+            className={cn('group/row', canCopy && 'cursor-pointer')}
+            onClick={() => canCopy && onSelect(pick === null)}
+        >
+            <TableCell className={cn(PINNED, emphasis && 'font-semibold')}>
+                <div className="flex items-center gap-1.5 pr-2">
+                    <Checkbox
+                        checked={pick !== null}
+                        disabled={!canCopy}
+                        onCheckedChange={checked => onSelect(checked === true)}
+                        onClick={event => event.stopPropagation()}
+                        aria-label={t('selectRow', { row: label })}
+                    />
+                    <span className="text-muted-foreground w-3 text-xs font-normal tabular-nums">
+                        {pick}
+                    </span>
+                    {label}
                 </div>
+            </TableCell>
+            {SHEET_COLUMNS.map(column => (
+                <TableCell
+                    key={`${column.kind}:${column.key}`}
+                    className={cn(
+                        'px-3 text-center tabular-nums',
+                        emphasis && 'font-semibold',
+                        GROUP_STARTS.includes(column) && DIVIDER,
+                    )}
+                >
+                    {incomplete ? (
+                        <span className="text-destructive font-normal">
+                            {t('incomplete')}
+                        </span>
+                    ) : (
+                        metrics && (
+                            <MetricValue
+                                value={column.value(metrics)}
+                                format={column.format}
+                            />
+                        )
+                    )}
+                </TableCell>
             ))}
-        </dl>
+            <TableCell>
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={!canCopy}
+                    onClick={event => {
+                        event.stopPropagation();
+                        onCopy();
+                    }}
+                    aria-label={t('copyRow', { row: label })}
+                >
+                    {isCopied ? <Check /> : <Copy />}
+                </Button>
+            </TableCell>
+        </TableRow>
     );
 }
 
 export default function SummaryTable({
-    rows,
+    groups,
     total,
     totalIncomplete,
-    locations,
-}: SummaryTableProps) {
+}: {
+    groups: SummaryGroup[];
+    total: PeriodMetricsDto | null;
+    totalIncomplete: boolean;
+}) {
     const t = useTranslations('Summary');
-    const tMetrics = useTranslations('Metrics');
     const [, setFilters] = useDashboardFilters();
-    const [expanded, setExpanded] = useState<Set<string>>(new Set());
-    const columnCount = METRICS.length + 2;
+    // Row keys in the order ticked, which is the order Copy selected pastes.
+    const [selected, setSelected] = useState<string[]>([]);
+    const [copied, setCopied] = useState<string | 'failed' | null>(null);
 
-    function toggle(key: string) {
-        setExpanded(current => {
-            const next = new Set(current);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
+    const showGrandTotal = groups.length > 1;
+    const rowsInOrder: SummaryRow[] = [
+        ...groups.flatMap(group => [...group.areas, group.total]),
+        ...(showGrandTotal && !totalIncomplete
+            ? [{ key: GRAND_TOTAL_KEY, name: null, metrics: total }]
+            : []),
+    ];
+
+    async function copy(key: string, rows: SummaryRow[]) {
+        const ok = await navigator.clipboard
+            .writeText(summaryToTsv(rows.map(row => row.metrics)))
+            .then(() => true)
+            .catch(() => false);
+        setCopied(ok ? key : 'failed');
     }
 
+    function rowProps(row: SummaryRow) {
+        return {
+            pick: selected.includes(row.key)
+                ? selected.indexOf(row.key) + 1
+                : null,
+            isCopied: copied === row.key,
+            onSelect: (isSelected: boolean) =>
+                setSelected(current =>
+                    isSelected
+                        ? [...current, row.key]
+                        : current.filter(key => key !== row.key),
+                ),
+            onCopy: () => copy(row.key, [row]),
+        };
+    }
+
+    const areaLabel = ({ level }: SummaryGroup, name: string | null) =>
+        name ??
+        (level
+            ? t('noArea', { level: level.toLowerCase() })
+            : t('noAreaNoLevel'));
+
     return (
-        <Table containerClassName="max-h-[40rem] overflow-auto">
-            <TableHeader className="bg-card sticky top-0 z-10 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
-                <TableRow>
-                    <TableHead className="w-8">
-                        <span className="sr-only">{t('details')}</span>
-                    </TableHead>
-                    <TableHead>{t('program')}</TableHead>
-                    {METRICS.map(metric => (
+        <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+                <p className="text-muted-foreground text-xs">
+                    {t('timingNote')}
+                </p>
+                <div className="flex items-center gap-2">
+                    <span aria-live="polite" className="text-sm">
+                        {copied === 'failed' ? (
+                            <span className="text-destructive">
+                                {t('copyFailed')}
+                            </span>
+                        ) : (
+                            copied !== null && (
+                                <span className="text-muted-foreground">
+                                    {t('copied')}
+                                </span>
+                            )
+                        )}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={selected.length === 0}
+                        onClick={() =>
+                            copy(
+                                'selected',
+                                selected.flatMap(key =>
+                                    rowsInOrder.filter(row => row.key === key),
+                                ),
+                            )
+                        }
+                    >
+                        {copied === 'selected' ? <Check /> : <Copy />}
+                        {t('copySelected', { count: selected.length })}
+                    </Button>
+                </div>
+            </div>
+            <Table containerClassName="max-h-[40rem] overflow-auto">
+                <TableHeader className="bg-card sticky top-0 z-10 [&_th]:h-auto [&_th]:py-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+                    <TableRow>
                         <TableHead
-                            key={metric.key}
-                            className="text-right whitespace-normal"
+                            rowSpan={2}
+                            className="bg-card sticky left-0 z-[1] align-bottom shadow-[inset_-1px_-1px_0_var(--border)]!"
                         >
-                            {tMetrics(`${metric.key}.title`)}{' '}
-                            <MetricInfo metric={metric.key} />
+                            <span className="pl-10">{t('area')}</span>
                         </TableHead>
-                    ))}
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map(row => {
-                    const key = programLocationKey(row.programId);
-                    const isOpen = expanded.has(key);
-                    return (
-                        <Fragment key={row.programId}>
-                            <TableRow>
-                                <TableCell>
-                                    {row.metrics && (
-                                        <ExpandToggle
-                                            isOpen={isOpen}
-                                            label={t('toggleFields', {
-                                                program: programTitle(row),
-                                            })}
-                                            onToggle={() => toggle(key)}
-                                        />
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
+                        {METRIC_COLUMNS.map(column => (
+                            <TableHead
+                                key={column.key}
+                                rowSpan={2}
+                                className="px-3 text-center align-bottom"
+                            >
+                                <ColumnHeader column={column} />
+                            </TableHead>
+                        ))}
+                        <TableHead
+                            colSpan={FIELD_COLUMNS.length}
+                            className={cn(DIVIDER, 'text-center')}
+                        >
+                            {t('fieldsGroup')}
+                        </TableHead>
+                        <TableHead
+                            colSpan={TIMING_COLUMNS.length}
+                            className={cn(DIVIDER, 'text-center')}
+                        >
+                            {t('timingGroup')}
+                        </TableHead>
+                        <TableHead rowSpan={2} className="w-10">
+                            <span className="sr-only">{t('copy')}</span>
+                        </TableHead>
+                    </TableRow>
+                    <TableRow>
+                        {[...FIELD_COLUMNS, ...TIMING_COLUMNS].map(column => (
+                            <TableHead
+                                key={`${column.kind}:${column.key}`}
+                                className={cn(
+                                    'px-3 text-center align-bottom',
+                                    GROUP_STARTS.includes(column) && DIVIDER,
+                                )}
+                            >
+                                <ColumnHeader column={column} />
+                            </TableHead>
+                        ))}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {groups.map(group => (
+                        <Fragment key={group.programId}>
+                            <TableRow className="bg-muted/40 hover:bg-muted/40">
+                                <TableCell
+                                    colSpan={COLUMN_COUNT}
+                                    className="font-medium"
+                                >
+                                    <div className="sticky left-2 flex w-fit items-center gap-2">
                                         <span
                                             aria-hidden="true"
                                             className="size-2.5 shrink-0 rounded-full"
-                                            style={{ background: row.color }}
+                                            style={{ background: group.color }}
                                         />
-                                        {row.metrics ? (
+                                        {group.total.metrics ? (
                                             <button
                                                 type="button"
-                                                className="font-medium underline-offset-4 hover:underline"
+                                                className="underline-offset-4 hover:underline"
                                                 title={t('openSessions', {
-                                                    program: programTitle(row),
+                                                    program:
+                                                        programTitle(group),
                                                 })}
                                                 onClick={() =>
                                                     setFilters({
-                                                        sessions: row.programId,
+                                                        sessions:
+                                                            group.programId,
                                                     })
                                                 }
                                             >
-                                                {row.country || row.name}
+                                                {group.country || group.name}
                                             </button>
                                         ) : (
-                                            <span className="font-medium">
-                                                {row.country || row.name}
-                                            </span>
+                                            <>
+                                                {group.country || group.name}
+                                                <Badge variant="destructive">
+                                                    {t('failed')}
+                                                </Badge>
+                                            </>
                                         )}
-                                        {!row.metrics && (
-                                            <Badge variant="destructive">
-                                                {t('failed')}
-                                            </Badge>
-                                        )}
-                                        {!row.hasCountryBox && (
-                                            <Badge
-                                                variant="outline"
-                                                title={t('noCountryBoxHint')}
-                                            >
-                                                {t('noCountryBox')}
-                                            </Badge>
-                                        )}
+                                        <ProgramNote
+                                            name={
+                                                group.country
+                                                    ? group.name
+                                                    : null
+                                            }
+                                            cycles={group.cycles}
+                                        />
                                     </div>
-                                    <ProgramNote
-                                        name={row.country ? row.name : null}
-                                        cycles={row.cycles}
-                                    />
                                 </TableCell>
-                                {METRICS.map(metric => (
-                                    <TableCell
-                                        key={metric.key}
-                                        className="text-right tabular-nums"
-                                    >
-                                        {row.metrics && (
-                                            <MetricValue
-                                                value={metric.value(
-                                                    row.metrics,
-                                                )}
-                                                format={metric.format}
-                                            />
-                                        )}
-                                    </TableCell>
-                                ))}
                             </TableRow>
-                            {isOpen && row.metrics && (
-                                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                                    <TableCell />
-                                    <TableCell colSpan={columnCount - 1}>
-                                        <p className="text-muted-foreground mb-1 text-xs font-medium">
-                                            {t('fieldCompleteness')}
-                                        </p>
-                                        <FieldBreakdown metrics={row.metrics} />
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                            {isOpen && (
-                                <LocationRows
-                                    parentKey={key}
-                                    depth={1}
-                                    locations={locations}
-                                    expanded={expanded}
-                                    onToggle={toggle}
+                            {group.areas.map(row => (
+                                <SheetRow
+                                    key={row.key}
+                                    label={areaLabel(group, row.name)}
+                                    metrics={row.metrics}
+                                    {...rowProps(row)}
                                 />
-                            )}
+                            ))}
+                            <SheetRow
+                                label={t('programTotal')}
+                                metrics={group.total.metrics}
+                                emphasis
+                                {...rowProps(group.total)}
+                            />
                         </Fragment>
-                    );
-                })}
-            </TableBody>
-            <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 [&_td]:shadow-[inset_0_1px_0_var(--border)]">
-                <TableRow>
-                    <TableCell />
-                    <TableCell className="font-semibold">
-                        {t('total')}
-                    </TableCell>
-                    {METRICS.map(metric => (
-                        <TableCell
-                            key={metric.key}
-                            className="text-right font-semibold tabular-nums"
-                        >
-                            {totalIncomplete || !total ? (
-                                <span className="text-destructive font-normal">
-                                    {t('incomplete')}
-                                </span>
-                            ) : (
-                                <MetricValue
-                                    value={metric.value(total)}
-                                    format={metric.format}
-                                />
-                            )}
-                        </TableCell>
                     ))}
-                </TableRow>
-            </TableFooter>
-        </Table>
+                </TableBody>
+                {showGrandTotal && (
+                    <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 [&_td]:shadow-[inset_0_1px_0_var(--border)]">
+                        <SheetRow
+                            label={t('total')}
+                            metrics={total}
+                            incomplete={totalIncomplete}
+                            emphasis
+                            {...rowProps({
+                                key: GRAND_TOTAL_KEY,
+                                name: null,
+                                metrics: total,
+                            })}
+                        />
+                    </TableFooter>
+                )}
+            </Table>
+        </div>
     );
 }

@@ -86,17 +86,6 @@ describe('buildSpecimenPoints', () => {
         ]);
     });
 
-    it('leaves out practice Sessions', () => {
-        const points = buildSpecimenPoints(
-            snapshot([session(1, { type: 'PRACTICE' })], [specimen(1, 1)]),
-            'Uganda',
-            { from: '2026-01', to: '2026-01' },
-        );
-
-        expect(points.placed).toEqual([]);
-        expect(points.unplaced).toEqual([]);
-    });
-
     it('covers every month of the period', () => {
         const points = buildSpecimenPoints(
             snapshot(

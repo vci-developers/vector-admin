@@ -21,8 +21,8 @@ export type CalculationTerm = {
         | 'activeDevices'
         | 'completeRecords'
         | 'records'
-        | 'submittedSessions'
-        | 'certifiedSessions';
+        | 'submittedRecords'
+        | 'dhis2Records';
     value: number;
 };
 
@@ -77,12 +77,9 @@ export const METRICS: MetricDefinition[] = [
         value: m => m.dhis2UploadRate,
         calculation: m => ({
             numerator: [
-                { term: 'submittedSessions', value: m.submittedSessions },
+                { term: 'submittedRecords', value: m.submittedRecords },
             ],
-            denominator: [
-                { term: 'certifiedSessions', value: m.certifiedSessions },
-                { term: 'submittedSessions', value: m.submittedSessions },
-            ],
+            denominator: [{ term: 'dhis2Records', value: m.dhis2Records }],
         }),
     },
 ];

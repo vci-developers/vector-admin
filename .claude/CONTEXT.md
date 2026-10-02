@@ -25,15 +25,25 @@ Program's timezone, so programs are comparable side by side. A Session with no
 (failing capture date). Periods are made of whole Reporting Months. _Avoid_:
 cycle (when meaning a month)
 
-**Counted Session**: A `SURVEILLANCE` or `DATA_COLLECTION` Session. `PRACTICE`
-and `CALIBRATION` Sessions are ignored by every metric and by Device Status (a
-Device with only those is Never Used). Every "Session" in the metric definitions
-below means a Counted Session.
+**Session Filter**: The page-wide filter in the toolbar, applied to every metric,
+the summary table, the map, the Session panel and Device Status, and kept in the
+URL (`types`, `testSites`). Session types: Surveillance, Data collection,
+Practice, Calibration; **default Surveillance only** (so Colombia, mostly Data
+collection, shows little by default). It also leaves out the **Test Site** unless
+"Include the test Site" is ticked.
+
+**Test Site**: A Site whose top-level place is "Other": Uganda's Site 11, the
+catch-all for testing and training (Kampala/Entebbe, Cameroon and Nairobi GPS,
+nothing ever certified). The only one in prod across all Programs.
+
+**Counted Session**: A Session that passes the Session Filter. Every "Session"
+in the metric definitions below means a Counted Session; a Device with none is
+Never Used.
 
 **Program Country**: The Program's `country` from `GET /programs`, the key for
-the static bounding box behind every GPS check. Boxes exist for Uganda, Kenya,
-Ghana, Cameroon, Colombia and the United States of America (contiguous states
-only). A Program whose country has no box fails every geolocation check.
+the static bounding box behind every GPS check (Device and Specimen Location,
+and the location field's fallback). Boxes exist for Uganda, Kenya, Ghana, Cameroon, Colombia and the
+United States of America (contiguous states only).
 
 **Reporting Period**: The one time filter for the whole page: a span of whole
 Reporting Months chosen from presets (This month, Last month, Last 3 / 6 / 12
@@ -62,21 +72,23 @@ once however many months it was active. Distinct from VectorVerify's **Device
 Activity** (cycle-based, as-of-today). _Avoid_: Monthly Active Device (the
 period is not always a month)
 
-**Location Breakdown**: Each Program row of the summary table expands (after its
-field completeness) into its Site hierarchy, one level at a time down to the
-deepest level, each place showing the same metrics as the Program over the
-Sessions at Sites at or below it. Unique Users and Logins are blank for places:
-users log in to a Program, not a Site. A Device that moved is an Active Device
-in each place it used, so children's Active Devices can add up to more than
-their parent's; every other count adds up. Legacy Sites use District →
-Sub-county → Health Centre → Parish → Village → House, skipping "N/A" levels;
-newer Sites use their own `locationHierarchy` levels in order. Places with the
-same name under the same parent merge. A place whose only child holds all of its
-data shares that child's row ("Karenga Town Council › … › Loputuk", levels
-listed beneath), so identical numbers are not repeated level after level; a
-place with Sessions at its own Site keeps its own row. Sessions at a Site with
-no place names sit under "Unknown Site". Copy for Excel copies Program rows
-only. _Avoid_: device location (that is the map position)
+**Area**: A Program's top-level place: a District for Uganda and other legacy
+Sites, a Region where Sites use their own `locationHierarchy`. Sessions at a
+Site with no place names share one "No area" row.
+
+**Team-sheet view**: The summary table, built to paste into the team's sheet
+("Monthly Entry: VectorVerify log metrics", one row per District per month).
+Per Program: one row per Area with data in the period, alphabetically, then
+**Program total** (always every Area, computed from the period's data, never
+averaged; a Device counts once). With several Programs a Total row follows.
+Columns, in order: Active Devices, Images, Unique Specimens, Images per Active
+Device, Unique Users and Logins (Program rows only: users log in to a Program,
+not a Site), Metadata Completeness, DHIS2 Upload Rate, % species ID, % capture
+date, % location, % operator ID, then Time between images as median, 25th
+pct, 75th pct, mean and SD in seconds. Copy is values only, no header or name:
+a button per row, or tick rows and Copy selected. A Device that moved between
+Areas is an Active Device in each. _Avoid_: Location Breakdown (the earlier
+drill-down to every level, removed)
 
 **Image**: One photo of a Specimen (`SpecimenImage`). A Specimen photographed
 three times is three Images. Counted in the Reporting Month of its Session's
@@ -159,21 +171,30 @@ clicked, and the Sessions or devices behind the chart are listed under it.
 _Avoid_: layer filter
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
+Every Specimen is a Record, with or without an Image; one with no Image has no
+species and fails species identification. (VectorVerify's specimen CSV export
+has one row per Image, so it leaves those out: 2 of Uganda's 2,046 Records in
+September 2026, too few to change a shown percentage.)
 Its **Required Metadata Fields** are species identification (the Specimen's),
-capture date (Session `collectionDate`), geolocation (Session GPS inside the
-Program's country, as for Device Location) and operator ID (Session
+capture date (Session `collectionDate`), **location** (the Session's Site sits
+under an Area and is not the Test Site; failing that, the Session's GPS is inside
+the Program Country) and operator ID (Session
 `collectorName`). Operator ID is free text with no link to a user, so "present"
 means only that a name was entered. **Metadata Completeness** = share of Records
 with all four fields present and valid; **Field Completeness** = the same share
 per field. _Avoid_: submission, entry
 
-**DHIS2 Upload Rate**: `SUBMITTED` ÷ (`CERTIFIED` + `SUBMITTED`) Sessions for a
-Program and Reporting Month. Estimates "attempted records successfully
-uploaded": a failed upload and a never-attempted one both stay `CERTIFIED`, so
-it reads as "share of send-ready data that reached DHIS2". Counted in Sessions
-because Submission is per Session. Only Uganda uses DHIS2, and the API has no
-per-Program setting, so Programs in other countries show it blank and stay out
-of the Total.
+**DHIS2 Upload Rate**: Records whose Session is `SUBMITTED` (sent to DHIS2) ÷
+all Records, over the period's Counted Sessions in any state, Needs Review
+included. Counted per Record, not per Session or Review Unit. Only Uganda uses
+DHIS2, and the API has no per-Program setting, so Programs in other countries
+show it blank and stay out of the Total.
+
+**Time between images**: Seconds between consecutive images (by `capturedAt`)
+within one Session, every gap included: retakes of the same specimen and pauses
+too. Gaps are pooled across Sessions, never averaged per Session; percentiles
+and SD as Excel's PERCENTILE.INC and STDEV.S. The Session panel shows each
+Session's median gap.
 
 **Unique Users**: VectorVerify web-app users (VCOs and other reviewers, not
 field collectors) of a Program who logged in at least once in the Reporting
@@ -188,11 +209,6 @@ Programs via the Program Filter. The users section lists each user (name, email,
 Program, logins, last login) with a by-day or by-month breakdown and an .xlsx
 report. _Avoid_: Active Users (collides with `isActive`), Active Device
 (different population)
-
-**Time to Confirmation**: Elapsed time from a Session's `createdAt` (started on
-the device) to `certifiedAt` (a VCO confirmed it in Review). Uncertified
-Sessions have no value. Shown per Session only; no monthly summary is decided.
-_Avoid_: identification time, turnaround
 
 **Projected Devices**: A per-program, per-month device target set by the program
 team. Planning data kept in the team's sheet, not in VectorAdmin; the sheet

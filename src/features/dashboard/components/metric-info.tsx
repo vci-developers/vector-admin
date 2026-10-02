@@ -32,6 +32,37 @@ function Terms({
     return bracketed && terms.length > 1 ? `(${text})` : text;
 }
 
+/** An info icon with a tooltip; `label` names it for screen readers. */
+export function InfoTip({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <TooltipProvider delayDuration={200}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        type="button"
+                        aria-label={label}
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 inline-flex shrink-0 rounded-full align-middle outline-none focus-visible:ring-[3px]"
+                    >
+                        <Info className="size-3.5" aria-hidden="true" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent
+                    side="top"
+                    className="max-w-72 text-left font-normal"
+                >
+                    {children}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+}
+
 /**
  * An info icon whose tooltip says how the metric is derived and, given the
  * period's metrics, the ratio worked out with its real numbers.
@@ -47,45 +78,24 @@ export default function MetricInfo({
     const definition = METRICS.find(m => m.key === metric);
     const calculation = metrics && definition?.calculation?.(metrics);
     return (
-        <TooltipProvider delayDuration={200}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        aria-label={t('howDerived', {
-                            metric: t(`${metric}.title`),
-                        })}
-                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 inline-flex shrink-0 rounded-full align-middle outline-none focus-visible:ring-[3px]"
-                    >
-                        <Info className="size-3.5" aria-hidden="true" />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent
-                    side="top"
-                    className="max-w-72 text-left font-normal"
-                >
-                    <p>{t(`${metric}.description`)}</p>
-                    {calculation && definition && metrics && (
-                        <p className="mt-2 border-t border-current/20 pt-2 tabular-nums">
-                            <Terms
-                                terms={calculation.numerator}
-                                bracketed={false}
-                            />
-                            <br />
-                            {'÷ '}
-                            <Terms terms={calculation.denominator} bracketed />
-                            <br />
-                            {'= '}
-                            <span className="font-semibold">
-                                <MetricValue
-                                    value={definition.value(metrics)}
-                                    format={definition.format}
-                                />
-                            </span>
-                        </p>
-                    )}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <InfoTip label={t('howDerived', { metric: t(`${metric}.title`) })}>
+            <p>{t(`${metric}.description`)}</p>
+            {calculation && definition && metrics && (
+                <p className="mt-2 border-t border-current/20 pt-2 tabular-nums">
+                    <Terms terms={calculation.numerator} bracketed={false} />
+                    <br />
+                    {'÷ '}
+                    <Terms terms={calculation.denominator} bracketed />
+                    <br />
+                    {'= '}
+                    <span className="font-semibold">
+                        <MetricValue
+                            value={definition.value(metrics)}
+                            format={definition.format}
+                        />
+                    </span>
+                </p>
+            )}
+        </InfoTip>
     );
 }

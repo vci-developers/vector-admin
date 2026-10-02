@@ -1,4 +1,5 @@
 import type { Session } from '@/api/session/validation/session-schema';
+import type { Site } from '@/api/site/validation/site-schema';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import { describe, expect, it } from 'vitest';
 import { checkRecordFields } from './check-record-fields';
@@ -17,6 +18,14 @@ const session: Session = {
     longitude: 32.58,
 };
 
+const site: Site = {
+    siteId: 1,
+    name: null,
+    district: 'Gulu',
+    villageName: 'Lacor',
+    locationHierarchy: {},
+};
+
 const specimen: Specimen = {
     id: 1,
     sessionId: 1,
@@ -25,8 +34,8 @@ const specimen: Specimen = {
 };
 
 describe('checkRecordFields', () => {
-    it('passes every field for a complete Uganda record', () => {
-        expect(checkRecordFields(specimen, session, 'Uganda')).toEqual({
+    it('passes every field for a complete record', () => {
+        expect(checkRecordFields(specimen, session, site, 'Uganda')).toEqual({
             species: true,
             captureDate: true,
             geolocation: true,
@@ -39,6 +48,7 @@ describe('checkRecordFields', () => {
             checkRecordFields(
                 { ...specimen, thumbnailImage: { species: null } },
                 session,
+                site,
                 'Uganda',
             ).species,
         ).toBe(false);
@@ -46,6 +56,7 @@ describe('checkRecordFields', () => {
             checkRecordFields(
                 { ...specimen, thumbnailImage: null },
                 session,
+                site,
                 'Uganda',
             ).species,
         ).toBe(false);
@@ -56,33 +67,39 @@ describe('checkRecordFields', () => {
             checkRecordFields(
                 specimen,
                 { ...session, collectionDate: null },
+                site,
                 'Uganda',
             ).captureDate,
         ).toBe(false);
     });
 
-    it('fails geolocation for null GPS or GPS outside the country', () => {
+    it('passes location for a Site under a District whatever its GPS', () => {
         expect(
             checkRecordFields(
                 specimen,
                 { ...session, latitude: null },
-                'Uganda',
+                {
+                    ...site,
+                    district: null,
+                    locationHierarchy: { Region: 'Ashanti' },
+                },
+                'Ghana',
             ).geolocation,
-        ).toBe(false);
-        // Ahmedabad, India
-        expect(
-            checkRecordFields(
-                specimen,
-                { ...session, latitude: 23.04, longitude: 72.52 },
-                'Uganda',
-            ).geolocation,
-        ).toBe(false);
+        ).toBe(true);
     });
 
-    it('fails geolocation for a Program country with no bounding box', () => {
-        expect(checkRecordFields(specimen, session, 'TEST').geolocation).toBe(
+    it('falls back to GPS inside the country when the Site has no District', () => {
+        const noDistrict = { ...site, district: 'Other', villageName: 'Other' };
+        const at = (fields: Partial<Session>, s?: Site) =>
+            checkRecordFields(specimen, { ...session, ...fields }, s, 'Uganda')
+                .geolocation;
+        expect(at({}, noDistrict)).toBe(true);
+        expect(at({}, undefined)).toBe(true);
+        // Ahmedabad, India
+        expect(at({ latitude: 23.04, longitude: 72.52 }, noDistrict)).toBe(
             false,
         );
+        expect(at({ latitude: null }, undefined)).toBe(false);
     });
 
     it('fails operator ID for a whitespace-only collectorName', () => {
@@ -90,6 +107,7 @@ describe('checkRecordFields', () => {
             checkRecordFields(
                 specimen,
                 { ...session, collectorName: '   ' },
+                site,
                 'Uganda',
             ).operatorId,
         ).toBe(false);

@@ -20,6 +20,7 @@ import {
 import {
     buildPlaceOptions,
     filterSessionRows,
+    medianGap,
     MISSING_OPTIONS,
     missingOf,
     nextSort,
@@ -44,18 +45,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import PlaceFilterMenu from './place-filter-menu';
 
 type SessionRow = ProgramSessions['sessions'][number];
-
-const HOUR = 60 * 60 * 1000;
-
-function useFormatDuration() {
-    const t = useTranslations('Sessions.duration');
-    return (ms: number) => {
-        if (ms < HOUR)
-            return t('minutes', { count: Math.max(1, Math.round(ms / 60000)) });
-        if (ms < 48 * HOUR) return t('hours', { count: Math.round(ms / HOUR) });
-        return t('days', { count: Math.round(ms / (24 * HOUR)) });
-    };
-}
 
 function MissingFields({ session }: { session: SessionRow }) {
     const t = useTranslations('Sessions');
@@ -85,6 +74,22 @@ function MissingFields({ session }: { session: SessionRow }) {
                 </Badge>
             ))}
         </div>
+    );
+}
+
+/** Median seconds from one image to the next, or why there is none. */
+function TimeBetweenImages({ session }: { session: SessionRow }) {
+    const t = useTranslations('Sessions');
+    const formatter = useFormatter();
+    const median = medianGap(session);
+    return median === null ? (
+        <span className="text-muted-foreground">
+            {t('noGap')} · {t('imageCount', { count: session.handling.images })}
+        </span>
+    ) : (
+        t('medianGap', {
+            seconds: formatter.number(median, { maximumFractionDigits: 1 }),
+        })
     );
 }
 
@@ -245,7 +250,6 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
     const t = useTranslations('Sessions');
     const tFields = useTranslations('Fields');
     const formatter = useFormatter();
-    const formatDuration = useFormatDuration();
     const [sort, setSort] = useState<SessionSort>(null);
     const [filters, setFilters] = useState<SessionFilters>(NO_FILTERS);
     // Filter menus render in here, inside the Session sheet, so they scroll.
@@ -390,7 +394,7 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                         {head('createdAt', t('dateEntered'))}
                         {head('collectionDate', t('collected'))}
                         {head('submittedAt', t('submitted'))}
-                        {head('timeToConfirmation', t('timeToConfirmation'))}
+                        {head('timeBetweenImages', t('timeBetweenImages'))}
                         {head(
                             'missing',
                             t('missing'),
@@ -487,13 +491,7 @@ export default function SessionTable({ rows }: { rows: SessionRow[] }) {
                                 {formatDate(row.submittedAt)}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
-                                {row.timeToConfirmation === null ? (
-                                    <span className="text-muted-foreground">
-                                        {t('notConfirmed')}
-                                    </span>
-                                ) : (
-                                    formatDuration(row.timeToConfirmation)
-                                )}
+                                <TimeBetweenImages session={row} />
                             </TableCell>
                             <TableCell>
                                 <MissingFields session={row} />

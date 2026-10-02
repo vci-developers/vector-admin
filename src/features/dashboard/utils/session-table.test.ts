@@ -21,9 +21,9 @@ const row = (sessionId: number, overrides: Partial<Row> = {}): Row => ({
     ],
     collectorName: 'Okello James',
     createdAt: 1000,
+    handling: { images: 0, gaps: [] },
     collectionDate: 1000,
     submittedAt: 2000,
-    timeToConfirmation: null,
     missing: {
         species: 0,
         captureDate: false,
@@ -37,10 +37,14 @@ const ids = (rows: Row[]) => rows.map(r => r.sessionId);
 
 describe('sortSessionRows', () => {
     const rows = [
-        row(1, { state: 'SUBMITTED', timeToConfirmation: 50 }),
-        row(2, { state: 'NEEDS_REVIEW', collectionDate: null }),
-        row(3, { state: 'CERTIFIED', timeToConfirmation: 10 }),
-        row(4, { state: null, collectionDate: 500 }),
+        row(1, { state: 'SUBMITTED', createdAt: 50 }),
+        row(2, {
+            state: 'NEEDS_REVIEW',
+            collectionDate: null,
+            createdAt: null,
+        }),
+        row(3, { state: 'CERTIFIED', createdAt: 10 }),
+        row(4, { state: null, collectionDate: 500, createdAt: null }),
     ];
 
     it('keeps the incoming order without a sort', () => {
@@ -57,7 +61,7 @@ describe('sortSessionRows', () => {
         const sort = (direction: 'asc' | 'desc') =>
             ids(
                 sortSessionRows(rows, {
-                    column: 'timeToConfirmation',
+                    column: 'createdAt',
                     direction,
                 }),
             );
@@ -238,6 +242,25 @@ describe('Session search', () => {
     it('needs every word to match', () => {
         expect(search('gulu hc')).toEqual([202]);
         expect(search('gulu buyende')).toEqual([]);
+    });
+});
+
+describe('sorting by time between images', () => {
+    it('orders by each Session’s median gap, Sessions with no gap last', () => {
+        const gaps = (...values: number[]) => ({
+            handling: { images: 3, gaps: values },
+        });
+        const rows = [row(1), row(2, gaps(30, 10, 20)), row(3, gaps(5))];
+        for (const direction of ['asc', 'desc'] as const) {
+            expect(
+                ids(
+                    sortSessionRows(rows, {
+                        column: 'timeBetweenImages',
+                        direction,
+                    }),
+                ),
+            ).toEqual(direction === 'asc' ? [3, 2, 1] : [2, 3, 1]);
+        }
     });
 });
 

@@ -1,4 +1,7 @@
-import { locationLevelSchema } from '@/api/dashboard/validation/dashboard-schema';
+import {
+    locationLevelSchema,
+    sessionScopeQuerySchema,
+} from '@/api/dashboard/validation/dashboard-schema';
 import { sessionStateSchema } from '@/api/session/validation/session-schema';
 import { resultSchema } from '@/lib/result/result-schema';
 import { z } from 'zod';
@@ -7,6 +10,7 @@ export const getProgramSessionsQuerySchema = z.object({
     programId: z.coerce.number().int().positive(),
     from: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
     to: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    ...sessionScopeQuerySchema.shape,
 });
 
 export type GetProgramSessionsQuery = z.infer<
@@ -26,8 +30,11 @@ export const programMonthSessionSchema = z.object({
     createdAt: z.number().nullable(),
     collectionDate: z.number().nullable(),
     submittedAt: z.number(),
-    timeToConfirmation: z.number().nullable(),
     specimenCount: z.number(),
+    handling: z.object({
+        images: z.number(),
+        gaps: z.array(z.number()),
+    }),
     missing: z.object({
         species: z.number(),
         captureDate: z.boolean(),

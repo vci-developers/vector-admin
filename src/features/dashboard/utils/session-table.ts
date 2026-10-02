@@ -1,4 +1,5 @@
 import type { SessionState } from '@/api/session/validation/session-schema';
+import { timingStats } from './build-handling-time';
 
 type SessionRow = {
     sessionId: number;
@@ -10,8 +11,11 @@ type SessionRow = {
     collectorName: string;
     createdAt: number | null;
     collectionDate: number | null;
+    handling: {
+        images: number;
+        gaps: number[];
+    };
     submittedAt: number;
-    timeToConfirmation: number | null;
     missing: {
         species: number;
         captureDate: boolean;
@@ -29,7 +33,7 @@ export const SORTABLE_COLUMNS = [
     'createdAt',
     'collectionDate',
     'submittedAt',
-    'timeToConfirmation',
+    'timeBetweenImages',
     'missing',
 ] as const;
 export type SortColumn = (typeof SORTABLE_COLUMNS)[number];
@@ -158,6 +162,10 @@ export function missingOf(row: SessionRow): MissingOption[] {
     return all.length > 0 ? all : ['none'];
 }
 
+/** The Session's median seconds from one image to the next, if any. */
+export const medianGap = (row: SessionRow): number | null =>
+    timingStats(row.handling.gaps)?.median ?? null;
+
 /** Sort value; null always sorts last, whichever the direction. */
 function valueOf(row: SessionRow, column: SortColumn): number | string | null {
     switch (column) {
@@ -169,6 +177,8 @@ function valueOf(row: SessionRow, column: SortColumn): number | string | null {
             return row.collectorName.toLocaleLowerCase() || null;
         case 'missing':
             return missingOf(row).filter(m => m !== 'none').length;
+        case 'timeBetweenImages':
+            return medianGap(row);
         default:
             return row[column];
     }

@@ -1,4 +1,6 @@
-export type DashboardParams = {
+import type { SessionScope } from '@/features/dashboard/utils/counted-sessions';
+
+export type DashboardParams = SessionScope & {
     exclude: number[];
     from?: string;
     to: string;

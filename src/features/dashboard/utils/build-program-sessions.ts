@@ -1,10 +1,10 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { SessionState } from '@/api/session/validation/session-schema';
 import type { Site } from '@/api/site/validation/site-schema';
-import { siteLocationPath, type LocationLevel } from './build-location-tree';
-import { checkRecordFields } from './check-record-fields';
-import { isCountedSession, sessionBucketTime } from './counted-sessions';
-import { isInsideCountry } from './country-bounding-boxes';
+import { siteLocationPath, type LocationLevel } from './site-location-path';
+import { timeSessionImages, type SessionHandling } from './build-handling-time';
+import { checkRecordFields, hasLocation } from './check-record-fields';
+import { sessionBucketTime } from './counted-sessions';
 import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
 
 export type SessionMissingFields = {
@@ -32,9 +32,9 @@ export type ProgramSession = {
     createdAt: number | null;
     collectionDate: number | null;
     submittedAt: number;
-    /** Milliseconds from createdAt to certifiedAt; null until certified. */
-    timeToConfirmation: number | null;
     specimenCount: number;
+    /** Gaps between its images, for Handling Time. */
+    handling: SessionHandling;
     missing: SessionMissingFields;
 };
 
@@ -59,11 +59,7 @@ export function buildProgramSessions(
     const timeZone = programTimeZone(snapshot.collectionCycles);
     const sessions = snapshot.sessions.filter(session => {
         const month = monthKeyOf(sessionBucketTime(session), timeZone);
-        return (
-            isCountedSession(session) &&
-            month >= period.from &&
-            month <= period.to
-        );
+        return month >= period.from && month <= period.to;
     });
     const sitesById = new Map(snapshot.sites.map(site => [site.siteId, site]));
     const specimensBySession = Map.groupBy(
@@ -73,7 +69,6 @@ export function buildProgramSessions(
 
     const rows = sessions.map(session => {
         const specimens = specimensBySession.get(session.sessionId) ?? [];
-        const certifiedAt = session.certifiedBy?.certifiedAt ?? null;
         const site = sitesById.get(session.siteId);
         return {
             sessionId: session.sessionId,
@@ -89,22 +84,23 @@ export function buildProgramSessions(
             createdAt: session.createdAt,
             collectionDate: session.collectionDate,
             submittedAt: session.submittedAt,
-            timeToConfirmation:
-                certifiedAt !== null && session.createdAt !== null
-                    ? certifiedAt - session.createdAt
-                    : null,
             specimenCount: specimens.length,
+            handling: timeSessionImages(
+                specimens.flatMap(specimen =>
+                    specimen.images.map(image => ({
+                        specimenId: specimen.id,
+                        capturedAt: image.capturedAt,
+                    })),
+                ),
+            ),
             missing: {
                 species: specimens.filter(
                     specimen =>
-                        !checkRecordFields(specimen, session, country).species,
+                        !checkRecordFields(specimen, session, site, country)
+                            .species,
                 ).length,
                 captureDate: session.collectionDate === null,
-                geolocation: !isInsideCountry(
-                    session.latitude,
-                    session.longitude,
-                    country,
-                ),
+                geolocation: !hasLocation(session, site, country),
                 operatorId: session.collectorName.trim() === '',
             },
         };

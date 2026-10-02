@@ -10,13 +10,12 @@ import {
     buildPeriodMetrics,
     type ProgramData,
 } from '@/features/dashboard/utils/build-period-metrics';
-import {
-    buildLocationTree,
-    siteLocationPath,
-} from '@/features/dashboard/utils/build-location-tree';
+import { buildAreaMetrics } from '@/features/dashboard/utils/build-area-metrics';
 import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
+import { scopeSnapshot } from '@/features/dashboard/utils/counted-sessions';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
+import { siteLocationPath } from '@/features/dashboard/utils/site-location-path';
 import type { NetworkError } from '@/lib/network/network-error';
 import { ok, type Result } from '@/lib/result/result';
 
@@ -38,7 +37,11 @@ export async function getDashboard(
     const failedProgramIds: number[] = [];
     selected.forEach((program, index) => {
         const snapshot = snapshots[index];
-        if (snapshot.ok) loaded.push({ program, snapshot: snapshot.data });
+        if (snapshot.ok)
+            loaded.push({
+                program,
+                snapshot: scopeSnapshot(snapshot.data, query),
+            });
         else failedProgramIds.push(program.programId);
     });
 
@@ -53,8 +56,8 @@ export async function getDashboard(
             programTimeZone(snapshot.collectionCycles),
         ),
     );
-    const locations = loaded.flatMap(programData =>
-        buildLocationTree(programData, period),
+    const areas = loaded.flatMap(programData =>
+        buildAreaMetrics(programData, period),
     );
     const specimenPoints: Dashboard['specimenPoints'] = {
         placed: [],
@@ -78,7 +81,7 @@ export async function getDashboard(
         failedProgramIds,
         metrics,
         devices,
-        locations,
+        areas,
         sitePaths,
         specimenPoints,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,

@@ -1,6 +1,6 @@
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import type { SiteLocations } from '@/api/site-locations/validation/site-locations-schema';
-import type { LocationLevel } from './build-location-tree';
+import type { LocationLevel } from './site-location-path';
 
 type DeviceRow = Dashboard['devices'][number];
 type Point = { latitude: number; longitude: number };
