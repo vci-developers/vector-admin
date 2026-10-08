@@ -3,14 +3,18 @@
 import type { Program } from '@/api/program/validation/program-schema';
 import { Button } from '@/components/ui/button';
 import { useMapFilters } from '@/features/dashboard/hooks/use-map-filters';
-import { MAPPED_DEVICE_STATUSES } from '@/features/dashboard/utils/filter-map-points';
 import type {
     DeviceGap,
     ProgramMapGap,
     SpecimenGap,
 } from '@/features/dashboard/utils/find-map-gaps';
 import { programTitle } from '@/features/dashboard/utils/program-title';
-import { Info } from 'lucide-react';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import { CircleAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 type MapGapsProps = {
@@ -21,7 +25,10 @@ type MapGapsProps = {
     onChange: () => void;
 };
 
-/** Names every selected Program with nothing on the map, and why. */
+/**
+ * A "!" on the map when a selected Program has nothing on it; opens to name
+ * each one and why.
+ */
 export default function MapGaps({
     gaps,
     programs,
@@ -49,15 +56,23 @@ export default function MapGaps({
     );
 
     return (
-        <div
-            role="status"
-            className="bg-muted/40 flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-start sm:justify-between"
-        >
-            <div className="flex gap-2">
-                <Info
-                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                    aria-hidden="true"
-                />
+        <Popover>
+            <PopoverTrigger asChild>
+                {/* Sits on the map beside its filters; solid like them. */}
+                <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label={t('gapsOpen', { count: gaps.length })}
+                    title={t('gapsTitle')}
+                    className="dark:bg-card/95 dark:hover:bg-accent text-amber-600 shadow-sm dark:text-amber-400"
+                >
+                    <CircleAlert />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="end"
+                className="flex w-80 flex-col gap-2 text-sm"
+            >
                 <div>
                     <p className="font-medium">{t('gapsTitle')}</p>
                     <ul className="text-muted-foreground">
@@ -81,27 +96,26 @@ export default function MapGaps({
                         })}
                     </ul>
                 </div>
-            </div>
-            {anyFiltered && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => {
-                        onChange();
-                        void setFilters({
-                            hideSpecies: [],
-                            hideSex: [],
-                            hideAbdomen: [],
-                            nonMosquito: true,
-                            zeroCatch: true,
-                            deviceStatus: [...MAPPED_DEVICE_STATUSES],
-                        });
-                    }}
-                >
-                    {t('showEverything')}
-                </Button>
-            )}
-        </div>
+                {anyFiltered && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => {
+                            onChange();
+                            void setFilters({
+                                hideSpecies: [],
+                                hideSex: [],
+                                hideAbdomen: [],
+                                nonMosquito: true,
+                                zeroCatch: true,
+                            });
+                        }}
+                    >
+                        {t('showEverything')}
+                    </Button>
+                )}
+            </PopoverContent>
+        </Popover>
     );
 }

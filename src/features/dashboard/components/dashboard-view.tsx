@@ -1,5 +1,7 @@
 'use client';
 
+import { useGetCoverage } from '@/api/coverage/hooks/use-get-coverage';
+import type { CoverageDto } from '@/api/coverage/validation/coverage-schema';
 import { useGetDashboard } from '@/api/dashboard/hooks/use-get-dashboard';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
@@ -8,14 +10,18 @@ import {
     isInProgress,
     resolveReportingRange,
 } from '@/features/dashboard/utils/resolve-reporting-range';
-import { AlertTriangle } from 'lucide-react';
+import { cn } from '@/utils/cn';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
+import CoverageMapPreview from './coverage-map-preview';
+import CoverageTiles from './coverage-tiles';
 import DashboardSkeleton from './dashboard-skeleton';
+import InProgressInfo from './in-progress-info';
 import MapSection from './map-section';
 import PeriodSummary from './period-summary';
 import ProgramFilter from './program-filter';
-import RangePicker from './range-picker';
+import PeriodPicker from './period-picker';
 import RefreshControl from './refresh-control';
 import SessionFilter from './session-filter';
 import UsersSection from './users-section';
@@ -26,6 +32,7 @@ function currentMonthKey(now: Date) {
 
 export default function DashboardView() {
     const t = useTranslations('Dashboard');
+    const tSummary = useTranslations('Summary');
     const periodLabel = usePeriodLabel();
     const [filters] = useDashboardFilters();
     const { range, currentMonth } = useMemo(() => {
@@ -47,8 +54,50 @@ export default function DashboardView() {
         ...range,
     });
     const result = dashboardQuery.data;
+    // Coverage comes from its own route and lands well before the Sessions.
+    const coverageQuery = useGetCoverage(filters.exclude);
+    const coverageResult = coverageQuery.data;
+    const coverage: CoverageDto | null = !coverageResult
+        ? null
+        : coverageResult.ok
+          ? coverageResult.data.coverage
+          : { ok: false, error: t('coverageLoadError') };
+    const outlines = coverageResult?.ok ? coverageResult.data.outlines : [];
 
-    if (!result) return <DashboardSkeleton message={t('loading')} />;
+    if (!result) {
+        const showFills =
+            filters.layers.includes('coverage') && coverage?.ok === true;
+        // Unknown until coverage answers (about a second).
+        const viewer = coverageResult?.ok ? coverageResult.data.viewer : null;
+        return (
+            <DashboardSkeleton
+                message={t('loading')}
+                // A Stakeholder never gets the activity cards.
+                activityCards={viewer === 'developer'}
+                coverageCardsFirst={viewer === 'stakeholder'}
+                map={
+                    showFills ? (
+                        <CoverageMapPreview
+                            fills={coverage.data.fills}
+                            outlines={outlines}
+                        />
+                    ) : undefined
+                }
+                coverageCards={
+                    coverageResult?.ok ? (
+                        <CoverageTiles
+                            coverage={coverage}
+                            // Users come with the Sessions, still loading.
+                            userCoverage={null}
+                            programs={coverageResult.data.programs}
+                            // A Stakeholder's sit in one row with the headline tiles.
+                            asCells={viewer === 'stakeholder'}
+                        />
+                    ) : undefined
+                }
+            />
+        );
+    }
     if (!result.ok) {
         return (
             <p
@@ -62,6 +111,9 @@ export default function DashboardView() {
     }
 
     const dashboard = result.data;
+    // Stakeholders get the map and the summary cards; the server already
+    // withholds the rest.
+    const isDeveloper = dashboard.viewer === 'developer';
     const { from, to } = dashboard.metrics;
     const period = {
         from,
@@ -69,6 +121,18 @@ export default function DashboardView() {
         label: periodLabel(from, to),
         inProgress: isInProgress(to, currentMonth),
     };
+    // A filter change keeps the old numbers up until the new ones land; dim
+    // them so they never pass for the new selection.
+    const isUpdating =
+        dashboardQuery.isPlaceholderData || coverageQuery.isPlaceholderData;
+    const summary = (
+        <PeriodSummary
+            key={`summary-${from}:${to}`}
+            dashboard={dashboard}
+            coverage={coverage}
+            period={period}
+        />
+    );
     const failedNames = dashboard.programs
         .filter(program =>
             dashboard.failedProgramIds.includes(program.programId),
@@ -76,52 +140,105 @@ export default function DashboardView() {
         .map(programTitle);
 
     return (
-        <div className="flex flex-col gap-8">
+        // Stakeholders' page fits the window on wide screens: tighter gaps,
+        // and the map stretches to fill what is left (see MapSection).
+        <div
+            className={cn(
+                'flex flex-col',
+                isDeveloper ? 'gap-8' : 'gap-4 lg:flex-1',
+            )}
+        >
             {/* Above the tables' sticky headers (up to z-20), below popovers
                 and the session sheet (z-50). */}
             <div className="bg-background/95 z-30 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
+                {/* Stakeholders' summary heading lives here, left of the
+                    filters, so the tiles start right below. */}
+                {!isDeveloper && (
+                    <div className="flex items-center gap-2">
+                        <h2
+                            id="summary-heading"
+                            className="text-lg font-semibold"
+                        >
+                            {tSummary('heading', { period: period.label })}
+                        </h2>
+                        {period.inProgress && <InProgressInfo to={period.to} />}
+                    </div>
+                )}
                 <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
                     <ProgramFilter programs={dashboard.programs} />
                     <SessionFilter />
-                    <RangePicker range={range} currentMonth={currentMonth} />
+                    <PeriodPicker range={range} currentMonth={currentMonth} />
+                    {isUpdating && (
+                        <span
+                            role="status"
+                            className="text-muted-foreground flex items-center gap-1.5 text-sm"
+                        >
+                            <Loader2
+                                className="size-3.5 animate-spin"
+                                aria-hidden="true"
+                            />
+                            {t('updating')}
+                        </span>
+                    )}
                 </div>
-                <RefreshControl
-                    lastUpdatedAt={dashboard.lastUpdatedAt}
-                    programIds={dashboard.selectedProgramIds}
-                    isRefetching={dashboardQuery.isFetching}
-                />
+                {isDeveloper && (
+                    <RefreshControl
+                        lastUpdatedAt={dashboard.lastUpdatedAt}
+                        programIds={dashboard.selectedProgramIds}
+                        // A filter change is "Updating", not a refresh.
+                        isRefetching={
+                            dashboardQuery.isFetching &&
+                            !dashboardQuery.isPlaceholderData
+                        }
+                    />
+                )}
             </div>
-            {failedNames.length > 0 && (
-                <p
-                    role="alert"
-                    className="border-destructive/40 text-destructive flex items-center gap-2 rounded-md border p-3 text-sm"
-                >
-                    <AlertTriangle
-                        className="size-4 shrink-0"
-                        aria-hidden="true"
-                    />
-                    {t('failedPrograms', { names: failedNames.join(', ') })}
-                </p>
-            )}
-            {dashboard.selectedProgramIds.length === 0 ? (
-                <p className="text-muted-foreground">
-                    {t('noProgramsSelected')}
-                </p>
-            ) : (
-                <>
-                    <MapSection
-                        key={`${from}:${to}`}
-                        dashboard={dashboard}
-                        period={period}
-                    />
-                    <PeriodSummary
-                        key={`summary-${from}:${to}`}
-                        dashboard={dashboard}
-                        period={period}
-                    />
-                    <UsersSection dashboard={dashboard} period={period} />
-                </>
-            )}
+            <div
+                aria-busy={isUpdating}
+                className={cn(
+                    'flex flex-col transition-opacity',
+                    isDeveloper ? 'gap-8' : 'gap-4 lg:flex-1',
+                    isUpdating && 'opacity-50',
+                )}
+            >
+                {failedNames.length > 0 && (
+                    <p
+                        role="alert"
+                        className="border-destructive/40 text-destructive flex items-center gap-2 rounded-md border p-3 text-sm"
+                    >
+                        <AlertTriangle
+                            className="size-4 shrink-0"
+                            aria-hidden="true"
+                        />
+                        {t('failedPrograms', { names: failedNames.join(', ') })}
+                    </p>
+                )}
+                {dashboard.selectedProgramIds.length === 0 ? (
+                    <p className="text-muted-foreground">
+                        {t('noProgramsSelected')}
+                    </p>
+                ) : (
+                    <>
+                        {/* Stakeholders read the summary tiles first; the
+                            map is the drill-down. */}
+                        {!isDeveloper && summary}
+                        <MapSection
+                            key={`${from}:${to}`}
+                            dashboard={dashboard}
+                            coverage={coverage}
+                            outlines={outlines}
+                            period={period}
+                        />
+                        {isDeveloper && summary}
+                        {isDeveloper && (
+                            <UsersSection
+                                dashboard={dashboard}
+                                period={period}
+                            />
+                        )}
+                    </>
+                )}
+            </div>
         </div>
     );
 }

@@ -3,34 +3,83 @@
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 
+import type {
+    CountryOutlineDto,
+    CoverageFillDto,
+} from '@/api/coverage/validation/coverage-schema';
 import type { Program } from '@/api/program/validation/program-schema';
 import type {
     PlacedDevice,
     PlacedSession,
 } from '@/features/dashboard/utils/place-by-site';
-import { specimenSeverity } from '@/features/dashboard/utils/specimen-severity';
+import { buildOutsideMask } from '@/features/dashboard/utils/build-outside-mask';
+import { coverageLabelPoint } from '@/features/dashboard/utils/coverage-label-point';
+import { placeLabels } from '@/features/dashboard/utils/place-labels';
+import {
+    COVERAGE_STATUSES,
+    type CoverageStatus,
+} from '@/features/dashboard/utils/parse-coverage-sheets';
+import type { CoverageUnitRef } from '@/features/dashboard/utils/search-map';
+import {
+    areaKey,
+    buildAreaMarks,
+    type AreaMark,
+} from '@/features/dashboard/utils/build-area-marks';
+import {
+    AREA_SEVERITY_STEPS,
+    specimenSeverity,
+    type SeverityStep,
+} from '@/features/dashboard/utils/specimen-severity';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import {
+    GeoJSON,
+    MapContainer,
+    Pane,
+    Marker,
+    Popup,
+    TileLayer,
+    useMap,
+    useMapEvents,
+} from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import {
     ACTIVE_COLOR,
+    COVERAGE_STYLES,
     IDLE_COLOR,
     ZERO_CATCH_COLOR,
     type MapLayer,
+    type PointLayer,
 } from './map-constants';
 import LocationPath from './location-path';
 import { DeviceDetails, SessionDetails } from './map-point-details';
 import SpecimenSummary, { type SummarySession } from './specimen-summary';
 
-export type MapSelection = { layer: MapLayer; ids: number[] } | null;
+/** A Coverage Unit picked on the map or in search, with its status. */
+export type SelectedUnit = CoverageUnitRef & { status: CoverageStatus };
+
+/** Points picked on the map; a unit selects the Sessions inside it. */
+export type MapSelection = {
+    layer: PointLayer;
+    ids: number[];
+    unit?: SelectedUnit;
+} | null;
 /** Points to zoom to; a new `seq` zooms again, even to the same points. */
-export type MapFocus = { layer: MapLayer; ids: number[]; seq: number } | null;
+export type MapFocus = {
+    layer: PointLayer;
+    ids: number[];
+    seq: number;
+    /** Zoom to this unit's shape instead of the points. */
+    unit?: CoverageUnitRef;
+} | null;
 
 type SurveillanceMapProps = {
     layers: MapLayer[];
+    coverageFills: CoverageFillDto[];
+    /** The selected Programs' countries, outlined whatever layers are on. */
+    outlines: CountryOutlineDto[];
     specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
     /** Each device's Sessions in the period, whatever the map filters. */
@@ -42,7 +91,12 @@ type SurveillanceMapProps = {
     dataKey: string;
     selection: MapSelection;
     onSelect: (selection: MapSelection) => void;
+    onSelectUnit: (unit: SelectedUnit) => void;
     focus: MapFocus;
+    /** false for Stakeholders: summaries only, no Session's own details. */
+    showSessions: boolean;
+    /** One mark per Area (District or top hierarchy level), not per Session. */
+    byArea: boolean;
 };
 
 const SHADOW = 'box-shadow:0 1px 3px rgba(0,0,0,.35)';
@@ -67,8 +121,8 @@ const shape = (
         html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:${radius};font:600 11px/1 var(--font-geist-sans),sans-serif;${style}">${label}</span>`,
     });
 
-function specimenStyle(count: number, bySite = false) {
-    const step = specimenSeverity(count);
+function specimenStyle(count: number, bySite = false, steps?: SeverityStep[]) {
+    const step = specimenSeverity(count, steps);
     return step
         ? `background:${step.fill};color:${step.text};${outline(bySite)}`
         : `background:#fff;color:${ZERO_CATCH_COLOR};${outline(bySite, ZERO_CATCH_COLOR)}`;
@@ -99,6 +153,62 @@ const deviceIcon = (isActive: boolean, bySite: boolean, isSelected: boolean) =>
 
 const clusterSize = (value: number) =>
     value < 10 ? 30 : value < 100 ? 36 : value < 1000 ? 42 : 48;
+
+/** Several Areas as one, for a cluster of overlapping marks. */
+const mergeAreas = (areas: AreaMark[]): AreaMark => ({
+    key: areas.map(a => a.key).join('|'),
+    programId: areas[0]?.programId ?? 0,
+    name: null,
+    sessionIds: areas.flatMap(a => a.sessionIds),
+    specimenCount: areas.reduce((sum, a) => sum + a.specimenCount, 0),
+    deviceIds: areas.flatMap(a => a.deviceIds),
+    latitude: areas[0]?.latitude ?? 0,
+    longitude: areas[0]?.longitude ?? 0,
+});
+
+const areaSize = (count: number) => (count < 100 ? 28 : count < 1000 ? 34 : 40);
+
+/**
+ * One Area as a single mark: its specimens as a bubble on the Area scale and
+ * its device count as a green badge on the bubble's shoulder, so nothing else
+ * crowds round it. Its name is the Coverage Unit's label, set just below.
+ */
+function areaIcon(
+    area: AreaMark,
+    {
+        specimens,
+        devices,
+        hasActive,
+        isSelected,
+    }: {
+        specimens: boolean;
+        devices: boolean;
+        /** Any of its devices Active: green, else grey. */
+        hasActive: boolean;
+        isSelected: boolean;
+    },
+) {
+    const hasBubble = specimens && area.sessionIds.length > 0;
+    const hasBadge = devices && area.deviceIds.length > 0;
+    const size = hasBubble ? areaSize(area.specimenCount) : 20;
+    const font = 'font:600 11px/1 var(--font-geist-sans),sans-serif';
+    const badge = (style: string) =>
+        `<span style="position:absolute;${style};display:flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:5px;background:${hasActive ? ACTIVE_COLOR : IDLE_COLOR};color:#fff;border:2px solid #fff;${font};font-size:10px;${SHADOW}">${area.deviceIds.length}</span>`;
+    const bubble = hasBubble
+        ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:9999px;${font};${specimenStyle(area.specimenCount, false, AREA_SEVERITY_STEPS)};border-width:3px;${isSelected ? ring(true) : SHADOW}">${compact.format(area.specimenCount)}</span>`
+        : '';
+    const deviceBadge = hasBadge
+        ? hasBubble
+            ? badge('top:-6px;right:-12px')
+            : badge(`inset:0;${isSelected ? ring(true) : SHADOW}`)
+        : '';
+    return L.divIcon({
+        className: '',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        html: `<span style="position:relative;display:block;width:${size}px;height:${size}px">${bubble}${deviceBadge}</span>`,
+    });
+}
 const compact = new Intl.NumberFormat('en', { notation: 'compact' });
 
 function FitToPoints({
@@ -126,11 +236,12 @@ const PopupSummary = ({ sessions }: { sessions: SummarySession[] }) => (
     </div>
 );
 
-/** What a click opened: one point, or every point in a cluster. */
+/** What a click opened: one point, every point in a cluster, or an Area. */
 type OpenPopup = {
-    layer: MapLayer;
+    layer: PointLayer;
     ids: number[];
     cluster: L.MarkerCluster | null;
+    area?: AreaMark;
 };
 
 // markercluster keeps the fanned-out cluster on its group but does not type it.
@@ -179,9 +290,11 @@ function ClusterContent({
     specimenPoints,
     devices,
     sessionsByDevice,
+    showSessions,
     onDone,
 }: {
     open: OpenPopup;
+    showSessions: boolean;
     cluster: L.MarkerCluster;
     specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
@@ -202,6 +315,8 @@ function ClusterContent({
                             ? clusterSessions
                             : clusterDevices
                     }
+                    // Stakeholders' counts are in the panel, framed as the tiles.
+                    showCounts={showSessions}
                 />
             </div>
             {/* Specimen clusters: the summary's first line already counts Sessions. */}
@@ -232,15 +347,62 @@ function ClusterContent({
     );
 }
 
+function AreaContent({
+    area,
+    specimenPoints,
+    devices,
+}: {
+    area: AreaMark;
+    /** Only the layers on the map: an off layer passes []. */
+    specimenPoints: PlacedSession[];
+    devices: PlacedDevice[];
+}) {
+    const t = useTranslations('MapSection');
+    const sessionIds = new Set(area.sessionIds);
+    const deviceIds = new Set(area.deviceIds);
+    const areaSessions = specimenPoints.filter(p =>
+        sessionIds.has(p.sessionId),
+    );
+    const areaDevices = devices.filter(d => deviceIds.has(d.deviceId));
+    const active = areaDevices.filter(d => d.status === 'ACTIVE').length;
+    return (
+        <>
+            <div className="mb-1">
+                {/* Only Stakeholders see Areas; their counts are in the
+                    panel, framed as the tiles. */}
+                <LocationPath
+                    items={areaSessions.length > 0 ? areaSessions : areaDevices}
+                    showCounts={false}
+                />
+            </div>
+            {areaDevices.length > 0 && (
+                <p className="text-muted-foreground mb-1 text-xs">
+                    {t('selectedDevices', { count: areaDevices.length })}
+                    {' · '}
+                    {t('clusterStatus', {
+                        active,
+                        inactive: areaDevices.length - active,
+                    })}
+                </p>
+            )}
+            {areaSessions.length > 0 && (
+                <SpecimenSummary sessions={areaSessions} />
+            )}
+        </>
+    );
+}
+
 function MapPopup({
     open,
     specimenPoints,
     devices,
     sessionsByDevice,
     programs,
+    showSessions,
     onClose,
 }: {
     open: OpenPopup | null;
+    showSessions: boolean;
     specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
     sessionsByDevice: Map<number, SummarySession[]>;
@@ -260,7 +422,19 @@ function MapPopup({
         content: ReactNode;
     } | null = null;
 
-    if (open.cluster) {
+    if (open.area) {
+        target = {
+            position: [open.area.latitude, open.area.longitude],
+            offset: [0, -14],
+            content: (
+                <AreaContent
+                    area={open.area}
+                    specimenPoints={specimenPoints}
+                    devices={devices}
+                />
+            ),
+        };
+    } else if (open.cluster) {
         target = {
             position: open.cluster.getLatLng(),
             offset: isDevice ? deviceOffset(12) : [0, -18],
@@ -271,6 +445,7 @@ function MapPopup({
                     specimenPoints={specimenPoints}
                     devices={devices}
                     sessionsByDevice={sessionsByDevice}
+                    showSessions={showSessions}
                     onDone={() => onClose(open)}
                 />
             ),
@@ -286,6 +461,7 @@ function MapPopup({
                         <SessionDetails
                             session={session}
                             program={programs.get(session.programId)}
+                            showSession={showSessions}
                         />
                         <PopupSummary sessions={[session]} />
                     </>
@@ -326,17 +502,108 @@ function MapPopup({
     );
 }
 
+/**
+ * The selected countries picked out by fading the rest of the map, with no
+ * border line of their own. Never clickable.
+ */
+function CountryFocus({ outlines }: { outlines: CountryOutlineDto[] }) {
+    const mask = useMemo(
+        () => buildOutsideMask(outlines.map(o => o.geometry)),
+        [outlines],
+    );
+    if (outlines.length === 0) return null;
+    // Keyed by the countries: react-leaflet's GeoJSON ignores new data.
+    const key = outlines.map(o => o.country).join(',');
+    return (
+        // Below the coverage fills (400).
+        <Pane name="outsideMask" style={{ zIndex: 390 }}>
+            <GeoJSON
+                key={key}
+                data={mask}
+                interactive={false}
+                style={{
+                    stroke: false,
+                    fillColor: '#f8fafc',
+                    fillOpacity: 0.45,
+                }}
+            />
+        </Pane>
+    );
+}
+
+const isUnit = (fill: CoverageFillDto, unit: CoverageUnitRef | undefined) =>
+    unit?.programId === fill.programId && unit.unit === fill.unit;
+
+/**
+ * Leaflet measures its box once. The Stakeholder map stretches to fill the
+ * window after that, so without this it keeps drawing tiles and shapes into
+ * the old, shorter box and leaves a bare strip below.
+ */
+function FollowContainerSize() {
+    const map = useMap();
+    useEffect(() => {
+        const observer = new ResizeObserver(() => map.invalidateSize());
+        observer.observe(map.getContainer());
+        return () => observer.disconnect();
+    }, [map]);
+    return null;
+}
+
+/**
+ * Markers are focusable, and the browser scrolls the page to show whatever
+ * gains focus, so clicking a mark near the map's edge nudged the page. Leaflet
+ * guards clicks on the map itself but not on its marks; this focuses a clicked
+ * mark without scrolling, so it still takes keyboard focus.
+ */
+function KeepPageStillOnMarkClick() {
+    const map = useMap();
+    useEffect(() => {
+        const container = map.getContainer();
+        const onMouseDown = (event: MouseEvent) => {
+            const mark = (event.target as Element).closest<HTMLElement>(
+                '.leaflet-marker-icon',
+            );
+            if (!mark) return;
+            event.preventDefault();
+            mark.focus({ preventScroll: true });
+        };
+        container.addEventListener('mousedown', onMouseDown, true);
+        return () =>
+            container.removeEventListener('mousedown', onMouseDown, true);
+    }, [map]);
+    return null;
+}
+
+/**
+ * A click on empty map clears the selection, as on any map. Points, clusters
+ * and units don't pass their clicks on to the map, so they never clear it.
+ */
+function ClearOnEmptyClick({ onClear }: { onClear: () => void }) {
+    useMapEvents({ click: onClear });
+    return null;
+}
+
 function FlyToFocus({
     focus,
     positions,
+    fills,
 }: {
     focus: MapFocus;
-    positions: Record<MapLayer, Map<number, L.LatLngTuple>>;
+    positions: Record<PointLayer, Map<number, L.LatLngTuple>>;
+    fills: CoverageFillDto[];
 }) {
     const map = useMap();
     const seq = focus?.seq;
     useEffect(() => {
         if (!focus) return;
+        const fill = fills.find(f => isUnit(f, focus.unit));
+        if (fill) {
+            map.flyToBounds(L.geoJSON(fill.geometry).getBounds(), {
+                padding: [48, 48],
+                duration: 1,
+            });
+            return;
+        }
         const points = focus.ids.flatMap(id => {
             const point = positions[focus.layer].get(id);
             return point ? [point] : [];
@@ -357,8 +624,162 @@ function FlyToFocus({
 
 type ClusterClick = L.LeafletMouseEvent & { layer: L.MarkerCluster };
 
+// Unit names, drawn above the fills and points so shading never hides one.
+const escapeHtml = (text: string) =>
+    text.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const unitLabel = (name: string, drop: number) =>
+    L.divIcon({
+        className: '',
+        iconSize: [0, 0],
+        html: `<span style="position:absolute;top:${drop}px;transform:translate(-50%,-50%);white-space:nowrap;font:600 12px/1 var(--font-geist-sans),sans-serif;color:#0f172a;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff">${escapeHtml(name)}</span>`,
+    });
+
+/**
+ * Coverage Units filled by status, under the points, with their names on top.
+ * Multiply blending tints the map like a highlighter, so the tiles' own place
+ * names stay readable through fills and outlines; hovering a unit thickens
+ * its outline.
+ */
+// Names show between these zooms: further out a District name means little,
+// further in the tiles print District names themselves.
+const MIN_LABEL_ZOOM = 6;
+const MAX_LABEL_ZOOM = 8;
+// The label's box in pixels, from its 12 px semibold text plus a little air.
+const labelBox = (name: string) => ({
+    width: name.length * 7.6 + 10,
+    height: 16,
+});
+
+function CoverageFills({
+    fills,
+    labelDrops,
+    selected,
+    onSelect,
+}: {
+    fills: CoverageFillDto[];
+    /**
+     * Pixels to lower a unit's name by, keyed by `areaKey`: an Area mark sits
+     * where the name would, so the name goes just beneath it.
+     */
+    labelDrops: Map<string, number>;
+    selected: CoverageUnitRef | undefined;
+    onSelect: (unit: SelectedUnit) => void;
+}) {
+    const map = useMap();
+    const [zoom, setZoom] = useState(() => map.getZoom());
+    useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
+    // When names collide, Active units keep theirs first, then Targeted, then
+    // the rest; within a status the bigger District wins.
+    const labels = useMemo(
+        () =>
+            fills
+                .flatMap(fill => {
+                    const point = coverageLabelPoint(fill.geometry);
+                    return point
+                        ? [
+                              {
+                                  key: areaKey(fill.programId, fill.unit),
+                                  at: point.at,
+                                  area: point.area,
+                                  rank: COVERAGE_STATUSES.indexOf(fill.status),
+                                  name: fill.unit,
+                              },
+                          ]
+                        : [];
+                })
+                .sort((a, b) => a.rank - b.rank || b.area - a.area),
+        [fills],
+    );
+    // Projected at the zoom alone, so panning never reshuffles the names.
+    const shown = useMemo(() => {
+        if (zoom < MIN_LABEL_ZOOM || zoom > MAX_LABEL_ZOOM) return new Set();
+        return placeLabels(
+            labels.map(label => {
+                const { x, y } = map.project(label.at, zoom);
+                return {
+                    key: label.key,
+                    x,
+                    y: y + (labelDrops.get(label.key) ?? 0),
+                    ...labelBox(label.name),
+                };
+            }),
+        );
+    }, [labels, zoom, map, labelDrops]);
+    return (
+        <>
+            <Pane
+                name="coverage"
+                style={{ zIndex: 400, mixBlendMode: 'multiply' }}
+            >
+                {fills.map(fill => {
+                    const style = COVERAGE_STYLES[fill.status];
+                    const { color, fillOpacity } = style;
+                    // The selected unit keeps the hover outline.
+                    const weight = isUnit(fill, selected)
+                        ? style.weight + 2
+                        : style.weight;
+                    return (
+                        <GeoJSON
+                            key={`${fill.programId}:${fill.unit}`}
+                            data={fill.geometry}
+                            // A unit click selects it; it must not reach the
+                            // map, which clears the selection.
+                            bubblingMouseEvents={false}
+                            style={{
+                                color,
+                                weight,
+                                opacity: 0.9,
+                                fillColor: color,
+                                fillOpacity,
+                            }}
+                            eventHandlers={{
+                                mouseover: event =>
+                                    (event.target as L.GeoJSON).setStyle({
+                                        weight: style.weight + 2,
+                                    }),
+                                mouseout: event =>
+                                    (event.target as L.GeoJSON).setStyle({
+                                        weight,
+                                    }),
+                                click: () =>
+                                    onSelect({
+                                        programId: fill.programId,
+                                        unit: fill.unit,
+                                        status: fill.status,
+                                    }),
+                            }}
+                        />
+                    );
+                })}
+            </Pane>
+            {/* Above the points (600), below popups (700); never clickable. */}
+            <Pane
+                name="coverageLabels"
+                style={{ zIndex: 640, pointerEvents: 'none' }}
+            >
+                {labels
+                    .filter(label => shown.has(label.key))
+                    .map(label => (
+                        <Marker
+                            key={label.key}
+                            position={label.at}
+                            icon={unitLabel(
+                                label.name,
+                                labelDrops.get(label.key) ?? 0,
+                            )}
+                            interactive={false}
+                            keyboard={false}
+                        />
+                    ))}
+            </Pane>
+        </>
+    );
+}
+
 export default function SurveillanceMap({
     layers,
+    coverageFills,
+    outlines,
     specimenPoints,
     devices,
     sessionsByDevice,
@@ -367,20 +788,34 @@ export default function SurveillanceMap({
     dataKey,
     selection,
     onSelect,
+    onSelectUnit,
     focus,
+    showSessions,
+    byArea,
 }: SurveillanceMapProps) {
     // Every click opens a popup; the panel beside the map lists the same ids.
     const [openPopup, setOpenPopup] = useState<OpenPopup | null>(null);
     const select = (
-        layer: MapLayer,
+        layer: PointLayer,
         ids: number[],
         cluster: L.MarkerCluster | null = null,
     ) => {
         setOpenPopup({ layer, ids, cluster });
         onSelect({ layer, ids });
     };
+    // An Area selects its Sessions, or its devices when it has no Sessions
+    // on the map.
+    const selectArea = (area: AreaMark) => {
+        const layer: PointLayer =
+            showSpecimens && area.sessionIds.length > 0
+                ? 'specimens'
+                : 'devices';
+        const ids = layer === 'specimens' ? area.sessionIds : area.deviceIds;
+        setOpenPopup({ layer, ids, cluster: null, area });
+        onSelect({ layer, ids });
+    };
     const selectCluster = (
-        layer: MapLayer,
+        layer: PointLayer,
         markers: Map<L.Marker, number>,
         event: L.LeafletEvent,
     ) => {
@@ -391,9 +826,40 @@ export default function SurveillanceMap({
     const deviceMarkers = useRef(new Map<L.Marker, number>());
     const showSpecimens = layers.includes('specimens');
     const showDevices = layers.includes('devices');
-    const isSelected = (layer: MapLayer, id: number) =>
+    const showCoverage = layers.includes('coverage');
+    const isSelected = (layer: PointLayer, id: number) =>
         selection?.layer === layer && selection.ids.includes(id);
 
+    // Memoized by the React Compiler.
+    const areas = byArea
+        ? buildAreaMarks({
+              sessions: showSpecimens ? specimenPoints : [],
+              devices: showDevices ? devices : [],
+              anchors: new Map(
+                  coverageFills.flatMap(fill => {
+                      const point = coverageLabelPoint(fill.geometry);
+                      return point
+                          ? [
+                                [
+                                    areaKey(fill.programId, fill.unit),
+                                    point.at,
+                                ] as const,
+                            ]
+                          : [];
+                  }),
+              ),
+          })
+        : [];
+    const isAreaSelected = (area: AreaMark) =>
+        selection !== null &&
+        (selection.layer === 'specimens' ? area.sessionIds : area.deviceIds)
+            .length === selection.ids.length &&
+        selection.ids.every(id =>
+            (selection.layer === 'specimens'
+                ? area.sessionIds
+                : area.deviceIds
+            ).includes(id),
+        );
     const specimenCounts = useMemo(
         () => new Map(specimenPoints.map(p => [p.sessionId, p.specimenCount])),
         [specimenPoints],
@@ -432,6 +898,45 @@ export default function SurveillanceMap({
         [devices],
     );
 
+    const areaMarkers = useRef(new Map<L.Marker, AreaMark>());
+    const markOptions = (area: AreaMark, isSelected = false) => ({
+        specimens: showSpecimens,
+        devices: showDevices,
+        hasActive: area.deviceIds.some(id => activeDevices.has(id)),
+        isSelected,
+    });
+    // A unit's name goes just below its Area's bubble.
+    const labelDrops = new Map(
+        areas
+            .filter(area => showSpecimens && area.sessionIds.length > 0)
+            .map(area => [area.key, areaSize(area.specimenCount) / 2 + 9]),
+    );
+    // Areas whose marks would overlap merge, their counts added up.
+    const areasIn = (cluster: L.MarkerCluster) =>
+        mergeAreas(
+            cluster
+                .getAllChildMarkers()
+                .flatMap(
+                    (marker: L.Marker) => areaMarkers.current.get(marker) ?? [],
+                ),
+        );
+    function areaCluster(cluster: L.MarkerCluster) {
+        const merged = areasIn(cluster);
+        return areaIcon(merged, markOptions(merged));
+    }
+    const selectAreaCluster = (event: L.LeafletEvent) => {
+        const cluster = (event as ClusterClick).layer;
+        const merged = areasIn(cluster);
+        const layer: PointLayer =
+            showSpecimens && merged.sessionIds.length > 0
+                ? 'specimens'
+                : 'devices';
+        select(
+            layer,
+            layer === 'specimens' ? merged.sessionIds : merged.deviceIds,
+            cluster,
+        );
+    };
     const idsIn = (cluster: L.MarkerCluster, markers: Map<L.Marker, number>) =>
         cluster.getAllChildMarkers().flatMap((marker: L.Marker) => {
             const id = markers.get(marker);
@@ -466,7 +971,23 @@ export default function SurveillanceMap({
         );
     }
 
+    // Fill corners count towards the fit, so a coverage-only map still zooms in.
+    const coverageCorners = useMemo(
+        () =>
+            coverageFills.flatMap(fill => {
+                const positions = fill.geometry.coordinates.flat(2);
+                const lats = positions.map(([, lat]) => lat);
+                const lons = positions.map(([lon]) => lon);
+                return [
+                    [Math.min(...lats), Math.min(...lons)],
+                    [Math.max(...lats), Math.max(...lons)],
+                ] as [number, number][];
+            }),
+        [coverageFills],
+    );
+
     const fitPoints: [number, number][] = [
+        ...(showCoverage ? coverageCorners : []),
         ...(showSpecimens
             ? specimenPoints.map(
                   p => [p.latitude, p.longitude] as [number, number],
@@ -501,6 +1022,23 @@ export default function SurveillanceMap({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <CountryFocus outlines={outlines} />
+            {showCoverage && (
+                <CoverageFills
+                    fills={coverageFills}
+                    labelDrops={labelDrops}
+                    selected={selection?.unit}
+                    onSelect={onSelectUnit}
+                />
+            )}
+            <FollowContainerSize />
+            <KeepPageStillOnMarkClick />
+            <ClearOnEmptyClick
+                onClear={() => {
+                    setOpenPopup(null);
+                    if (selection) onSelect(null);
+                }}
+            />
             <FitToPoints
                 points={fitPoints}
                 fitKey={`${layers.join(',')}:${fitKey}`}
@@ -511,8 +1049,35 @@ export default function SurveillanceMap({
                     specimens: sessionPositions,
                     devices: devicePositions,
                 }}
+                fills={showCoverage ? coverageFills : []}
             />
-            {showSpecimens && (
+            {areas.length > 0 && (
+                <MarkerClusterGroup
+                    key={`areas:${dataKey}:${layers.join(',')}`}
+                    maxClusterRadius={44}
+                    showCoverageOnHover={false}
+                    zoomToBoundsOnClick={false}
+                    iconCreateFunction={areaCluster}
+                    onClick={selectAreaCluster}
+                >
+                    {areas.map(area => (
+                        <Marker
+                            key={area.key}
+                            ref={marker => {
+                                if (marker)
+                                    areaMarkers.current.set(marker, area);
+                            }}
+                            position={[area.latitude, area.longitude]}
+                            icon={areaIcon(
+                                area,
+                                markOptions(area, isAreaSelected(area)),
+                            )}
+                            eventHandlers={{ click: () => selectArea(area) }}
+                        />
+                    ))}
+                </MarkerClusterGroup>
+            )}
+            {showSpecimens && !byArea && (
                 <MarkerClusterGroup
                     key={`specimens:${dataKey}`}
                     chunkedLoading
@@ -553,7 +1118,7 @@ export default function SurveillanceMap({
                     ))}
                 </MarkerClusterGroup>
             )}
-            {showDevices && (
+            {showDevices && !byArea && (
                 <MarkerClusterGroup
                     key={`devices:${dataKey}`}
                     chunkedLoading
@@ -601,6 +1166,7 @@ export default function SurveillanceMap({
                 devices={showDevices ? devices : []}
                 sessionsByDevice={sessionsByDevice}
                 programs={programs}
+                showSessions={showSessions}
                 onClose={closed =>
                     // Only clear if no other popup has opened since.
                     setOpenPopup(current =>

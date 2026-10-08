@@ -102,4 +102,33 @@ describe('buildSpecimenPoints', () => {
 
         expect(points.placed.map(p => p.sessionId)).toEqual([1, 2]);
     });
+
+    it('numbers collectors per person, as every user figure matches names', () => {
+        const points = buildSpecimenPoints(
+            snapshot(
+                [
+                    session(1, { collectorName: 'Jane Doe' }),
+                    session(2, { collectorName: ' jane  DOE ' }),
+                    session(3, { collectorName: 'Jane Doe and Ana García' }),
+                    session(4, { collectorName: '  ' }),
+                    session(5, {
+                        collectorName: 'Ana Garcia',
+                        latitude: null,
+                        longitude: null,
+                    }),
+                ],
+                [],
+            ),
+            'Uganda',
+            { from: '2026-01', to: '2026-01' },
+        );
+
+        expect(points.placed.map(p => p.collectorIds)).toEqual([
+            [1],
+            [1],
+            [1, 2],
+            [],
+        ]);
+        expect(points.unplaced.map(u => u.collectorIds)).toEqual([[2]]);
+    });
 });

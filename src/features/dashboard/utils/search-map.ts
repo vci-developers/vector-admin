@@ -1,10 +1,22 @@
+import {
+    normalizePlaceName,
+    type CoverageStatus,
+} from './parse-coverage-sheets';
 import type { LocationLevel } from './site-location-path';
 
 type MapLayer = 'specimens' | 'devices';
 
 type Searchable = { siteId: number | null; location: LocationLevel[] };
-type SearchableSession = Searchable & { sessionId: number };
+type SearchableSession = Searchable & { sessionId: number; programId: number };
 type SearchableDevice = Searchable & { deviceId: number };
+
+/** A Coverage Unit on the map, named as in the team's workbook. */
+export type CoverageUnitRef = { programId: number; unit: string };
+/** `sessionIds` come from every Session on the map, shown layer or not. */
+type SearchableUnit = CoverageUnitRef & {
+    status: CoverageStatus;
+    sessionIds: number[];
+};
 
 /** What picking a result selects on the map. */
 type Target = { layer: MapLayer; ids: number[] };
@@ -20,6 +32,11 @@ export type MapSearchResult = Target & { key: string } & (
         | { kind: 'site'; siteId: number; name: string | null }
         | { kind: 'session'; id: number }
         | { kind: 'device'; id: number }
+        | {
+              kind: 'unit';
+              unit: CoverageUnitRef;
+              status: CoverageStatus;
+          }
     );
 
 const MAX_RESULTS = 8;
@@ -55,18 +72,39 @@ function groupBy<Key>(
     return groups;
 }
 
+/**
+ * The Sessions collected in a Coverage Unit: those in its Program whose Site's
+ * top-level place has the unit's name (case, spaces and hyphens ignored).
+ */
+export function unitSessionIds(
+    unit: CoverageUnitRef,
+    sessions: SearchableSession[],
+): number[] {
+    const name = normalizePlaceName(unit.unit);
+    return sessions
+        .filter(
+            s =>
+                s.programId === unit.programId &&
+                s.location[0] !== undefined &&
+                normalizePlaceName(s.location[0].name) === name,
+        )
+        .map(s => s.sessionId);
+}
+
 const pathKey = (path: LocationLevel[]) =>
     path.map(({ level, name }) => `${level}=${name}`).join('/');
 
 /**
  * What the map holds that matches the query, best first: a number finds
- * Sessions, devices and Sites by id ("#353" works too); words find places at
- * any level of the Site hierarchy. Only what is on the map is searched.
+ * Sessions, devices and Sites by id ("#353" works too); words find Coverage
+ * Units and places at any level of the Site hierarchy. Only what is on the
+ * map is searched.
  */
 export function searchMap(
     query: string,
     sessions: SearchableSession[],
     devices: SearchableDevice[],
+    units: SearchableUnit[] = [],
 ): MapSearchResult[] {
     const text = query.trim().toLocaleLowerCase();
     if (!text) return [];
@@ -141,11 +179,29 @@ export function searchMap(
             return [key];
         }),
     );
-    return [...byPlace]
-        .flatMap(([key, group]) => {
+    // A unit stands in for the top-level place of the same name; it can be
+    // found even with no points, and selects its Sessions.
+    const unitResults: MapSearchResult[] = units
+        .filter(u => u.unit.toLocaleLowerCase().includes(text))
+        .map(u => ({
+            key: `unit:${u.programId}:${u.unit}`,
+            kind: 'unit' as const,
+            unit: { programId: u.programId, unit: u.unit },
+            status: u.status,
+            layer: 'specimens' as const,
+            ids: u.sessionIds,
+        }));
+    const unitNames = new Set(units.map(u => normalizePlaceName(u.unit)));
+    const placeResults: MapSearchResult[] = [...byPlace].flatMap(
+        ([key, group]) => {
             const target = targetOf(group.sessionIds, group.deviceIds);
             const path = paths.get(key)!;
             const place = path.at(-1)!;
+            if (
+                path.length === 1 &&
+                unitNames.has(normalizePlaceName(place.name))
+            )
+                return [];
             return target
                 ? [
                       {
@@ -158,13 +214,21 @@ export function searchMap(
                       },
                   ]
                 : [];
-        })
+        },
+    );
+    const nameOf = (result: MapSearchResult) =>
+        result.kind === 'unit'
+            ? result.unit.unit
+            : result.kind === 'place'
+              ? result.name
+              : '';
+    return [...unitResults, ...placeResults]
         .sort(
             (a, b) =>
-                Number(b.name.toLocaleLowerCase().startsWith(text)) -
-                    Number(a.name.toLocaleLowerCase().startsWith(text)) ||
+                Number(nameOf(b).toLocaleLowerCase().startsWith(text)) -
+                    Number(nameOf(a).toLocaleLowerCase().startsWith(text)) ||
                 b.ids.length - a.ids.length ||
-                a.name.localeCompare(b.name),
+                nameOf(a).localeCompare(nameOf(b)),
         )
         .slice(0, MAX_RESULTS);
 }

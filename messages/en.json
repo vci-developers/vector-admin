@@ -9,6 +9,11 @@
             "system": "Match system theme",
             "light": "Light theme",
             "dark": "Dark theme"
+        },
+        "viewAs": {
+            "label": "View the dashboard as",
+            "developer": "Developer",
+            "stakeholder": "Stakeholder"
         }
     },
     "Auth": {
@@ -31,7 +36,10 @@
         "loading": "Loading program data…",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
-        "noProgramsSelected": "No programs selected. Choose at least one program."
+        "noProgramsSelected": "No programs selected. Choose at least one program.",
+        "loadingPoints": "Loading sessions and devices…",
+        "coverageLoadError": "Could not load the coverage figures.",
+        "updating": "Updating…"
     },
     "Filters": {
         "programs": "Programs",
@@ -41,27 +49,29 @@
         "selectAll": "Select all",
         "deselectAll": "Deselect all",
         "range": "Period",
-        "from": "From",
-        "to": "To",
-        "month": "Month",
-        "previousMonth": "Previous month",
-        "nextMonth": "Next month",
+        "previousPeriod": "Previous period",
+        "nextPeriod": "Next period",
+        "previousYear": "Previous year",
+        "nextYear": "Next year",
+        "quickPicks": "Quick picks",
+        "pickMonth": "Pick a month, then another to make a range.",
+        "pickRangeEnd": "Pick another month to end the range, or close to keep this one.",
         "presets": {
             "this-month": "This month",
             "last-month": "Last month",
-            "3m": "3M",
-            "6m": "6M",
-            "12m": "12M",
-            "ytd": "YTD",
-            "all": "All",
+            "3m": "Last 3 months",
+            "6m": "Last 6 months",
+            "12m": "Last 12 months",
+            "ytd": "Year to date",
+            "all": "All time",
             "month": "Month",
             "custom": "Custom"
         },
         "sessionTypes": "Session types",
-        "sessionTypesSummary": "{count, plural, =0 {No Session types} other {# Session types}}",
-        "withTestSite": "with test Site",
-        "includeTestSite": "Include the test Site (Other)",
-        "testSiteHint": "Uganda's catch-all for testing and training, outside any District.",
+        "sessionTypesSummary": "{count, plural, =0 {No session types} other {# session types}}",
+        "withTestSite": "with test site",
+        "includeTestSite": "Include the test site (Other)",
+        "testSiteHint": "Uganda's catch-all for testing and training, outside any district.",
         "resetSessions": "Reset to default"
     },
     "Refresh": {
@@ -78,34 +88,34 @@
         "terms": {
             "images": "Images",
             "activeDevices": "Active Devices",
-            "completeRecords": "complete Records",
+            "completeRecords": "complete records",
             "records": "Records",
             "submittedRecords": "Records submitted",
             "dhis2Records": "Records"
         },
         "activeDevices": {
             "title": "Active devices",
-            "description": "Devices with at least one Session collected in the period, each counted once however many months it was active. Counts only the Session types chosen in the Sessions filter."
+            "description": "Devices with at least one session collected in the period, each counted once however many months it was active. Counts only the session types chosen in the sessions filter."
         },
         "images": {
             "title": "Images",
-            "description": "Every photo of a Specimen, counted in the month the Session was collected (Program's timezone). A Specimen photographed three times counts three times."
+            "description": "Every photo of a specimen, counted in the month the session was collected (program's timezone). A specimen photographed three times counts three times."
         },
         "uniqueSpecimens": {
             "title": "Unique specimens",
-            "description": "Specimens collected in the period, each counted once however many Images it has."
+            "description": "Specimens collected in the period, each counted once however many images it has."
         },
         "imagesPerActiveDevice": {
             "title": "Images / device",
-            "description": "Images ÷ Active Devices, for the same Programs and period. Blank when no devices were active."
+            "description": "Images ÷ active devices, for the same programs and period. Blank when no devices were active."
         },
         "metadataCompleteness": {
             "title": "Metadata complete",
-            "description": "Share of Specimens whose record has all four: a species, a capture date, a location (its Site's District, or else the Session's GPS inside the country), and an operator name."
+            "description": "Share of specimens whose record has all four: a species, a capture date, a location (its site's district, or else the session's GPS inside the country), and an operator name."
         },
         "dhis2UploadRate": {
             "title": "DHIS2 upload",
-            "description": "Records sent to DHIS2 (their Session is Submitted) ÷ all Records. Uganda only."
+            "description": "Records sent to DHIS2 (their session is submitted) ÷ all records. Uganda only."
         },
         "uniqueUsers": {
             "title": "Unique users",
@@ -115,10 +125,6 @@
             "title": "Logins",
             "description": "Every VectorVerify login during the period, all users. Uses UTC months. Blank before login tracking began."
         }
-    },
-    "MonthPicker": {
-        "previousYear": "Previous year",
-        "nextYear": "Next year"
     },
     "Kpi": {
         "incomplete": "Incomplete",
@@ -133,7 +139,7 @@
         "cycles": "{count, plural, one {Cycle} other {Cycles}} {numbers}",
         "copied": "Copied values",
         "copyFailed": "Copy failed",
-        "openSessions": "Show {program} Sessions for this period",
+        "openSessions": "Show {program} sessions for this period",
         "previousMonths": "previous {count} months",
         "inProgress": "In progress",
         "inProgressHint": "{month} hasn't ended yet, so its numbers are still coming in.",
@@ -149,14 +155,14 @@
             "mean": "Mean",
             "sd": "SD"
         },
-        "timingNote": "Times are seconds between consecutive images in a Session, pauses and retakes included.",
+        "timingNote": "Times are seconds between consecutive images in a session, pauses and retakes included.",
         "selectRow": "Select {row}",
         "copy": "Copy",
         "copyRow": "Copy {row} values",
         "copySelected": "Copy selected ({count})",
         "noAreaNoLevel": "No area",
         "timingInfo": {
-            "median": "The middle gap: half the gaps between consecutive images are shorter. Every gap in every Session in the period, pooled (Excel MEDIAN).",
+            "median": "The middle gap: half the gaps between consecutive images are shorter. Every gap in every session in the period, pooled (Excel MEDIAN).",
             "p25": "A quarter of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.25).",
             "p75": "Three quarters of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.75).",
             "mean": "Sum of every gap between consecutive images ÷ number of gaps. Long pauses pull it up, so it sits above the median.",
@@ -174,7 +180,7 @@
         "operatorId": "Operator ID"
     },
     "Devices": {
-        "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {bySite} placed by Site · {unplaced} without a location",
+        "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {bySite} placed by site · {unplaced} without a location",
         "legend": "Map colours",
         "deviceId": "Device ID",
         "model": "Model",
@@ -189,34 +195,34 @@
         },
         "unplaced": {
             "heading": "Devices without a location ({count})",
-            "description": "No in-country GPS fix, and their Site could not be geocoded (yet).",
+            "description": "No in-country GPS fix, and their site could not be geocoded (yet).",
             "empty": "Every used device is on the map."
         },
         "neverUsed": {
             "heading": "Never used ({count})",
-            "description": "Registered devices with no Sessions.",
-            "empty": "Every registered device has Sessions."
+            "description": "Registered devices with no sessions.",
+            "empty": "Every registered device has sessions."
         },
         "location": "Location",
-        "locating": "Locating Site…",
+        "locating": "Locating site…",
         "noLocation": "No geocoded location"
     },
     "Sessions": {
-        "search": "Search Sessions",
-        "searchPlaceholder": "Search Session, device, Site, collector or place",
+        "search": "Search sessions",
+        "searchPlaceholder": "Search session, device, site, collector or place",
         "expandPlace": "Show places in {place}",
         "collapsePlace": "Hide places in {place}",
         "title": "{program} · {period}",
         "description": "Sessions collected in the period.",
-        "summary": "{count, plural, one {# Session} other {# Sessions}}, {uncertified} not yet certified. Uncertified first, oldest first.",
+        "summary": "{count, plural, one {# session} other {# sessions}}, {uncertified} not yet certified. Uncertified first, oldest first.",
         "close": "Close",
-        "loadError": "Could not load Sessions. Try again.",
-        "empty": "No Sessions in this period.",
+        "loadError": "Could not load sessions. Try again.",
+        "empty": "No sessions in this period.",
         "session": "Session",
         "state": "State",
         "device": "Device",
         "site": "Site",
-        "unnamedSite": "Unnamed Site",
+        "unnamedSite": "Unnamed site",
         "enteredBy": "Entered by",
         "noCollector": "No name",
         "dateEntered": "Date entered",
@@ -233,10 +239,10 @@
         "sortBy": "Sort by {column}",
         "filterColumn": "Filter {column}",
         "filterAll": "All",
-        "showing": "Showing {shown} of {total} Sessions",
+        "showing": "Showing {shown} of {total} sessions",
         "clearFilters": "Clear filters",
         "clearSort": "Default order",
-        "noMatches": "No Sessions match these filters.",
+        "noMatches": "No sessions match these filters.",
         "missingNone": "Nothing missing",
         "deviceOption": "Device {id}",
         "states": {
@@ -257,55 +263,52 @@
         "nonMosquito": "Non-mosquitoes",
         "sex": "Sex",
         "abdomen": "Abdomen status",
-        "notRecorded": "Not recorded",
-        "notRecordedInfo": "What does Not recorded mean?",
-        "notRecordedSpecies": "No species on record: the app did not predict one and no reviewer has set one.",
-        "notRecordedSex": "No sex on record: the app did not predict one and no reviewer has set one.",
-        "notRecordedAbdomen": "No abdomen status on record: the app did not predict one and no reviewer has set one. Always the case for males.",
+        "notRecorded": "Image upload pending",
+        "notRecordedInfo": "What does Image upload pending mean?",
+        "notRecordedSpecies": "No species yet: the specimen's image has not uploaded, or the app did not predict one and no reviewer has set one.",
+        "notRecordedSex": "No sex yet: the specimen's image has not uploaded, or the app did not predict one and no reviewer has set one. Non-mosquitoes are N/A and never hidden by this.",
+        "notRecordedAbdomen": "No abdomen status yet: the specimen's image has not uploaded, or the app did not predict one and no reviewer has set one. Males and non-mosquitoes are N/A and never hidden by this.",
         "zeroCatch": "Sessions with no specimens",
         "showAll": "Show all",
-        "deviceStatus": {
-            "ACTIVE": "Active",
-            "INACTIVE": "Inactive"
-        },
-        "reset": "Reset map filters"
+        "reset": "Reset map filters",
+        "coverage": "Coverage",
+        "devicesHint": "Devices with Sessions in the period. Devices with none are not drawn."
     },
     "MapSection": {
         "heading": "Collection, {period}",
-        "specimenStats": "{gps} specimens placed by GPS · {site} by Site location · {unplaced} from {unplacedSessions} Sessions with no location",
+        "label": "Collection map",
+        "specimenStats": "{gps} specimens placed by GPS · {site} by site location · {unplaced} from {unplacedSessions} sessions with no location",
         "legend": "Map key",
-        "selectedSessions": "{count, plural, =0 {Sessions} one {# Session} other {# Sessions}}",
+        "selectedSessions": "{count, plural, =0 {Sessions} one {# session} other {# sessions}}",
         "selectedDevices": "{count, plural, =0 {Devices} one {# device} other {# devices}}",
         "selectHint": "Click a cluster or a point on the map to list it here.",
         "sessionLabel": "Session {id}",
         "deviceLabel": "Device {id}",
         "specimenCount": "{count, plural, one {# specimen} other {# specimens}}",
         "lastSubmitted": "last submitted {date}",
-        "legendSpecimensTitle": "Specimens per Session",
+        "legendSpecimensTitle": "Specimens per session",
+        "legendSpecimensAreaTitle": "Specimens per area",
         "legendDevicesTitle": "Devices",
         "legendActive": "Active in period",
-        "legendInactive": "Not active",
         "emptyMap": "Nothing with an in-country location in {period}. Try a longer period or check the unplaced counts above.",
         "selectedNone": "Selection",
-        "placedBySite": "Placed at Site location (no GPS): {site}",
+        "placedBySite": "Placed at site location (no GPS): {site}",
         "locationUnknown": "Location unknown",
         "search": "Search the map",
-        "searchPlaceholder": "Find a place, Site, Session or device",
+        "searchPlaceholder": "Find a place, site, session or device",
         "searchClear": "Clear search",
         "searchEmpty": "Nothing on the map matches.",
         "searchSite": "Site #{id}",
-        "locationSites": "{count, plural, one {# Site} other {# Sites}}",
-        "locatingSites": "{count, plural, one {Locating # Site…} other {Locating # Sites…}}",
-        "legendBySite": "Dashed outline: Site location (no GPS)",
+        "locatingSites": "{count, plural, one {Locating # site…} other {Locating # sites…}}",
+        "legendBySite": "Dashed outline: site location (no GPS)",
         "gapsTitle": "Not on the map",
-        "gapNoSessions": "no Sessions in {period}",
-        "gapFiltered": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# Session} other {# Sessions}} hidden by the map filters",
-        "gapNoLocation": "{sessions, plural, one {# Session} other {# Sessions}} with no location yet",
+        "gapsOpen": "{count, plural, one {# program not on the map} other {# programs not on the map}}: see why",
+        "gapNoSessions": "no sessions in {period}",
+        "gapFiltered": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# session} other {# sessions}} hidden by the map filters",
+        "gapNoLocation": "{sessions, plural, one {# session} other {# sessions}} with no location yet",
         "gapDevicesFiltered": "{devices, plural, one {# device} other {# devices}} hidden by the map filters",
         "gapDevicesNoLocation": "{devices, plural, one {# device} other {# devices}} with no location yet",
         "showEverything": "Show everything",
-        "chartWholeMap": "Everything on the map",
-        "chartBack": "Whole map",
         "chartStackBy": "Stack specimens by",
         "chartDimension": {
             "species": "Species",
@@ -320,18 +323,15 @@
         },
         "chartTitleTotals": "Specimens in the period",
         "chartTitleTotal": "{total} total",
-        "chartTotalsAria": "Specimens by value for the whole period",
         "chartView": "Chart view",
         "chartViews": {
-            "stacked": "Stacked",
-            "lines": "Lines",
-            "totals": "Totals",
+            "bar": "Bar",
             "pie": "Pie"
         },
         "chartPieAria": "Pie chart of specimens by value for the whole period",
         "chartLegend": "Chart key",
         "chartReadoutBucket": "{bucket} · {total} total",
-        "chartReadoutPeriod": "Whole period · hover a bar or point for just that stretch",
+        "chartReadoutPeriod": "Whole period · hover a bar for just that {granularity, select, week {week} month {month} other {quarter}}",
         "chartAxisY": "Specimens",
         "chartAxisX": {
             "week": "Week starting",
@@ -343,25 +343,44 @@
         "chartQuarter": "Q{quarter} {year}",
         "chartQuarterTick": "Q{quarter} {short}",
         "chartOther": "Other",
-        "chartNotRecorded": "Not recorded",
-        "chartOtherOrNotRecorded": "Other or not recorded",
+        "chartNotRecorded": "Image upload pending",
+        "chartOtherOrNotRecorded": "Other or image upload pending",
         "chartEmpty": "No specimens to chart.",
-        "chartListSessions": "{count, plural, one {Show the Session} other {Show the # Sessions}}",
+        "chartListSessions": "{count, plural, one {Show the session} other {Show the # sessions}}",
         "chartListDevices": "{count, plural, one {Show the device} other {Show the # devices}}",
         "zoomIn": "Zoom in",
         "spreadOut": "Spread out",
         "clusterStatus": "{active} active · {inactive} inactive",
-        "summaryTotal": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# Session} other {# Sessions}}",
+        "summaryTotal": "{specimens, plural, one {# specimen} other {# specimens}} from {sessions, plural, one {# session} other {# sessions}}",
         "summarySpecies": "Species",
         "summarySex": "Sex",
         "summaryAbdomen": "Abdomen",
-        "noSpecimens": "{sessions, plural, =0 {No Sessions in the period.} one {No specimens in this Session.} other {No specimens in these # Sessions.}}",
-        "hiddenByFilters": "+ {count, plural, one {# more specimen} other {# more specimens}} hidden by the map filters:",
-        "hiddenNotRecorded": {
-            "species": "Species not recorded",
-            "sex": "Sex not recorded",
-            "abdomen": "Abdomen not recorded"
-        }
+        "noSpecimens": "{sessions, plural, =0 {No sessions in the period.} one {No specimens in this session.} other {No specimens in these # sessions.}}",
+        "coverageStatus": {
+            "Active": "Using VectorCam",
+            "Targeted": "Targeted for VectorCam",
+            "Surveillance only": "Surveillance without VectorCam"
+        },
+        "coverageStatusHint": {
+            "Active": "Collecting with VectorCam now.",
+            "Targeted": "Planned for VectorCam, not using it yet.",
+            "Surveillance only": "Active surveillance not utilizing VectorCam."
+        },
+        "legendCoverageTitle": "Coverage",
+        "coverageUnmatched": "Coverage not drawn, no matching boundary: {units}",
+        "coverageUnavailable": "Coverage figures unavailable; see the summary.",
+        "emptyMapClose": "Close this note",
+        "emptyMapOpen": "Why is the map empty?",
+        "panelLoading": "Loading site locations…",
+        "panelPartial": "{count, plural, one {Still locating # site; counts will grow.} other {Still locating # sites; counts will grow.}}",
+        "searchUnit": "Coverage · {status}",
+        "unitSummary": "{status} · {sessions, plural, =0 {no sessions on the map} one {# session} other {# sessions}}",
+        "pointLabel": "Collection point",
+        "locationSentinelSites": "{count, plural, one {# sentinel site} other {# sentinel sites}}",
+        "locationHouses": "{count, plural, one {# house} other {# houses}}",
+        "collectorCount": "{count, plural, one {# user} other {# users}}",
+        "usersActive": "{count, plural, one {# active user} other {# active users}}",
+        "usersOfExpected": "{count} of {expected} expected users"
     },
     "Period": {
         "range": "{from} – {to}"
@@ -394,5 +413,27 @@
         "DATA_COLLECTION": "Data collection",
         "PRACTICE": "Practice",
         "CALIBRATION": "Calibration"
+    },
+    "Coverage": {
+        "howDerived": "How {metric} is worked out",
+        "savedCopy": "Coverage: saved copy from {date}",
+        "whySavedCopy": "Why the saved copy is shown",
+        "unavailable": "Coverage figures unavailable: {reason}",
+        "geographicCoverage": {
+            "title": "Geographic coverage",
+            "description": "Active geographic units using VectorCam / all geographic units targeted for VectorCam implementation."
+        },
+        "penetration": {
+            "title": "Penetration",
+            "description": "Active geographic units using VectorCam / total geographic units in the program with active surveillance."
+        },
+        "instantaneousUserCoverage": {
+            "title": "Instantaneous user coverage",
+            "description": "Active users currently using VectorCam / all users are currently expected to use VectorCam."
+        },
+        "programUserCoverage": {
+            "title": "Program user coverage",
+            "description": "Active users currently using VectorCam / all users targeted for VectorCam implementation."
+        }
     }
 }

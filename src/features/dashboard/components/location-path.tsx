@@ -1,5 +1,6 @@
 'use client';
 
+import { countSentinelSites } from '@/features/dashboard/utils/count-sentinel-sites';
 import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
 import { sharedLocationPath } from '@/features/dashboard/utils/shared-location-path';
 import { MapPin } from 'lucide-react';
@@ -9,18 +10,35 @@ type Located = { siteId: number | null; location: LocationLevel[] };
 
 /**
  * Where something is, broadest place first ("Gulu › Bobi › Aleu"). For a
- * group, only the places all of it shares, plus how many Sites it spans, so
- * the path gets more specific as clusters split on zooming in.
+ * group, only the places all of it shares, plus how many Sentinel Sites (and
+ * houses, where Sites are houses) it spans, so the path gets more specific as
+ * clusters split on zooming in.
  */
-export default function LocationPath({ items }: { items: Located[] }) {
+export default function LocationPath({
+    items,
+    showCounts = true,
+}: {
+    items: Located[];
+    /** false where the counts are shown elsewhere, framed as the tiles. */
+    showCounts?: boolean;
+}) {
     const t = useTranslations('MapSection');
     if (items.length === 0) return null;
 
     const path = sharedLocationPath(items.map(item => item.location));
-    const siteCount = new Set(
-        items.flatMap(item => (item.siteId === null ? [] : [item.siteId])),
-    ).size;
-    const spansSites = siteCount > 1;
+    const { sentinelSites, houses } = showCounts
+        ? countSentinelSites(items)
+        : { sentinelSites: 0, houses: 0 };
+    // The path already names a single site or house; counts start at two.
+    const counts = [
+        sentinelSites > 1 &&
+            t('locationSentinelSites', { count: sentinelSites }),
+        houses > 1 && t('locationHouses', { count: houses }),
+    ].filter(Boolean);
+    const spansSites = counts.length > 0;
+    // Without counts, places with nothing in common (the whole map, a
+    // cluster across Districts) are not unknown: the line is just left out.
+    if (path.length === 0 && !showCounts && items.length > 1) return null;
     if (path.length === 0 && !spansSites) {
         return (
             <p className="text-muted-foreground flex items-center gap-1 text-xs">
@@ -48,7 +66,7 @@ export default function LocationPath({ items }: { items: Located[] }) {
                 {spansSites && (
                     <span className="text-muted-foreground">
                         {path.length > 0 && ' · '}
-                        {t('locationSites', { count: siteCount })}
+                        {counts.join(' · ')}
                     </span>
                 )}
             </span>

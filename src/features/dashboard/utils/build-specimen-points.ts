@@ -1,6 +1,7 @@
 import type { ProgramSnapshot } from '@/api/admin/load-program-snapshot';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import { sessionBucketTime } from './counted-sessions';
+import { collectorKeys } from './count-active-collectors';
 import { isInsideCountry } from './country-bounding-boxes';
 import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
 
@@ -23,6 +24,14 @@ export type SpecimenPoint = {
     /** What the map's specimen filters match against. */
     specimenGroups: SpecimenGroup[];
     collectedAt: number;
+    /** The Reporting Month, in the Program's time zone. */
+    month: MonthKey;
+    /**
+     * Who collected, as numbers: one per person within the Program, matched
+     * as every user figure matches names (`collectorKeys`), so the map can
+     * count collectors without sending their names. Empty when blank.
+     */
+    collectorIds: number[];
 };
 
 /** A Session without an in-country fix; the map may place it at its Site. */
@@ -42,6 +51,16 @@ export function buildSpecimenPoints(
 ): SpecimenPoints {
     const timeZone = programTimeZone(snapshot.collectionCycles);
     const groupsBySession = groupSpecimens(snapshot.specimens);
+    const collectorNumbers = new Map<string, number>();
+    const collectorIdsOf = (name: string) =>
+        collectorKeys(name).map(key => {
+            let id = collectorNumbers.get(key);
+            if (id === undefined) {
+                id = collectorNumbers.size + 1;
+                collectorNumbers.set(key, id);
+            }
+            return id;
+        });
 
     const points: SpecimenPoints = { placed: [], unplaced: [] };
     for (const session of snapshot.sessions) {
@@ -52,6 +71,7 @@ export function buildSpecimenPoints(
         }
 
         const specimenGroups = groupsBySession.get(session.sessionId) ?? [];
+        const collectorIds = collectorIdsOf(session.collectorName);
         const specimenCount = specimenGroups.reduce(
             (sum, group) => sum + group.count,
             0,
@@ -69,6 +89,8 @@ export function buildSpecimenPoints(
                 specimenCount,
                 specimenGroups,
                 collectedAt,
+                month,
+                collectorIds,
             });
             continue;
         }
@@ -82,6 +104,8 @@ export function buildSpecimenPoints(
             specimenCount,
             specimenGroups,
             collectedAt,
+            month,
+            collectorIds,
         });
     }
     return points;

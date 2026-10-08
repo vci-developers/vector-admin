@@ -8,13 +8,14 @@ import type {
     SiteLocations,
 } from '@/api/site-locations/validation/site-locations-schema';
 import { buildSiteLocationQuery } from '@/features/dashboard/utils/site-location-query';
+import { canSeeProgram, type Viewer } from '@/lib/auth-session/viewer';
 import type { NetworkError } from '@/lib/network/network-error';
 import { ok, type Result } from '@/lib/result/result';
 
-export async function getSiteLocations({
-    exclude,
-    siteIds,
-}: GetSiteLocationsQuery): Promise<Result<SiteLocations, NetworkError>> {
+export async function getSiteLocations(
+    { exclude, siteIds }: GetSiteLocationsQuery,
+    viewer: Viewer,
+): Promise<Result<SiteLocations, NetworkError>> {
     const programs = await loadPrograms();
     if (!programs.ok) return programs;
 
@@ -24,7 +25,9 @@ export async function getSiteLocations({
         { key: string; query: string; country: string }
     >();
     for (const program of programs.data.filter(
-        p => !exclude.includes(p.programId),
+        p =>
+            !exclude.includes(p.programId) &&
+            canSeeProgram(viewer, p.programId),
     )) {
         const snapshot = await loadProgramSnapshot(program.programId);
         if (!snapshot.ok) continue;

@@ -12,8 +12,6 @@ import {
     Bar,
     BarChart,
     CartesianGrid,
-    Line,
-    LineChart,
     Pie,
     PieChart,
     ResponsiveContainer,
@@ -79,7 +77,7 @@ function Segment({
     );
 }
 
-export const CHART_VIEWS = ['pie', 'stacked', 'lines', 'totals'] as const;
+export const CHART_VIEWS = ['bar', 'pie'] as const;
 export type ChartView = (typeof CHART_VIEWS)[number];
 
 type SeriesTotal = { series: TimelineSeries; count: number };
@@ -132,7 +130,9 @@ function ValueLegend({
                           bucket: bucketLabel(bucket),
                           total: formatter.number(bucket.total),
                       })
-                    : t('chartReadoutPeriod')}
+                    : t('chartReadoutPeriod', {
+                          granularity: timeline.granularity,
+                      })}
             </p>
             <ul
                 aria-label={t('chartLegend')}
@@ -310,42 +310,7 @@ function PieView({ timeline }: { timeline: SelectionTimeline }) {
     );
 }
 
-/** Each value's total for the period: horizontal bars, most common first. */
-function TotalsChart({ timeline }: { timeline: SelectionTimeline }) {
-    const t = useTranslations('MapSection');
-    const formatter = useFormatter();
-    const label = useSeriesLabel();
-    const totals = seriesTotals(timeline);
-    const max = Math.max(1, ...totals.map(item => item.count));
-    return (
-        <ul aria-label={t('chartTotalsAria')} className="flex flex-col gap-2">
-            {totals.map(({ series, count }) => (
-                <li
-                    key={series.key}
-                    className="grid grid-cols-[minmax(0,7.5rem)_1fr] items-center gap-2 text-xs"
-                >
-                    <span className="truncate" title={label(series)}>
-                        {label(series)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <span
-                            className="h-3 min-w-[2px] rounded-r-[4px]"
-                            style={{
-                                width: `${(count / max) * 100}%`,
-                                background: seriesColor(series),
-                            }}
-                        />
-                        <span className="shrink-0 tabular-nums">
-                            {formatter.number(count)}
-                        </span>
-                    </span>
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-/** Specimens per week or month in the chosen view. */
+/** Specimens per week or month as stacked bars, or the period as a pie. */
 export default function SelectionChart({
     timeline,
     view,
@@ -400,22 +365,6 @@ export default function SelectionChart({
                 });
 
     if (view === 'pie') return <PieView timeline={timeline} />;
-    if (view === 'totals') {
-        return (
-            <div className="flex flex-col gap-2">
-                <p className="text-xs">
-                    <span className="font-medium">{t('chartTitleTotals')}</span>
-                    <span className="text-muted-foreground">
-                        {' · '}
-                        {t('chartTitleTotal', {
-                            total: formatter.number(timeline.total),
-                        })}
-                    </span>
-                </p>
-                <TotalsChart timeline={timeline} />
-            </div>
-        );
-    }
 
     const rows: Row[] = timeline.buckets.map(bucket => {
         const row: Row = { bucket, top: -1, start: bucket.start };
@@ -470,11 +419,7 @@ export default function SelectionChart({
         />,
         <Tooltip
             key="tooltip"
-            cursor={
-                view === 'stacked'
-                    ? { fill: 'var(--muted)', opacity: 0.5 }
-                    : { stroke: 'var(--muted-foreground)', strokeWidth: 1 }
-            }
+            cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
             // The legend below carries the hover readout instead.
             content={() => null}
         />,
@@ -495,62 +440,31 @@ export default function SelectionChart({
                 })}
             >
                 <ResponsiveContainer width="100%" height="100%">
-                    {view === 'stacked' ? (
-                        <BarChart
-                            data={rows}
-                            margin={margin}
-                            barCategoryGap="20%"
-                            onMouseMove={onMouseMove}
-                            onMouseLeave={onMouseLeave}
-                        >
-                            {common}
-                            {timeline.series.map((s, index) => (
-                                <Bar
-                                    key={s.key}
-                                    dataKey={`s${index}`}
-                                    stackId="specimens"
-                                    fill={seriesColor(s)}
-                                    maxBarSize={24}
-                                    isAnimationActive={false}
-                                    shape={(props: unknown) => (
-                                        <Segment
-                                            {...(props as SegmentProps)}
-                                            index={index}
-                                        />
-                                    )}
-                                />
-                            ))}
-                        </BarChart>
-                    ) : (
-                        <LineChart
-                            data={rows}
-                            margin={margin}
-                            onMouseMove={onMouseMove}
-                            onMouseLeave={onMouseLeave}
-                        >
-                            {common}
-                            {timeline.series.map((s, index) => (
-                                <Line
-                                    key={s.key}
-                                    dataKey={`s${index}`}
-                                    type="linear"
-                                    stroke={seriesColor(s)}
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    // Dots only on the hovered week: a dot on
-                                    // every empty week crowds the baseline.
-                                    dot={false}
-                                    activeDot={{
-                                        r: 4,
-                                        stroke: 'var(--card)',
-                                        strokeWidth: 2,
-                                    }}
-                                    isAnimationActive={false}
-                                />
-                            ))}
-                        </LineChart>
-                    )}
+                    <BarChart
+                        data={rows}
+                        margin={margin}
+                        barCategoryGap="20%"
+                        onMouseMove={onMouseMove}
+                        onMouseLeave={onMouseLeave}
+                    >
+                        {common}
+                        {timeline.series.map((s, index) => (
+                            <Bar
+                                key={s.key}
+                                dataKey={`s${index}`}
+                                stackId="specimens"
+                                fill={seriesColor(s)}
+                                maxBarSize={24}
+                                isAnimationActive={false}
+                                shape={(props: unknown) => (
+                                    <Segment
+                                        {...(props as SegmentProps)}
+                                        index={index}
+                                    />
+                                )}
+                            />
+                        ))}
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
             <ValueLegend

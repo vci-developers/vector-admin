@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const result = await withViewer(() => getDashboard(query.data));
+    const result = await withViewer(viewer => getDashboard(query.data, viewer));
     return NextResponse.json(result, {
         status: result.ok ? 200 : (result.error.status ?? 500),
     });

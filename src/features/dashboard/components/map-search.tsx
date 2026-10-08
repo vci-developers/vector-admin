@@ -8,6 +8,7 @@ import {
     searchMap,
     type MapSearchResult,
 } from '@/features/dashboard/utils/search-map';
+import type { CoverageStatus } from '@/features/dashboard/utils/parse-coverage-sheets';
 import { cn } from '@/utils/cn';
 import { Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -17,7 +18,16 @@ type MapSearchProps = {
     /** What is on the map now; search never selects a hidden point. */
     sessions: PlacedSession[];
     devices: PlacedDevice[];
+    /** Coverage Units drawn on the map; searchable even with no points. */
+    units: {
+        programId: number;
+        unit: string;
+        status: CoverageStatus;
+        sessionIds: number[];
+    }[];
     onPick: (result: MapSearchResult) => void;
+    /** false for Stakeholders: no finding a Session by its number. */
+    showSessions: boolean;
 };
 
 function ResultLabel({ result }: { result: MapSearchResult }) {
@@ -65,6 +75,24 @@ function ResultLabel({ result }: { result: MapSearchResult }) {
                     {t('sessionLabel', { id: result.id })}
                 </span>
             );
+        case 'unit':
+            return (
+                <>
+                    <span className="flex items-baseline justify-between gap-2">
+                        <span className="truncate font-medium">
+                            {result.unit.unit}
+                        </span>
+                        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                            {count}
+                        </span>
+                    </span>
+                    <span className="text-muted-foreground truncate text-xs">
+                        {t('searchUnit', {
+                            status: t(`coverageStatus.${result.status}`),
+                        })}
+                    </span>
+                </>
+            );
         case 'device':
             return (
                 <span className="font-medium">
@@ -81,7 +109,9 @@ function ResultLabel({ result }: { result: MapSearchResult }) {
 export default function MapSearch({
     sessions,
     devices,
+    units,
     onPick,
+    showSessions,
 }: MapSearchProps) {
     const t = useTranslations('MapSection');
     const listId = useId();
@@ -89,8 +119,11 @@ export default function MapSearch({
     const [isOpen, setIsOpen] = useState(false);
     const [active, setActive] = useState(0);
     const results = useMemo(
-        () => searchMap(query, sessions, devices),
-        [query, sessions, devices],
+        () =>
+            searchMap(query, sessions, devices, units).filter(
+                result => showSessions || result.kind !== 'session',
+            ),
+        [query, sessions, devices, units, showSessions],
     );
     const showList = isOpen && query.trim() !== '';
 

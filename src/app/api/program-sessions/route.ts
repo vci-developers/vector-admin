@@ -1,6 +1,6 @@
 import { getProgramSessions } from '@/api/program-sessions/get-program-sessions';
 import { getProgramSessionsQuerySchema } from '@/api/program-sessions/validation/program-sessions-schema';
-import { withViewer } from '@/lib/auth-session/with-viewer';
+import { withDeveloper } from '@/lib/auth-session/with-viewer';
 import { err } from '@/lib/result/result';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const result = await withViewer(() => getProgramSessions(query.data));
+    const result = await withDeveloper(() => getProgramSessions(query.data));
     return NextResponse.json(result, {
         status: result.ok ? 200 : (result.error.status ?? 500),
     });

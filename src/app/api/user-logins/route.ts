@@ -1,6 +1,6 @@
 import { getUserLogins } from '@/api/user-logins/get-user-logins';
 import { getUserLoginsQuerySchema } from '@/api/user-logins/validation/user-logins-schema';
-import { withViewer } from '@/lib/auth-session/with-viewer';
+import { withDeveloper } from '@/lib/auth-session/with-viewer';
 import { err, ok } from '@/lib/result/result';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const result = await withViewer(async () => {
+    const result = await withDeveloper(async () => {
         const logins = await getUserLogins(query.data);
         if (!logins.ok) return logins;
         const { users, failedProgramIds } = logins.data;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchMap } from './search-map';
+import { searchMap, unitSessionIds } from './search-map';
 
 const path = (...names: string[]) =>
     names.map((name, index) => ({
@@ -7,10 +7,16 @@ const path = (...names: string[]) =>
         name,
     }));
 
-const session = (sessionId: number, siteId: number, location = path()) => ({
+const session = (
+    sessionId: number,
+    siteId: number,
+    location = path(),
+    programId = 1,
+) => ({
     sessionId,
     siteId,
     location,
+    programId,
 });
 const device = (
     deviceId: number,
@@ -83,5 +89,69 @@ describe('searchMap', () => {
 
     it('finds nothing for an empty query', () => {
         expect(summary('  ')).toEqual([]);
+    });
+
+    it('finds Coverage Units by name, with or without points, over the same-named place', () => {
+        const units = [
+            {
+                programId: 1,
+                unit: 'Gulu',
+                status: 'Active' as const,
+                sessionIds: [101, 102],
+            },
+            {
+                programId: 1,
+                unit: 'Lamwo',
+                status: 'Targeted' as const,
+                sessionIds: [],
+            },
+        ];
+
+        expect(
+            searchMap('gul', sessions, devices, units).map(r => [r.key, r.ids]),
+        ).toEqual([
+            ['unit:1:Gulu', [101, 102]],
+            ['place:District=Lira/Sub-county=Agulu', [1010]],
+        ]);
+        expect(searchMap('lamwo', sessions, devices, units)).toEqual([
+            {
+                key: 'unit:1:Lamwo',
+                kind: 'unit',
+                unit: { programId: 1, unit: 'Lamwo' },
+                status: 'Targeted',
+                layer: 'specimens',
+                ids: [],
+            },
+        ]);
+    });
+
+    it('keeps places below a unit that share its name searchable', () => {
+        const units = [
+            {
+                programId: 1,
+                unit: 'Bobi',
+                status: 'Active' as const,
+                sessionIds: [],
+            },
+        ];
+
+        expect(
+            searchMap('bobi', sessions, devices, units).map(r => r.key),
+        ).toEqual(['place:District=Gulu/Sub-county=Bobi', 'unit:1:Bobi']);
+    });
+});
+
+describe('unitSessionIds', () => {
+    it("takes the unit's Program's Sessions whose top-level place it names", () => {
+        const all = [
+            ...sessions,
+            session(201, 9, path('GULU')),
+            session(202, 9, path('Gulu'), 4),
+            session(203, 9, path('Amuru', 'Gulu')),
+        ];
+
+        expect(unitSessionIds({ programId: 1, unit: 'gulu' }, all)).toEqual([
+            101, 102, 201,
+        ]);
     });
 });

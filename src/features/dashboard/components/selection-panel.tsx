@@ -2,25 +2,42 @@
 
 import type { Program } from '@/api/program/validation/program-schema';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
     buildSelectionTimeline,
     type TimelineDimension,
 } from '@/features/dashboard/utils/build-selection-timeline';
-import type { SpecimenFacets } from '@/features/dashboard/utils/filter-map-points';
+import {
+    NOT_APPLICABLE,
+    type SpecimenFacets,
+} from '@/features/dashboard/utils/filter-map-points';
 import type {
     PlacedDevice,
     PlacedSession,
 } from '@/features/dashboard/utils/place-by-site';
+import { countCollectors } from '@/features/dashboard/utils/count-collectors';
 import { programTitle } from '@/features/dashboard/utils/program-title';
-import { ArrowLeft } from 'lucide-react';
+import type { UserCoverageDto } from '@/api/dashboard/validation/dashboard-schema';
+import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
+import { ArrowLeft, Users } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import SelectionChart, { CHART_VIEWS, type ChartView } from './selection-chart';
 import SelectionList from './selection-list';
 import LocationPath from './location-path';
-import { HiddenNote, type SummarySession } from './specimen-summary';
+import PanelTileFigures from './panel-tile-figures';
+import type { SummarySession } from './specimen-summary';
 import type { MapSelection } from './surveillance-map';
+
+type PanelSession = SummarySession & {
+    collectedAt: number;
+    month: string;
+    programId: number;
+    siteId: number;
+    collectorIds: number[];
+    location: LocationLevel[];
+};
 
 const DIMENSIONS: TimelineDimension[] = ['species', 'sex', 'abdomen'];
 
@@ -29,10 +46,22 @@ type SelectionPanelProps = {
     /** The Sessions drawn on the map, after the map filters. */
     sessions: PlacedSession[];
     devices: PlacedDevice[];
-    sessionsByDevice: Map<number, (SummarySession & { collectedAt: number })[]>;
+    sessionsByDevice: Map<number, PanelSession[]>;
     programs: Map<number, Program>;
     facets: SpecimenFacets;
     period: { from: string; to: string; label: string };
+    /** No Site locations yet: what the panel would count is unknown. */
+    loading: boolean;
+    /** Sites still being geocoded; their Sessions join the counts later. */
+    locatingCount: number;
+    /** false for Stakeholders: the chart, never the Sessions behind it. */
+    showSessions: boolean;
+    /** The selected Programs: names the whole map ("Uganda"); with only one,
+     * every selection is in it, so no Program line is shown. */
+    scope: { title: string; single: boolean };
+    /** Every Session the Session filter kept, whatever the map filters. */
+    tileSessions: PanelSession[];
+    userCoverage: UserCoverageDto[];
     onClear: () => void;
 };
 
@@ -51,13 +80,19 @@ export default function SelectionPanel({
     programs,
     facets,
     period,
+    loading,
+    locatingCount,
+    showSessions,
+    scope,
+    tileSessions,
+    userCoverage,
     onClear,
 }: SelectionPanelProps) {
     const t = useTranslations('MapSection');
     const formatter = useFormatter();
     const [dimension, setDimension] = useState<TimelineDimension>('species');
     // Temporary: lets us compare chart forms before settling on one.
-    const [view, setView] = useState<ChartView>('pie');
+    const [view, setView] = useState<ChartView>('bar');
 
     const selected = useMemo(() => {
         if (!selection)
@@ -89,33 +124,96 @@ export default function SelectionPanel({
                 sessions: selected.sessions,
                 period,
                 dimension,
-                ranking: rankingOf(facets[dimension]),
+                // N/A is never a filter value, so it joins the ranking last.
+                ranking:
+                    dimension === 'species'
+                        ? rankingOf(facets[dimension])
+                        : [...rankingOf(facets[dimension]), NOT_APPLICABLE],
             }),
         [selected.sessions, period, dimension, facets],
     );
 
+    const unit = selection?.unit;
     const title = !selection
-        ? t('chartWholeMap')
-        : selection.layer === 'specimens'
-          ? t('selectedSessions', { count: selection.ids.length })
-          : t('selectedDevices', { count: selection.ids.length });
-    const programLine = selected.programIds
-        .map(id => programs.get(id))
-        .filter((p): p is Program => Boolean(p))
-        .map(programTitle)
-        .join(' · ');
+        ? scope.title
+        : unit
+          ? unit.unit
+          : selection.layer === 'specimens'
+            ? t('selectedSessions', { count: selection.ids.length })
+            : t('selectedDevices', { count: selection.ids.length });
+    // A unit names its Program even when nothing was collected there.
+    const programLine = scope.single
+        ? ''
+        : (unit ? [unit.programId] : selected.programIds)
+              .map(id => programs.get(id))
+              .filter((p): p is Program => Boolean(p))
+              .map(programTitle)
+              .join(' · ');
+
+    if (loading) {
+        return (
+            <div aria-busy="true" className="flex flex-col gap-3 px-4">
+                <p role="status" className="sr-only">
+                    {t('panelLoading')}
+                </p>
+                <Skeleton height="md" width="md" />
+                <Skeleton height="lg" width="full" rounded="md" />
+                <Skeleton className="mx-auto my-4 size-40 rounded-full" />
+                {Array.from({ length: 4 }, (_, index) => (
+                    <Skeleton key={index} height="sm" width="full" />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4">
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                     <h3 className="text-sm font-semibold">{title}</h3>
+                    {unit && (
+                        <p className="text-xs">
+                            {t('unitSummary', {
+                                status: t(`coverageStatus.${unit.status}`),
+                                sessions: selection.ids.length,
+                            })}
+                        </p>
+                    )}
                     {programLine && (
                         <p className="text-muted-foreground truncate text-xs">
                             {programLine}
                         </p>
                     )}
-                    <LocationPath items={selected.located} />
+                    {/* Stakeholders' counts come from the figures below. */}
+                    <LocationPath
+                        items={selected.located}
+                        showCounts={showSessions}
+                    />
+                    {showSessions ? (
+                        <p className="flex items-center gap-1 text-xs">
+                            <Users
+                                className="text-muted-foreground size-3 shrink-0"
+                                aria-hidden="true"
+                            />
+                            {t('collectorCount', {
+                                count: countCollectors(selected.sessions),
+                            })}
+                        </p>
+                    ) : (
+                        // Stakeholders: framed as the tiles are.
+                        <PanelTileFigures
+                            sessions={tileSessions}
+                            month={period.to}
+                            selectedPlaces={selection ? selected.located : null}
+                            userCoverage={userCoverage}
+                            programs={programs}
+                        />
+                    )}
+                    {locatingCount > 0 && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                            {t('panelPartial', { count: locatingCount })}
+                        </p>
+                    )}
                 </div>
                 {selection && (
                     <Button
@@ -125,7 +223,7 @@ export default function SelectionPanel({
                         onClick={onClear}
                     >
                         <ArrowLeft />
-                        {t('chartBack')}
+                        {scope.title}
                     </Button>
                 )}
             </div>
@@ -160,7 +258,6 @@ export default function SelectionPanel({
                         {t('chartInPeriod', { period: periodLabel })}
                     </span>
                 </p>
-                <HiddenNote sessions={selected.sessions} />
             </div>
 
             <ToggleGroup
@@ -190,7 +287,7 @@ export default function SelectionPanel({
                 </p>
             )}
 
-            {selection && (
+            {selection && (showSessions || selection.layer === 'devices') && (
                 <details className="-mx-2 border-t pt-2">
                     <summary className="text-muted-foreground hover:text-foreground cursor-pointer px-2 text-xs font-medium select-none">
                         {selection.layer === 'specimens'

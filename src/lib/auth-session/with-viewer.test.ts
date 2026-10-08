@@ -1,6 +1,6 @@
 import { ok } from '@/lib/result/result';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { withViewer } from './with-viewer';
+import { withDeveloper, withViewer } from './with-viewer';
 
 let accessToken: string | undefined;
 vi.mock('next/headers', () => ({
@@ -9,10 +9,18 @@ vi.mock('next/headers', () => ({
     }),
 }));
 
-function stubPermissions(status: number, body: unknown) {
+function stubPermissions(
+    status: number,
+    body: unknown,
+    email = 'someone@example.org',
+) {
     vi.stubGlobal(
         'fetch',
-        vi.fn(async () => new Response(JSON.stringify(body), { status })),
+        vi.fn(async (url: string | URL) =>
+            String(url).includes('/users/profile')
+                ? new Response(JSON.stringify({ user: { email } }))
+                : new Response(JSON.stringify(body), { status }),
+        ),
     );
 }
 
@@ -21,6 +29,7 @@ const loadData = async () => ok('admin data');
 afterEach(() => {
     accessToken = undefined;
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
 });
 
 describe('withViewer', () => {
@@ -56,5 +65,66 @@ describe('withViewer', () => {
         accessToken = 'dev-token';
         stubPermissions(200, { permissions: { devMode: true } });
         expect(await withViewer(loadData)).toEqual(ok('admin data'));
+    });
+
+    it('passes a Developer to the callback', async () => {
+        accessToken = 'dev-token';
+        stubPermissions(200, { permissions: { devMode: true } });
+        const callback = vi.fn(async () => ok(null));
+        await withViewer(callback);
+        expect(callback).toHaveBeenCalledWith({ role: 'developer' });
+    });
+
+    it('runs the callback for a listed Stakeholder with their Programs', async () => {
+        accessToken = 'stakeholder-token';
+        vi.stubEnv('STAKEHOLDER_EMAILS', 'partner@who.int:1|4');
+        stubPermissions(
+            200,
+            { permissions: { devMode: false } },
+            'Partner@WHO.int',
+        );
+        const callback = vi.fn(async () => ok(null));
+        await withViewer(callback);
+        expect(callback).toHaveBeenCalledWith({
+            role: 'stakeholder',
+            programIds: [1, 4],
+        });
+    });
+
+    it('refuses everyone but Developers when the list is malformed', async () => {
+        accessToken = 'stakeholder-token';
+        vi.stubEnv('STAKEHOLDER_EMAILS', 'partner@who.int:1,oops');
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        stubPermissions(
+            200,
+            { permissions: { devMode: false } },
+            'partner@who.int',
+        );
+        expect(await withViewer(loadData)).toMatchObject({
+            ok: false,
+            error: { kind: 'forbidden' },
+        });
+    });
+});
+
+describe('withDeveloper', () => {
+    it('refuses a Stakeholder', async () => {
+        accessToken = 'stakeholder-token';
+        vi.stubEnv('STAKEHOLDER_EMAILS', 'partner@who.int:1');
+        stubPermissions(
+            200,
+            { permissions: { devMode: false } },
+            'partner@who.int',
+        );
+        expect(await withDeveloper(loadData)).toMatchObject({
+            ok: false,
+            error: { kind: 'forbidden' },
+        });
+    });
+
+    it('runs the callback for a Developer', async () => {
+        accessToken = 'dev-token';
+        stubPermissions(200, { permissions: { devMode: true } });
+        expect(await withDeveloper(loadData)).toEqual(ok('admin data'));
     });
 });

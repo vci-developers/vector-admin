@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const monthKeySchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 
-const programIdListSchema = z
+export const programIdListSchema = z
     .string()
     .regex(/^(\d+(,\d+)*)?$/)
     .transform(value => (value === '' ? [] : value.split(',').map(Number)));
@@ -72,6 +72,24 @@ export const periodMetricsSchema = z.object({
         .nullable(),
 });
 
+/** A coverage figure's working; null where the workbook has no figure. */
+export const coverageRatioSchema = z
+    .object({
+        numerator: z.number(),
+        denominator: z.number(),
+        value: z.number().nullable(),
+    })
+    .nullable();
+
+/** Active users (from VectorCam) over the coverage workbook's figures. */
+export const userCoverageSchema = z.object({
+    programId: z.number(),
+    /** The month compared: the period's last. */
+    month: monthKeySchema,
+    instantaneousUserCoverage: coverageRatioSchema,
+    programUserCoverage: coverageRatioSchema,
+});
+
 export const deviceRowSchema = z.object({
     deviceId: z.number(),
     model: z.string(),
@@ -98,6 +116,8 @@ export const areaMetricsSchema = z.object({
 });
 
 export const dashboardSchema = z.object({
+    /** What the page shows: everything, or the Stakeholder view. */
+    viewer: z.enum(['developer', 'stakeholder']),
     programs: z.array(programSchema),
     selectedProgramIds: z.array(z.number()),
     failedProgramIds: z.array(z.number()),
@@ -111,7 +131,9 @@ export const dashboardSchema = z.object({
                 cycles: z.array(z.number()),
             }),
         ),
-        total: periodMetricsSchema,
+        /** For Stakeholders, users and logins are always null. */
+        total: periodMetricsSchema.nullable(),
+        /** Always null for Stakeholders. */
         previousTotal: periodMetricsSchema.nullable(),
     }),
     /** Device Status over the period. */
@@ -139,6 +161,9 @@ export const dashboardSchema = z.object({
                     }),
                 ),
                 collectedAt: z.number(),
+                month: monthKeySchema,
+                /** One number per person named, within the Program. */
+                collectorIds: z.array(z.number()),
             }),
         ),
         /** Sessions without an in-country fix; placed at their Site when it geocodes. */
@@ -158,9 +183,17 @@ export const dashboardSchema = z.object({
                     }),
                 ),
                 collectedAt: z.number(),
+                month: monthKeySchema,
+                /** One number per person named, within the Program. */
+                collectorIds: z.array(z.number()),
             }),
         ),
     }),
+    /**
+     * Each selected Program's user coverage for the period's last month,
+     * counting collectors on the Sessions the Session filter keeps.
+     */
+    userCoverage: z.array(userCoverageSchema),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
     lastUpdatedAt: z.number().nullable(),
 });
@@ -169,4 +202,5 @@ export const getDashboardResponseSchema = resultSchema(dashboardSchema);
 
 export type Dashboard = z.infer<typeof dashboardSchema>;
 export type AreaMetricsDto = z.infer<typeof areaMetricsSchema>;
+export type UserCoverageDto = z.infer<typeof userCoverageSchema>;
 export type PeriodMetricsDto = z.infer<typeof periodMetricsSchema>;

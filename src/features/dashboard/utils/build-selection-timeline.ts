@@ -1,5 +1,5 @@
 import type { SpecimenGroup } from './build-specimen-points';
-import { NOT_RECORDED } from './filter-map-points';
+import { fieldValue, NOT_RECORDED } from './filter-map-points';
 import { monthsInRange, type MonthKey } from './month-key';
 
 export type TimelineDimension = 'species' | 'sex' | 'abdomen';
@@ -43,15 +43,8 @@ type TimelineSession = {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-function valueOf(group: SpecimenGroup, dimension: TimelineDimension): string {
-    const value =
-        dimension === 'species'
-            ? group.species
-            : dimension === 'sex'
-              ? group.sex
-              : group.abdomenStatus;
-    return value ?? NOT_RECORDED;
-}
+const valueOf = (group: SpecimenGroup, dimension: TimelineDimension) =>
+    fieldValue(group, dimension);
 
 const monthKeyUtc = (time: number) => new Date(time).toISOString().slice(0, 7);
 

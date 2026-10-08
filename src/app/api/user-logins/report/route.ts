@@ -1,7 +1,7 @@
 import { getUserLogins } from '@/api/user-logins/get-user-logins';
 import { getUserLoginsQuerySchema } from '@/api/user-logins/validation/user-logins-schema';
 import { buildLoginReportSheets } from '@/features/dashboard/utils/build-user-logins';
-import { withViewer } from '@/lib/auth-session/with-viewer';
+import { withDeveloper } from '@/lib/auth-session/with-viewer';
 import { err, ok } from '@/lib/result/result';
 import ExcelJS from 'exceljs';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const result = await withViewer(async () => {
+    const result = await withDeveloper(async () => {
         const logins = await getUserLogins(query.data);
         if (!logins.ok) return logins;
         // A partial selection must not download as if it were complete.

@@ -34,9 +34,12 @@ function useDetailFormatters(program: Program | undefined, programId: number) {
 export function SessionDetails({
     session,
     program,
+    showSession = true,
 }: {
     session: PlacedSession;
     program: Program | undefined;
+    /** false for Stakeholders: the place and its specimens, no Session record. */
+    showSession?: boolean;
 }) {
     const t = useTranslations('MapSection');
     const { programLine, formatDate } = useDetailFormatters(
@@ -47,7 +50,9 @@ export function SessionDetails({
         <div className="flex flex-col gap-0.5 text-sm">
             <p className="flex items-center justify-between gap-2">
                 <span className="font-medium">
-                    {t('sessionLabel', { id: session.sessionId })}
+                    {showSession
+                        ? t('sessionLabel', { id: session.sessionId })
+                        : t('pointLabel')}
                 </span>
                 <span className="tabular-nums">
                     {t('specimenCount', { count: session.specimenCount })}
@@ -55,10 +60,14 @@ export function SessionDetails({
             </p>
             <p className="text-muted-foreground text-xs">
                 {programLine}
-                {' · '}
-                {t('deviceLabel', { id: session.deviceId })}
-                {' · '}
-                {formatDate(session.collectedAt)}
+                {showSession && (
+                    <>
+                        {' · '}
+                        {t('deviceLabel', { id: session.deviceId })}
+                        {' · '}
+                        {formatDate(session.collectedAt)}
+                    </>
+                )}
             </p>
             <LocationPath items={[session]} />
             <PlacementNote placement={session.placement} />

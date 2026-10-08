@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SpecimenGroup } from './build-specimen-points';
 import {
     buildSpecimenFacets,
-    filterDevices,
+    activeDevices,
     filterSessions,
     summarizeSpecimens,
     type SpecimenFilter,
@@ -80,7 +80,7 @@ describe('filterSessions', () => {
 });
 
 describe('buildSpecimenFacets', () => {
-    it('counts every value, keeping Non-Mosquito and unrecorded values apart', () => {
+    it('counts every value, keeping Non-Mosquito, unrecorded and N/A values apart', () => {
         const facets = buildSpecimenFacets([
             session(1, [group('Culex', 2), group('Non-Mosquito', 1)]),
             session(2, [group(null, 1, 'Male', null)]),
@@ -90,23 +90,23 @@ describe('buildSpecimenFacets', () => {
             Culex: 2,
             none: 1,
         });
-        expect(Object.fromEntries(facets.sex)).toEqual({ Female: 3, Male: 1 });
-        expect(Object.fromEntries(facets.abdomen)).toEqual({
-            Unfed: 3,
-            none: 1,
-        });
+        // A non-mosquito has no sex or abdomen status, a male no abdomen
+        // status: N/A, so not filter options.
+        expect(Object.fromEntries(facets.sex)).toEqual({ Female: 2, Male: 1 });
+        expect(Object.fromEntries(facets.abdomen)).toEqual({ Unfed: 2 });
         expect(facets.nonMosquito).toBe(1);
         expect(facets.zeroCatchSessions).toBe(1);
     });
 });
 
-describe('filterDevices', () => {
-    it('keeps devices whose status is shown', () => {
+describe('activeDevices', () => {
+    it('keeps only Active devices', () => {
         const devices = [
             { deviceId: 1, status: 'ACTIVE' as const },
             { deviceId: 2, status: 'INACTIVE' as const },
+            { deviceId: 3, status: 'NEVER_USED' as const },
         ];
-        expect(filterDevices(devices, ['ACTIVE'])).toEqual([devices[0]]);
+        expect(activeDevices(devices)).toEqual([devices[0]]);
     });
 });
 
@@ -132,9 +132,33 @@ describe('summarizeSpecimens', () => {
             ],
             abdomen: [
                 ['Unfed', 4],
-                ['none', 2],
+                ['N/A', 2],
             ],
         });
+    });
+});
+
+describe('filterSessions with N/A fields', () => {
+    it('never hides males or non-mosquitoes for a status they cannot have', () => {
+        const kept = filterSessions(
+            [
+                session(1, [
+                    group('Culex', 2, 'Male', null),
+                    group('Non-Mosquito', 1, null, null),
+                    group('Culex', 4, 'Female', null),
+                ]),
+            ],
+            {
+                ...DEFAULT,
+                showNonMosquito: true,
+                hiddenSex: ['none'],
+                hiddenAbdomen: ['none'],
+            },
+        );
+        expect(kept[0].specimenCount).toBe(3);
+        expect(kept[0].hiddenBy).toEqual([
+            { reason: { filter: 'abdomen', value: 'none' }, count: 4 },
+        ]);
     });
 });
 

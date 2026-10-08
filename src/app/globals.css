@@ -147,3 +147,11 @@
 .leaflet-container a.leaflet-popup-close-button {
     color: var(--muted-foreground);
 }
+
+/* Recharts makes charts and their slices focusable for keyboard use, so a
+   click focused them and drew the focus ring round the chart. Keep the ring
+   for keyboard focus only. */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-wrapper :focus:not(:focus-visible) {
+    outline: none;
+}

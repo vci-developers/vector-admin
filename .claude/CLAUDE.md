@@ -8,6 +8,9 @@
 The live VectorCam API spec (always current — no local file needed):
 https://test.api.vectorcam.org/documentation/json
 
+What VectorCam can and can't give us (collectors, places, users, plans):
+`.claude/docs/vectorcam-data.md`. Update it when you find a new source.
+
 ## Working with Claude
 
 - Always read the current state of a file before making changes. Never assume it

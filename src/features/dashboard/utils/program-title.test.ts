@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { programTitle } from './program-title';
+import { programTitle, scopeTitle } from './program-title';
 
 describe('programTitle', () => {
     it('leads with the country and keeps the Program name', () => {
@@ -10,5 +10,27 @@ describe('programTitle', () => {
 
     it('falls back to the name when the country is blank', () => {
         expect(programTitle({ name: 'Pilot', country: '' })).toBe('Pilot');
+    });
+});
+
+describe('scopeTitle', () => {
+    it('names a single Program by its country', () => {
+        expect(scopeTitle([{ name: 'NMCD', country: 'Uganda' }])).toBe(
+            'Uganda',
+        );
+    });
+
+    it('lists each country once, alphabetically', () => {
+        expect(
+            scopeTitle([
+                { name: 'NMCD', country: 'Uganda' },
+                { name: 'KEMRI - AnoSTEP', country: 'Kenya' },
+                { name: 'Gulu pilot', country: 'Uganda' },
+            ]),
+        ).toBe('Kenya, Uganda');
+    });
+
+    it('falls back to the name when the country is blank', () => {
+        expect(scopeTitle([{ name: 'Pilot', country: '' }])).toBe('Pilot');
     });
 });

@@ -5,9 +5,24 @@ import type { SpecimenGroup } from './build-specimen-points';
 export const NON_MOSQUITO = 'Non-Mosquito';
 /** Filter value for a specimen with no species, sex or abdomen status. */
 export const NOT_RECORDED = 'none';
+/**
+ * A field the specimen can never have, as VectorCam treats it: a male's
+ * abdomen status, a non-mosquito's sex and abdomen status. Never filtered on,
+ * so these specimens' visibility doesn't hang on it.
+ */
+export const NOT_APPLICABLE = 'N/A';
+const MALE = 'Male';
 
-export const MAPPED_DEVICE_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
-export type MappedDeviceStatus = (typeof MAPPED_DEVICE_STATUSES)[number];
+export type SpecimenField = 'species' | 'sex' | 'abdomen';
+
+/** A group's value for one field: the value, NOT_RECORDED or NOT_APPLICABLE. */
+export function fieldValue(group: SpecimenGroup, field: SpecimenField): string {
+    if (field === 'species') return group.species ?? NOT_RECORDED;
+    if (group.species === NON_MOSQUITO) return NOT_APPLICABLE;
+    if (field === 'sex') return group.sex ?? NOT_RECORDED;
+    if (group.sex === MALE) return NOT_APPLICABLE;
+    return group.abdomenStatus ?? NOT_RECORDED;
+}
 
 /**
  * Hidden values are listed rather than shown ones, so a species or status
@@ -21,8 +36,6 @@ export type SpecimenFilter = {
     showZeroCatch: boolean;
 };
 
-const valueOf = (value: string | null) => value ?? NOT_RECORDED;
-
 /** The filter that hid a specimen: the first one it fails, in panel order. */
 export type HiddenReason =
     | { filter: 'nonMosquito' }
@@ -34,9 +47,9 @@ function hiddenReason(
     group: SpecimenGroup,
     filter: SpecimenFilter,
 ): HiddenReason | null {
-    const species = valueOf(group.species);
-    const sex = valueOf(group.sex);
-    const abdomen = valueOf(group.abdomenStatus);
+    const species = fieldValue(group, 'species');
+    const sex = fieldValue(group, 'sex');
+    const abdomen = fieldValue(group, 'abdomen');
     if (group.species === NON_MOSQUITO) {
         if (!filter.showNonMosquito) return { filter: 'nonMosquito' };
     } else if (filter.hiddenSpecies.includes(species)) {
@@ -131,21 +144,23 @@ export function buildSpecimenFacets(
         for (const group of session.specimenGroups) {
             if (group.species === NON_MOSQUITO)
                 facets.nonMosquito += group.count;
-            else add(facets.species, valueOf(group.species), group.count);
-            add(facets.sex, valueOf(group.sex), group.count);
-            add(facets.abdomen, valueOf(group.abdomenStatus), group.count);
+            else add(facets.species, fieldValue(group, 'species'), group.count);
+            // N/A is never a filter option.
+            const sex = fieldValue(group, 'sex');
+            if (sex !== NOT_APPLICABLE) add(facets.sex, sex, group.count);
+            const abdomen = fieldValue(group, 'abdomen');
+            if (abdomen !== NOT_APPLICABLE)
+                add(facets.abdomen, abdomen, group.count);
         }
     }
     return facets;
 }
 
-export function filterDevices<Device extends { status: DeviceStatus }>(
+/** The map draws Active devices only: those with Sessions in the period. */
+export function activeDevices<Device extends { status: DeviceStatus }>(
     devices: Device[],
-    statuses: readonly MappedDeviceStatus[],
 ): Device[] {
-    return devices.filter(device =>
-        (statuses as readonly DeviceStatus[]).includes(device.status),
-    );
+    return devices.filter(device => device.status === 'ACTIVE');
 }
 
 export type SpecimenSummary = {
@@ -155,11 +170,15 @@ export type SpecimenSummary = {
     hiddenSpecimens: number;
     /** Which filters hid them, largest first. */
     hiddenBy: HiddenCount[];
-    /** Each as [value, count], most common first; "none" is not recorded. */
+    /** Each as [value, count], most common first; "none" (no value yet), then "N/A", last. */
     species: [string, number][];
     sex: [string, number][];
     abdomen: [string, number][];
 };
+
+// Missing values sort last, N/A after them.
+const lastRank = (value: string) =>
+    value === NOT_APPLICABLE ? 2 : value === NOT_RECORDED ? 1 : 0;
 
 /** What a clicked point or cluster holds, over its (filtered) Sessions. */
 export function summarizeSpecimens(
@@ -176,17 +195,16 @@ export function summarizeSpecimens(
         counts.set(key, (counts.get(key) ?? 0) + count);
     for (const session of sessions) {
         for (const group of session.specimenGroups) {
-            add(species, valueOf(group.species), group.count);
-            add(sex, valueOf(group.sex), group.count);
-            add(abdomen, valueOf(group.abdomenStatus), group.count);
+            add(species, fieldValue(group, 'species'), group.count);
+            add(sex, fieldValue(group, 'sex'), group.count);
+            add(abdomen, fieldValue(group, 'abdomen'), group.count);
         }
     }
     const hiddenBy = mergeHidden(sessions.flatMap(s => s.hiddenBy ?? []));
     const sorted = (counts: Map<string, number>) =>
         [...counts].sort(
             ([a, countA], [b, countB]) =>
-                Number(a === NOT_RECORDED) - Number(b === NOT_RECORDED) ||
-                countB - countA,
+                lastRank(a) - lastRank(b) || countB - countA,
         );
     return {
         sessions: sessions.length,

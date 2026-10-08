@@ -1,14 +1,11 @@
 import {
-    MAPPED_DEVICE_STATUSES,
     NOT_RECORDED,
-    type MappedDeviceStatus,
     type SpecimenFilter,
 } from '@/features/dashboard/utils/filter-map-points';
 import {
     parseAsArrayOf,
     parseAsBoolean,
     parseAsString,
-    parseAsStringLiteral,
     useQueryStates,
 } from 'nuqs';
 import { useMemo } from 'react';
@@ -19,11 +16,12 @@ import { useMemo } from 'react';
 // never have an abdomen status, so hiding it would hide every male.
 export const MAP_FILTER_DEFAULTS = {
     hideSpecies: [NOT_RECORDED],
-    hideSex: [] as string[],
-    hideAbdomen: [] as string[],
+    // Males and non-mosquitoes are N/A, never pending, so hiding pending
+    // values hides no males.
+    hideSex: [NOT_RECORDED],
+    hideAbdomen: [NOT_RECORDED],
     nonMosquito: false,
     zeroCatch: false,
-    deviceStatus: ['ACTIVE'] as MappedDeviceStatus[],
 };
 
 // Map-only filters; the KPI tiles and summary table ignore them.
@@ -39,9 +37,6 @@ const mapFilterParsers = {
     ),
     nonMosquito: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.nonMosquito),
     zeroCatch: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.zeroCatch),
-    deviceStatus: parseAsArrayOf(
-        parseAsStringLiteral(MAPPED_DEVICE_STATUSES),
-    ).withDefault(MAP_FILTER_DEFAULTS.deviceStatus),
 };
 
 export function useMapFilters() {

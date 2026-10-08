@@ -71,6 +71,7 @@ describe('summaryToTsv', () => {
 describe('buildSummaryGroups', () => {
     it('lists each selected Program with its areas, then its total', () => {
         const dashboard: Dashboard = {
+            viewer: 'developer',
             programs: [
                 { programId: 1, name: 'NMED', country: 'Uganda' },
                 { programId: 2, name: 'KEMRI', country: 'Kenya' },
@@ -91,6 +92,7 @@ describe('buildSummaryGroups', () => {
             devices: [],
             sitePaths: {},
             specimenPoints: { placed: [], unplaced: [] },
+            userCoverage: [],
             lastUpdatedAt: null,
         };
 
