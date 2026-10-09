@@ -1,3 +1,4 @@
+import { resultSchema } from '@/lib/result/result-schema';
 import { z } from 'zod';
 
 export const loginRequestSchema = z.object({
@@ -10,6 +11,9 @@ export const loginResponseSchema = z.object({
         accessToken: z.string(),
     }),
 });
+
+/** What /api/auth/login answers: nothing, or why sign-in failed. */
+export const loginRouteResponseSchema = resultSchema(z.null());
 
 export type LoginRequestBody = z.infer<typeof loginRequestSchema>;
 export type LoginResponseBody = z.infer<typeof loginResponseSchema>;

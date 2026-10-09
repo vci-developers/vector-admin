@@ -1,5 +1,6 @@
 import { login } from '@/api/auth/login';
 import { setAccessCookie } from '@/lib/auth-session/cookies';
+import { viewerForToken } from '@/lib/auth-session/with-viewer';
 import { err, ok } from '@/lib/result/result';
 import { NextResponse } from 'next/server';
 
@@ -19,7 +20,17 @@ export async function POST(request: Request) {
         });
     }
 
+    // A right password is not entry: say now if the account can't use
+    // VectorAdmin, rather than letting it into an empty dashboard.
+    const accessToken = loginResult.data.tokens.accessToken;
+    const viewer = await viewerForToken(accessToken);
+    if (!viewer.ok) {
+        return NextResponse.json(viewer, {
+            status: viewer.error.status ?? 403,
+        });
+    }
+
     const response = NextResponse.json(ok(null), { status: 200 });
-    setAccessCookie(response, loginResult.data.tokens.accessToken);
+    setAccessCookie(response, accessToken);
     return response;
 }

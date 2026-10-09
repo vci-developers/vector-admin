@@ -22,13 +22,18 @@
         "email": "Email",
         "password": "Password",
         "loginButton": "Sign in",
+        "signingIn": "Signing in…",
         "loginError": "Sign-in failed. The email or password may be incorrect.",
+        "loginErrorReason": "Sign-in failed: {reason}",
+        "signedOut": "You were signed out: {reason}",
         "checkingAccess": "Checking access…",
-        "accessCheckError": "Could not check your access. Refresh the page to try again."
+        "accessCheckError": "Could not check your access with VectorCam.",
+        "tryAgain": "Try again",
+        "signOut": "Sign out"
     },
     "NoAccess": {
         "title": "No access",
-        "description": "VectorAdmin is open to VectorCam developer accounts only. Your account is signed in but does not have developer access.",
+        "description": "Your VectorCam account is signed in but is not set up for VectorAdmin. Ask the VectorAdmin team to add your email, or sign in with another account.",
         "switchAccount": "Sign in with a different account"
     },
     "Dashboard": {

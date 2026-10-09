@@ -20,6 +20,37 @@ export const VIEW_AS_COOKIE = 'viewAs';
 const forbidden = () => err({ kind: 'forbidden' as const, status: 403 });
 
 /**
+ * Who a VectorCam token belongs to as a Viewer: a Developer (devMode) or a
+ * Stakeholder on `STAKEHOLDER_EMAILS`; anyone else is forbidden, saying why.
+ */
+export async function viewerForToken(
+    accessToken: string,
+): Promise<Result<Viewer, NetworkError>> {
+    const permissions = await getUserPermissions(accessToken);
+    if (!permissions.ok) return permissions;
+    const devMode = permissions.data.permissions.devMode;
+
+    // Only non-developers need the email, so developers skip the call.
+    let email: string | null = null;
+    if (!devMode) {
+        const profile = await getUserProfile(accessToken);
+        if (!profile.ok) return profile;
+        email = profile.data.user.email;
+    }
+
+    const list = parseStakeholderList(process.env.STAKEHOLDER_EMAILS);
+    if (!list.ok) console.error(`STAKEHOLDER_EMAILS: ${list.error}`);
+    const viewer = resolveViewer(devMode, email, list);
+    return viewer
+        ? ok(viewer)
+        : err({
+              kind: 'forbidden',
+              status: 403,
+              message: `${email ?? 'This account'} is not on VectorAdmin's stakeholder list.`,
+          });
+}
+
+/**
  * Runs the callback for a Viewer: a Developer (devMode) or a Stakeholder on
  * `STAKEHOLDER_EMAILS`. Anyone else is forbidden.
  */
@@ -27,24 +58,10 @@ export async function withViewer<T>(
     callback: (viewer: Viewer) => Promise<Result<T, NetworkError>>,
 ): Promise<Result<T, NetworkError>> {
     return withAuthSession(async accessToken => {
-        const permissions = await getUserPermissions(accessToken);
-        if (!permissions.ok) return permissions;
-        const devMode = permissions.data.permissions.devMode;
-
-        // Only non-developers need the email, so developers skip the call.
-        let email: string | null = null;
-        if (!devMode) {
-            const profile = await getUserProfile(accessToken);
-            if (!profile.ok) return profile;
-            email = profile.data.user.email;
-        }
-
-        const list = parseStakeholderList(process.env.STAKEHOLDER_EMAILS);
-        if (!list.ok) console.error(`STAKEHOLDER_EMAILS: ${list.error}`);
-        const viewer = resolveViewer(devMode, email, list);
-        if (!viewer) return forbidden();
+        const viewer = await viewerForToken(accessToken);
+        if (!viewer.ok) return viewer;
         const viewAs = (await cookies()).get(VIEW_AS_COOKIE)?.value;
-        return callback(applyViewAs(viewer, viewAs));
+        return callback(applyViewAs(viewer.data, viewAs));
     });
 }
 

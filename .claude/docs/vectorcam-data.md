@@ -94,6 +94,10 @@ All about web-app accounts (VCOs, reviewers, developers), never VHTs.
 
 - `/users/`: `privilege`, `programId`, `isActive`, `isWhitelisted`. Prod: 38
   accounts, 7 at privilege 1 in Programs 1 and 4.
+- Anyone can `POST /auth/signup` and log in, but `/users/permissions` answers
+  only whitelisted users (401 "User authentication required" otherwise;
+  `/users/profile` does not check). VectorAdmin reads it on every request, so
+  every Viewer must be whitelisted; privilege 0 with no Sites is enough.
 - `/users/auth-events`: logins per user per UTC day, since auth events shipped.
 - `/users/active-metrics`: A1 / A7 / A30 from `User.lastActiveAt`, daily per
   Program. Not used yet.

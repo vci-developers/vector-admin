@@ -11,7 +11,8 @@ Task) keep VectorVerify's definitions.
 **Viewer**: A VectorCam user allowed into VectorAdmin, in one of two roles. A
 **Developer** (`isDeveloper`) sees everything. A **Stakeholder** is a VectorCam
 account whose email is on VectorAdmin's stakeholder list, with the Programs they
-may see; left un-whitelisted, it can do nothing in VectorVerify. They see only
+may see; it must be whitelisted (VectorCam answers permissions only then), at
+privilege 0 with no Sites so it sees nothing in VectorVerify. They see only
 their Programs, and of those the map (specimens per Area), its side panel, three
 headline cards (Unique specimens, Metadata complete, DHIS2 upload) and the four
 coverage cards: summaries only, never a Session's own record (Session ids are
