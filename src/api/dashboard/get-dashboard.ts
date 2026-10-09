@@ -16,7 +16,16 @@ import { buildUserCoverage } from '@/features/dashboard/utils/build-coverage-met
 import { countActiveCollectors } from '@/features/dashboard/utils/count-active-collectors';
 import { buildAreaMetrics } from '@/features/dashboard/utils/build-area-metrics';
 import { buildSpecimenPoints } from '@/features/dashboard/utils/build-specimen-points';
+import {
+    areaShare,
+    capAreaDevices,
+} from '@/features/dashboard/utils/cap-area-devices';
 import { classifyDevices } from '@/features/dashboard/utils/classify-devices';
+import {
+    countVillageDevices,
+    plannedVillageDevices,
+    UGANDA_SENTINEL_SITES_PER_DISTRICT,
+} from '@/features/dashboard/utils/count-village-devices';
 import { maskSessionIds } from '@/features/dashboard/utils/mask-session-ids';
 import { scopeSnapshot } from '@/features/dashboard/utils/counted-sessions';
 import { programTimeZone } from '@/features/dashboard/utils/month-key';
@@ -29,12 +38,10 @@ export async function getDashboard(
     query: GetDashboardQuery,
     viewer: Viewer,
 ): Promise<Result<Dashboard, NetworkError>> {
-    const [allPrograms, coverage] = await Promise.all([
-        loadPrograms(),
-        // Cached, and it answers in about a second: for the expected and
-        // targeted user figures.
-        loadCoverage(),
-    ]);
+    // For the expected and targeted user figures; started now but awaited
+    // only after the Sessions, which never wait on SharePoint.
+    const coverageLoad = loadCoverage();
+    const allPrograms = await loadPrograms();
     if (!allPrograms.ok) return allPrograms;
 
     // A Stakeholder's other Programs never leave the server.
@@ -48,6 +55,7 @@ export async function getDashboard(
     const snapshots = await Promise.all(
         selected.map(program => loadProgramSnapshot(program.programId)),
     );
+    const coverage = await coverageLoad;
 
     const loaded: ProgramData[] = [];
     const failedProgramIds: number[] = [];
@@ -99,6 +107,112 @@ export async function getDashboard(
             snapshot.sites.map(site => [site.siteId, siteLocationPath(site)]),
         ),
     );
+    // A Stakeholder's map never shows an Area more devices than the month's
+    // plan gives it: phones re-registering under new ids would inflate it.
+    const areaOf = (siteId: number | null) =>
+        (siteId === null ? undefined : sitePaths[siteId]?.[0]?.name) ?? '';
+    // The period's last month's planned devices, for the cap and the panel.
+    const projectedDevices = coverage.ok
+        ? coverage.data.figures.projectedDevices.filter(
+              row =>
+                  row.month === period.to &&
+                  loaded.some(
+                      ({ program }) => program.programId === row.programId,
+                  ),
+          )
+        : [];
+    // Each Program's Areas in the plan: its Active units on the workbook's
+    // Geographic Units sheet (Uganda: 11 Districts), the same whoever has
+    // reported so far.
+    const plannedAreas = loaded.map(({ program }) => ({
+        programId: program.programId,
+        areas: coverage.ok
+            ? coverage.data.figures.units.filter(
+                  unit =>
+                      unit.programId === program.programId &&
+                      unit.status === 'Active',
+              ).length
+            : 0,
+        sentinelSites:
+            program.country.toLowerCase() === 'uganda'
+                ? UGANDA_SENTINEL_SITES_PER_DISTRICT
+                : null,
+    }));
+    // Uganda's planned devices per Active District by the team's rule, which
+    // the map and panel read against instead of the workbook's figure.
+    const areaDevicePlans = coverage.ok
+        ? loaded
+              .filter(
+                  ({ program }) => program.country.toLowerCase() === 'uganda',
+              )
+              .flatMap(({ program }) =>
+                  coverage.data.figures.units
+                      .filter(
+                          unit =>
+                              unit.programId === program.programId &&
+                              unit.status === 'Active',
+                      )
+                      .map(unit => ({
+                          programId: program.programId,
+                          area: unit.unit,
+                          planned: plannedVillageDevices(unit.unit),
+                      })),
+              )
+        : [];
+    const deviceCaps = new Map(
+        plannedAreas.map(({ programId, areas }) => [
+            programId,
+            areaShare(
+                projectedDevices.find(row => row.programId === programId)
+                    ?.projected,
+                areas,
+            ),
+        ]),
+    );
+    const shownDevices =
+        viewer.role === 'developer'
+            ? devices
+            : capAreaDevices(
+                  devices,
+                  device => areaOf(device.siteId),
+                  programId => deviceCaps.get(programId) ?? null,
+              );
+    // What a Stakeholder's badges and panel count as active devices per Area
+    // over the period: Uganda's from villages and people, others' the capped
+    // devices.
+    const deviceCounts =
+        viewer.role === 'developer'
+            ? null
+            : loaded.flatMap(({ program, snapshot }) => {
+                  const counts =
+                      program.country.toLowerCase() === 'uganda'
+                          ? countVillageDevices(
+                                sessionsInPeriod(
+                                    snapshot.sessions,
+                                    period,
+                                    programTimeZone(snapshot.collectionCycles),
+                                ),
+                                sitePaths,
+                            )
+                          : [
+                                ...Map.groupBy(
+                                    shownDevices.filter(
+                                        device =>
+                                            device.programId ===
+                                                program.programId &&
+                                            device.status === 'ACTIVE',
+                                    ),
+                                    device => areaOf(device.siteId),
+                                ),
+                            ].map(([area, list]) => ({
+                                area,
+                                count: list.length,
+                            }));
+                  return counts.map(row => ({
+                      programId: program.programId,
+                      ...row,
+                  }));
+              });
     const selectedIds = selected.map(program => program.programId);
     // Users are compared for the period's last month ("currently"), counting
     // collectors on the Sessions the Session filter keeps.
@@ -127,19 +241,27 @@ export async function getDashboard(
         programs: visible,
         selectedProgramIds: selectedIds,
         failedProgramIds,
-        // Stakeholders get the period's totals for their headline tiles, but
-        // no previous period, no per-Program breakdown and nothing about users
-        // or logins.
+        // Stakeholders get the period's totals and each Program's figures for
+        // their headline tiles, but no previous period, no cycles and nothing
+        // about users or logins.
         metrics:
             viewer.role === 'developer'
                 ? metrics
                 : {
                       ...period,
-                      programs: [],
+                      programs: metrics.programs.map(row => ({
+                          programId: row.programId,
+                          metrics: {
+                              ...row.metrics,
+                              uniqueUsers: null,
+                              logins: null,
+                          },
+                          cycles: [],
+                      })),
                       total: withoutUsers(metrics.total),
                       previousTotal: null,
                   },
-        devices,
+        devices: shownDevices,
         areas,
         sitePaths,
         // Stakeholders see points and their specimens, never a Session's id.
@@ -148,6 +270,13 @@ export async function getDashboard(
                 ? specimenPoints
                 : maskSessionIds(specimenPoints),
         userCoverage,
+        projectedDevices: projectedDevices.map(({ programId, projected }) => ({
+            programId,
+            projected,
+        })),
+        plannedAreas,
+        deviceCounts,
+        areaDevicePlans,
         lastUpdatedAt: fetchTimes.length ? Math.min(...fetchTimes) : null,
     });
 }

@@ -8,10 +8,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-    HIDDEN_BY_DEFAULT_PROGRAM_IDS,
-    useDashboardFilters,
-} from '@/features/dashboard/hooks/use-dashboard-filters';
+import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
+import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import { programSeriesColor } from '@/features/dashboard/utils/series-colors';
 import { cn } from '@/utils/cn';
 import { ChevronDown } from 'lucide-react';

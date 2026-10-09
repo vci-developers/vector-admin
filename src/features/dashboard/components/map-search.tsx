@@ -9,10 +9,12 @@ import {
     type MapSearchResult,
 } from '@/features/dashboard/utils/search-map';
 import type { CoverageStatus } from '@/features/dashboard/utils/parse-coverage-sheets';
+import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
 import { cn } from '@/utils/cn';
 import { Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useId, useMemo, useState } from 'react';
+import { use, useId, useMemo, useState } from 'react';
+import { ViewContext } from './dashboard-provider';
 
 type MapSearchProps = {
     /** What is on the map now; search never selects a hidden point. */
@@ -118,13 +120,27 @@ export default function MapSearch({
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [active, setActive] = useState(0);
-    const results = useMemo(
-        () =>
-            searchMap(query, sessions, devices, units).filter(
-                result => showSessions || result.kind !== 'session',
-            ),
-        [query, sessions, devices, units, showSessions],
-    );
+    const view = use(ViewContext);
+    const results = useMemo(() => {
+        // Stakeholders find Districts (or first-level places) and Coverage
+        // Units only: no villages, Sites, houses, Sessions or devices.
+        if (view === 'stakeholder') {
+            const toDistrict = <T extends { location: LocationLevel[] }>(
+                item: T,
+            ) => ({ ...item, location: item.location.slice(0, 1) });
+            return searchMap(
+                query,
+                sessions.map(toDistrict),
+                devices.map(toDistrict),
+                units,
+            ).filter(
+                result => result.kind === 'place' || result.kind === 'unit',
+            );
+        }
+        return searchMap(query, sessions, devices, units).filter(
+            result => showSessions || result.kind !== 'session',
+        );
+    }, [query, sessions, devices, units, showSessions, view]);
     const showList = isOpen && query.trim() !== '';
 
     const pick = (result: MapSearchResult) => {

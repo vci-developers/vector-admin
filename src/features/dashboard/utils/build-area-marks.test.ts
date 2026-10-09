@@ -85,6 +85,17 @@ describe('buildAreaMarks', () => {
         });
     });
 
+    it("shows an Area's given device count over its device ids", () => {
+        const [gulu, lira] = buildAreaMarks({
+            sessions: [],
+            devices: [device(10, 'Gulu'), device(11, 'Lira', 2.2, 32.9)],
+            anchors: new Map(),
+            deviceCounts: new Map([[areaKey(1, 'Gulu'), 3]]),
+        });
+
+        expect([gulu.deviceCount, lira.deviceCount]).toEqual([3, 1]);
+    });
+
     it('keeps Areas of the same name in different Programs apart', () => {
         const marks = buildAreaMarks({
             sessions: [

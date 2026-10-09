@@ -24,6 +24,10 @@ export type AreaMark = {
     sessionIds: number[];
     specimenCount: number;
     deviceIds: number[];
+    /** Active devices to show: the given count, else its devices. */
+    deviceCount: number;
+    /** Planned devices where the Program plans per Area; else null. */
+    plannedDevices: number | null;
     latitude: number;
     longitude: number;
 };
@@ -42,10 +46,16 @@ export function buildAreaMarks({
     sessions,
     devices,
     anchors,
+    deviceCounts,
+    devicePlans,
 }: {
     sessions: AreaSession[];
     devices: AreaDevice[];
     anchors: Map<string, [number, number]>;
+    /** Active devices per Area key where they aren't the device ids. */
+    deviceCounts?: Map<string, number>;
+    /** Planned devices per Area key, where known. */
+    devicePlans?: Map<string, number>;
 }): AreaMark[] {
     const marks = new Map<
         string,
@@ -66,6 +76,8 @@ export function buildAreaMarks({
                 sessionIds: [],
                 specimenCount: 0,
                 deviceIds: [],
+                deviceCount: 0,
+                plannedDevices: null,
                 latitude: 0,
                 longitude: 0,
                 sessionAt: [],
@@ -93,7 +105,13 @@ export function buildAreaMarks({
         const [latitude, longitude] =
             anchors.get(mark.key) ??
             mean(sessionAt.length > 0 ? sessionAt : deviceAt);
-        return { ...mark, latitude, longitude };
+        return {
+            ...mark,
+            deviceCount: deviceCounts?.get(mark.key) ?? mark.deviceIds.length,
+            plannedDevices: devicePlans?.get(mark.key) ?? null,
+            latitude,
+            longitude,
+        };
     });
 }
 

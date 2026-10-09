@@ -391,7 +391,13 @@
         "locationHouses": "{count, plural, one {# house} other {# houses}}",
         "collectorCount": "{count, plural, one {# user} other {# users}}",
         "usersActive": "{count, plural, one {# active user} other {# active users}}",
-        "usersOfExpected": "{count} of {expected} expected users"
+        "usersOfExpected": "{count} of {expected} expected users",
+        "devicesActive": "{count, plural, one {# active device} other {# active devices}}",
+        "devicesOfPlanned": "{count} of {planned} planned devices",
+        "sentinelSitesOfPlanned": "{count} of {planned} sentinel sites submitted data",
+        "sentinelSitesSubmitted": "{count, plural, one {# sentinel site} other {# sentinel sites}} submitted data",
+        "housesSampled": "{count, plural, one {# house} other {# houses}} sampled",
+        "figuresMonth": "In {month}"
     },
     "Period": {
         "range": "{from} – {to}"
@@ -429,6 +435,7 @@
         "howDerived": "How {metric} is worked out",
         "savedCopy": "Coverage: saved copy from {date}",
         "whySavedCopy": "Why the saved copy is shown",
+        "userMonth": "Figures for {month}, the period's last month.",
         "unavailable": "Coverage figures unavailable: {reason}",
         "geographicCoverage": {
             "title": "Geographic coverage",
@@ -446,5 +453,13 @@
             "title": "Program user coverage",
             "description": "Active users currently using VectorCam / all users targeted for VectorCam implementation."
         }
+    },
+    "DeployedModels": {
+        "title": "AI models deployed",
+        "about": "About the deployed models",
+        "description": "The app version each Program runs, from its latest release notes. Hover a version for its species model and the classes it tells apart.",
+        "classes": "{count, plural, one {# class} other {# classes}}",
+        "none": "No release notes for these Programs.",
+        "deployedIn": "v{version} deployed in {place}"
     }
 }

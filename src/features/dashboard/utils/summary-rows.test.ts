@@ -93,6 +93,10 @@ describe('buildSummaryGroups', () => {
             sitePaths: {},
             specimenPoints: { placed: [], unplaced: [] },
             userCoverage: [],
+            projectedDevices: [],
+            plannedAreas: [],
+            deviceCounts: null,
+            areaDevicePlans: [],
             lastUpdatedAt: null,
         };
 

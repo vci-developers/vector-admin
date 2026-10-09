@@ -10,6 +10,7 @@ import {
     isInProgress,
     resolveReportingRange,
 } from '@/features/dashboard/utils/resolve-reporting-range';
+import type { ViewAs } from '@/lib/auth-session/viewer';
 import { cn } from '@/utils/cn';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -30,7 +31,12 @@ function currentMonthKey(now: Date) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export default function DashboardView() {
+export default function DashboardView({
+    view,
+}: {
+    /** Which page this viewer gets, known before any data arrives. */
+    view: ViewAs;
+}) {
     const t = useTranslations('Dashboard');
     const tSummary = useTranslations('Summary');
     const periodLabel = usePeriodLabel();
@@ -67,14 +73,12 @@ export default function DashboardView() {
     if (!result) {
         const showFills =
             filters.layers.includes('coverage') && coverage?.ok === true;
-        // Unknown until coverage answers (about a second).
-        const viewer = coverageResult?.ok ? coverageResult.data.viewer : null;
         return (
             <DashboardSkeleton
                 message={t('loading')}
                 // A Stakeholder never gets the activity cards.
-                activityCards={viewer === 'developer'}
-                coverageCardsFirst={viewer === 'stakeholder'}
+                activityCards={view === 'developer'}
+                coverageCardsFirst={view === 'stakeholder'}
                 map={
                     showFills ? (
                         <CoverageMapPreview
@@ -91,7 +95,7 @@ export default function DashboardView() {
                             userCoverage={null}
                             programs={coverageResult.data.programs}
                             // A Stakeholder's sit in one row with the headline tiles.
-                            asCells={viewer === 'stakeholder'}
+                            asCells={view === 'stakeholder'}
                         />
                     ) : undefined
                 }

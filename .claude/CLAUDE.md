@@ -11,6 +11,9 @@ https://test.api.vectorcam.org/documentation/json
 What VectorCam can and can't give us (collectors, places, users, plans):
 `.claude/docs/vectorcam-data.md`. Update it when you find a new source.
 
+Open items and pending decisions for the Stakeholder dashboard:
+`.claude/docs/stakeholder-open-items.md`. Delete an item once it is done.
+
 ## Working with Claude
 
 - Always read the current state of a file before making changes. Never assume it

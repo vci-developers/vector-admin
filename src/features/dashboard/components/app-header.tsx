@@ -1,12 +1,15 @@
-import { getViewAs } from '@/lib/auth-session/with-viewer';
+import type { ViewAs } from '@/lib/auth-session/viewer';
 import { getTranslations } from 'next-intl/server';
 import ThemeToggle from './theme-toggle';
 import ViewAsToggle from './view-as-toggle';
 
-export default async function AppHeader() {
+export default async function AppHeader({
+    viewAs,
+}: {
+    /** The header switch's choice; null for anyone but a Developer. */
+    viewAs: ViewAs | null;
+}) {
     const t = await getTranslations('App');
-    // null for anyone but a Developer: only they can preview.
-    const viewAs = await getViewAs();
     return (
         <header className="bg-card border-b">
             <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6">

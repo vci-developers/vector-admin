@@ -10,11 +10,13 @@ import {
     monthStartDate,
 } from '@/features/dashboard/utils/month-key';
 import type { MetricKey } from '@/features/dashboard/utils/metric-definitions';
+import { programCode } from '@/features/dashboard/utils/program-title';
 import { buildSummaryGroups } from '@/features/dashboard/utils/summary-rows';
 import { Badge } from '@/components/ui/badge';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import CoverageTiles from './coverage-tiles';
+import DeployedModelsTile from './deployed-models-tile';
 import KpiTiles, { SUMMARY_ROW } from './kpi-tiles';
 import SessionPanel from './session-panel';
 import SummaryTable from './summary-table';
@@ -41,6 +43,25 @@ export default function PeriodSummary({
     const { total, previousTotal } = dashboard.metrics;
     const isDeveloper = dashboard.viewer === 'developer';
     const groups = useMemo(() => buildSummaryGroups(dashboard), [dashboard]);
+    // Each Program's figures for the headline tiles, in the page's order.
+    const breakdown = useMemo(() => {
+        const figures = new Map(
+            dashboard.metrics.programs.map(row => [row.programId, row.metrics]),
+        );
+        return dashboard.programs.flatMap(program => {
+            const metrics = figures.get(program.programId);
+            return metrics
+                ? [
+                      {
+                          programId: program.programId,
+                          name: program.country || program.name,
+                          code: programCode(program),
+                          metrics,
+                      },
+                  ]
+                : [];
+        });
+    }, [dashboard]);
     const incomplete = dashboard.failedProgramIds.length > 0;
     const length = monthsInRange(period.from, period.to).length;
     // A single month compares with the month before ("Oct"); longer periods
@@ -114,6 +135,7 @@ export default function PeriodSummary({
                             incomplete={incomplete}
                             keys={STAKEHOLDER_TILES}
                             asCells
+                            breakdown={breakdown}
                         />
                     )}
                     <CoverageTiles
@@ -121,6 +143,13 @@ export default function PeriodSummary({
                         userCoverage={dashboard.userCoverage}
                         programs={dashboard.programs}
                         asCells
+                    />
+                    <DeployedModelsTile
+                        programs={dashboard.programs.filter(program =>
+                            dashboard.selectedProgramIds.includes(
+                                program.programId,
+                            ),
+                        )}
                     />
                 </div>
             )}

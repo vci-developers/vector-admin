@@ -16,6 +16,7 @@ import {
     activeDevices,
     filterSessions,
 } from '@/features/dashboard/utils/filter-map-points';
+import { areaKey } from '@/features/dashboard/utils/build-area-marks';
 import { findMapGaps } from '@/features/dashboard/utils/find-map-gaps';
 import { scopeTitle } from '@/features/dashboard/utils/program-title';
 import { unitSessionIds } from '@/features/dashboard/utils/search-map';
@@ -147,6 +148,21 @@ export default function MapSection({
             // What the tiles count: every Session the Session filter kept,
             // whatever the map filters show, each with its Site's places.
             tileSessions: allSessions,
+            devicePlans: new Map(
+                dashboard.areaDevicePlans.map(row => [
+                    areaKey(row.programId, row.area),
+                    row.planned,
+                ]),
+            ),
+            // A Stakeholder's badges count devices as the server does.
+            deviceCounts:
+                dashboard.deviceCounts &&
+                new Map(
+                    dashboard.deviceCounts.map(row => [
+                        areaKey(row.programId, row.area),
+                        row.count,
+                    ]),
+                ),
             // What each device submitted in the period, whatever the map
             // filters: a device popup reports its Sessions, not the circles.
             sessionsByDevice: Map.groupBy(
@@ -300,6 +316,8 @@ export default function MapSection({
                         showSessions={isDeveloper}
                         // Stakeholders see specimens per Area, not per Session.
                         byArea={!isDeveloper}
+                        deviceCounts={view.deviceCounts ?? undefined}
+                        devicePlans={view.devicePlans}
                     />
                     {/* Beside Leaflet's zoom buttons. */}
                     <div className="absolute top-2.5 left-14 z-[1000]">
@@ -413,6 +431,10 @@ export default function MapSection({
                             showSessions={isDeveloper}
                             scope={scope}
                             tileSessions={view.tileSessions}
+                            deviceCounts={dashboard.deviceCounts ?? []}
+                            projectedDevices={dashboard.projectedDevices}
+                            plannedAreas={dashboard.plannedAreas}
+                            areaDevicePlans={dashboard.areaDevicePlans}
                             userCoverage={dashboard.userCoverage}
                             onClear={() => setSelection(null)}
                         />

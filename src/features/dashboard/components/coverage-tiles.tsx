@@ -6,9 +6,12 @@ import type { Program } from '@/api/program/validation/program-schema';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { monthStartDate } from '@/features/dashboard/utils/month-key';
+import { programCode } from '@/features/dashboard/utils/program-title';
 import { cn } from '@/utils/cn';
 import { useFormatter, useTranslations } from 'next-intl';
 import { InfoTip } from './metric-info';
+import { TileSkeleton } from './dashboard-skeleton';
+import { SUMMARY_CELL } from './kpi-tiles';
 import MetricValue from './metric-value';
 
 const PLACE_METRICS = ['geographicCoverage', 'penetration'] as const;
@@ -32,9 +35,14 @@ const TILE_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-4';
 function ProgramLines({
     lines,
     names,
+    codes,
+    asCell,
 }: {
     lines: Line[];
     names: Map<number, string>;
+    codes: Map<number, string>;
+    /** In SUMMARY_ROW: one figure in the figure row, several in the last. */
+    asCell: boolean;
 }) {
     const working = (ratio: Ratio) =>
         `${ratio.numerator} / ${ratio.denominator}`;
@@ -43,7 +51,12 @@ function ProgramLines({
     if (lines.length <= 1) {
         const ratio = lines[0]?.ratio;
         return (
-            <p className="flex items-baseline gap-2 tabular-nums">
+            <p
+                className={cn(
+                    'flex items-baseline gap-2 tabular-nums',
+                    asCell && 'self-end',
+                )}
+            >
                 <span className="text-2xl font-semibold">
                     <MetricValue
                         value={ratio?.value ?? null}
@@ -58,17 +71,22 @@ function ProgramLines({
             </p>
         );
     }
-    // Several Programs: a small table, so names, percentages and workings
-    // each line up and names keep the room the figures don't need.
+    // Several Programs: a small table, so codes, percentages and workings
+    // each line up; the full name is the code's hover.
     return (
-        <ul className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
+        <ul
+            className={cn(
+                'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums',
+                asCell && 'row-start-3 content-start self-start',
+            )}
+        >
             {lines.map(({ programId, ratio }) => (
                 <li key={programId} className="contents">
                     <span
                         className="text-muted-foreground truncate"
                         title={names.get(programId)}
                     >
-                        {names.get(programId) ?? programId}
+                        {codes.get(programId) ?? programId}
                     </span>
                     <span className="text-right text-sm font-semibold">
                         <MetricValue value={ratio.value} format="percent" />
@@ -106,15 +124,13 @@ export default function CoverageTiles({
     const names = new Map(
         programs.map(p => [p.programId, p.country || p.name]),
     );
+    const codes = new Map(programs.map(p => [p.programId, programCode(p)]));
 
     if (!coverage) {
         return (
             <div className={asCells ? 'contents' : TILE_GRID}>
                 {COVERAGE_METRICS.map(metric => (
-                    <Card key={metric} className="gap-2 px-4 py-3">
-                        <Skeleton height="xs" width="sm" />
-                        <Skeleton height="lg" width="md" />
-                    </Card>
+                    <TileSkeleton key={metric} asCell={asCells} />
                 ))}
             </div>
         );
@@ -140,7 +156,8 @@ export default function CoverageTiles({
     const userMonth = userCoverage?.[0]?.month;
     const monthLabel = userMonth
         ? formatter.dateTime(monthStartDate(userMonth), {
-              month: 'short',
+              month: 'long',
+              year: 'numeric',
               timeZone: 'UTC',
           })
         : undefined;
@@ -168,11 +185,9 @@ export default function CoverageTiles({
                     return (
                         <Card
                             key={metric}
-                            className={cn(
-                                'gap-1 px-4 py-3',
-                                // As in the headline tiles: figures at the foot.
-                                asCells && 'justify-between gap-3',
-                            )}
+                            className={
+                                asCells ? SUMMARY_CELL : 'gap-1 px-4 py-3'
+                            }
                         >
                             <p
                                 className={cn(
@@ -183,26 +198,40 @@ export default function CoverageTiles({
                                         : 'flex items-center gap-1',
                                 )}
                             >
-                                {t(`${metric}.title`)}
-                                {/* User figures are for one month: named once. */}
-                                {isUserMetric(metric) && monthLabel && (
-                                    <span className="text-muted-foreground/70 font-normal">
-                                        {' · '}
-                                        {monthLabel}
-                                    </span>
-                                )}{' '}
+                                {t(`${metric}.title`)}{' '}
                                 <InfoTip
                                     label={t('howDerived', {
                                         metric: t(`${metric}.title`),
                                     })}
                                 >
                                     <p>{t(`${metric}.description`)}</p>
+                                    {/* User figures are the period's last
+                                        month; said here, not on the tile. */}
+                                    {isUserMetric(metric) && monthLabel && (
+                                        <p className="mt-1 opacity-80">
+                                            {t('userMonth', {
+                                                month: monthLabel,
+                                            })}
+                                        </p>
+                                    )}
                                 </InfoTip>
                             </p>
                             {lines ? (
-                                <ProgramLines lines={lines} names={names} />
+                                <ProgramLines
+                                    lines={lines}
+                                    names={names}
+                                    codes={codes}
+                                    asCell={asCells}
+                                />
                             ) : (
-                                <Skeleton height="lg" width="md" />
+                                // Sized to the tile, never past its edge.
+                                <Skeleton
+                                    height="lg"
+                                    className={cn(
+                                        'w-1/2',
+                                        asCells && 'self-end',
+                                    )}
+                                />
                             )}
                         </Card>
                     );

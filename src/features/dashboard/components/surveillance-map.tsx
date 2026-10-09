@@ -97,6 +97,10 @@ type SurveillanceMapProps = {
     showSessions: boolean;
     /** One mark per Area (District or top hierarchy level), not per Session. */
     byArea: boolean;
+    /** Active devices per Area key for its badge; else its device ids. */
+    deviceCounts?: Map<string, number>;
+    /** Planned devices per Area key, for its popup, where known. */
+    devicePlans?: Map<string, number>;
 };
 
 const SHADOW = 'box-shadow:0 1px 3px rgba(0,0,0,.35)';
@@ -162,6 +166,11 @@ const mergeAreas = (areas: AreaMark[]): AreaMark => ({
     sessionIds: areas.flatMap(a => a.sessionIds),
     specimenCount: areas.reduce((sum, a) => sum + a.specimenCount, 0),
     deviceIds: areas.flatMap(a => a.deviceIds),
+    deviceCount: areas.reduce((sum, a) => sum + a.deviceCount, 0),
+    // Planned only when every merged Area has a plan.
+    plannedDevices: areas.every(a => a.plannedDevices !== null)
+        ? areas.reduce((sum, a) => sum + (a.plannedDevices ?? 0), 0)
+        : null,
     latitude: areas[0]?.latitude ?? 0,
     longitude: areas[0]?.longitude ?? 0,
 });
@@ -189,11 +198,11 @@ function areaIcon(
     },
 ) {
     const hasBubble = specimens && area.sessionIds.length > 0;
-    const hasBadge = devices && area.deviceIds.length > 0;
+    const hasBadge = devices && area.deviceCount > 0;
     const size = hasBubble ? areaSize(area.specimenCount) : 20;
     const font = 'font:600 11px/1 var(--font-geist-sans),sans-serif';
     const badge = (style: string) =>
-        `<span style="position:absolute;${style};display:flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:5px;background:${hasActive ? ACTIVE_COLOR : IDLE_COLOR};color:#fff;border:2px solid #fff;${font};font-size:10px;${SHADOW}">${area.deviceIds.length}</span>`;
+        `<span style="position:absolute;${style};display:flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:5px;background:${hasActive ? ACTIVE_COLOR : IDLE_COLOR};color:#fff;border:2px solid #fff;${font};font-size:10px;${SHADOW}">${area.deviceCount}</span>`;
     const bubble = hasBubble
         ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:9999px;${font};${specimenStyle(area.specimenCount, false, AREA_SEVERITY_STEPS)};border-width:3px;${isSelected ? ring(true) : SHADOW}">${compact.format(area.specimenCount)}</span>`
         : '';
@@ -364,7 +373,6 @@ function AreaContent({
         sessionIds.has(p.sessionId),
     );
     const areaDevices = devices.filter(d => deviceIds.has(d.deviceId));
-    const active = areaDevices.filter(d => d.status === 'ACTIVE').length;
     return (
         <>
             <div className="mb-1">
@@ -375,14 +383,14 @@ function AreaContent({
                     showCounts={false}
                 />
             </div>
-            {areaDevices.length > 0 && (
+            {areaDevices.length > 0 && area.deviceCount > 0 && (
                 <p className="text-muted-foreground mb-1 text-xs">
-                    {t('selectedDevices', { count: areaDevices.length })}
-                    {' · '}
-                    {t('clusterStatus', {
-                        active,
-                        inactive: areaDevices.length - active,
-                    })}
+                    {area.plannedDevices === null
+                        ? t('devicesActive', { count: area.deviceCount })
+                        : t('devicesOfPlanned', {
+                              count: area.deviceCount,
+                              planned: area.plannedDevices,
+                          })}
                 </p>
             )}
             {areaSessions.length > 0 && (
@@ -792,6 +800,8 @@ export default function SurveillanceMap({
     focus,
     showSessions,
     byArea,
+    deviceCounts,
+    devicePlans,
 }: SurveillanceMapProps) {
     // Every click opens a popup; the panel beside the map lists the same ids.
     const [openPopup, setOpenPopup] = useState<OpenPopup | null>(null);
@@ -835,6 +845,8 @@ export default function SurveillanceMap({
         ? buildAreaMarks({
               sessions: showSpecimens ? specimenPoints : [],
               devices: showDevices ? devices : [],
+              deviceCounts,
+              devicePlans,
               anchors: new Map(
                   coverageFills.flatMap(fill => {
                       const point = coverageLabelPoint(fill.geometry);

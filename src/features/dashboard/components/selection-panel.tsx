@@ -62,6 +62,16 @@ type SelectionPanelProps = {
     scope: { title: string; single: boolean };
     /** Every Session the Session filter kept, whatever the map filters. */
     tileSessions: PanelSession[];
+    /** Active devices per Area, placed on the map or not, for the panel. */
+    deviceCounts: { programId: number; area: string; count: number }[];
+    projectedDevices: { programId: number; projected: number }[];
+    plannedAreas: {
+        programId: number;
+        areas: number;
+        sentinelSites: number | null;
+    }[];
+    /** Uganda's planned devices per District, by its rollout rule. */
+    areaDevicePlans: { programId: number; area: string; planned: number }[];
     userCoverage: UserCoverageDto[];
     onClear: () => void;
 };
@@ -86,6 +96,10 @@ export default function SelectionPanel({
     showSessions,
     scope,
     tileSessions,
+    deviceCounts,
+    projectedDevices,
+    plannedAreas,
+    areaDevicePlans,
     userCoverage,
     onClear,
 }: SelectionPanelProps) {
@@ -209,6 +223,10 @@ export default function SelectionPanel({
                         // Stakeholders: framed as the tiles are.
                         <PanelTileFigures
                             sessions={tileSessions}
+                            deviceCounts={deviceCounts}
+                            projectedDevices={projectedDevices}
+                            plannedAreas={plannedAreas}
+                            areaDevicePlans={areaDevicePlans}
                             month={period.to}
                             selectedPlaces={selection ? selected.located : null}
                             userCoverage={userCoverage}

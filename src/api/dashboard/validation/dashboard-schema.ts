@@ -194,6 +194,47 @@ export const dashboardSchema = z.object({
      * counting collectors on the Sessions the Session filter keeps.
      */
     userCoverage: z.array(userCoverageSchema),
+    /** Each Program's planned devices for the period's last month, if any. */
+    projectedDevices: z.array(
+        z.object({ programId: z.number(), projected: z.number() }),
+    ),
+    /**
+     * Each Program's Active units in the coverage workbook, which the plan's
+     * users and devices are shared over (0 without the workbook), and each
+     * Area's planned sentinel sites where known (Uganda: 3).
+     */
+    plannedAreas: z.array(
+        z.object({
+            programId: z.number(),
+            areas: z.number(),
+            sentinelSites: z.number().nullable(),
+        }),
+    ),
+    /**
+     * A Stakeholder's active devices per Area (District or top place) over the
+     * period, for the map's badges and panel; null for Developers, who count
+     * device ids.
+     */
+    deviceCounts: z
+        .array(
+            z.object({
+                programId: z.number(),
+                area: z.string(),
+                count: z.number(),
+            }),
+        )
+        .nullable(),
+    /**
+     * Planned devices per Active Area where a Program plans per Area (Uganda,
+     * by its rollout rule), for the map and panel; empty elsewhere.
+     */
+    areaDevicePlans: z.array(
+        z.object({
+            programId: z.number(),
+            area: z.string(),
+            planned: z.number(),
+        }),
+    ),
     /** Oldest snapshot fetch time among loaded Programs; null if none loaded. */
     lastUpdatedAt: z.number().nullable(),
 });

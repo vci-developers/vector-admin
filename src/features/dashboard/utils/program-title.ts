@@ -17,3 +17,19 @@ export function scopeTitle(programs: Pick<Program, 'name' | 'country'>[]) {
         .sort()
         .join(', ');
 }
+
+const COUNTRY_CODES: Record<string, string> = {
+    Uganda: 'UG',
+    Kenya: 'KE',
+    Ghana: 'GH',
+    Colombia: 'CO',
+    Cameroon: 'CM',
+};
+
+/**
+ * Shortest form, for tile lines where names don't fit: the country's ISO
+ * code ("UG"), else the country or the Program's name.
+ */
+export function programCode(program: Pick<Program, 'name' | 'country'>) {
+    return COUNTRY_CODES[program.country] ?? (program.country || program.name);
+}

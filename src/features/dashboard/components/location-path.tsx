@@ -5,6 +5,8 @@ import type { LocationLevel } from '@/features/dashboard/utils/site-location-pat
 import { sharedLocationPath } from '@/features/dashboard/utils/shared-location-path';
 import { MapPin } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { use } from 'react';
+import { ViewContext } from './dashboard-provider';
 
 type Located = { siteId: number | null; location: LocationLevel[] };
 
@@ -23,9 +25,12 @@ export default function LocationPath({
     showCounts?: boolean;
 }) {
     const t = useTranslations('MapSection');
+    const view = use(ViewContext);
     if (items.length === 0) return null;
 
-    const path = sharedLocationPath(items.map(item => item.location));
+    // Stakeholders see a place only to its District (or the first level).
+    const shared = sharedLocationPath(items.map(item => item.location));
+    const path = view === 'stakeholder' ? shared.slice(0, 1) : shared;
     const { sentinelSites, houses } = showCounts
         ? countSentinelSites(items)
         : { sentinelSites: 0, houses: 0 };

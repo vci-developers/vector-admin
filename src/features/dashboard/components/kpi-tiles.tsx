@@ -25,14 +25,72 @@ type KpiTilesProps = {
     keys?: MetricKey[];
     /** Render the tiles as cells of the parent's grid (see SUMMARY_ROW). */
     asCells?: boolean;
+    /**
+     * Each Program's figures, listed under the total when there are several;
+     * Programs with no figure for a tile are left off it.
+     */
+    breakdown?: ProgramFigures[];
 };
 
+export type ProgramFigures = {
+    programId: number;
+    name: string;
+    /** Short form for the line, e.g. "UG"; the name is its hover. */
+    code: string;
+    metrics: PeriodMetricsDto;
+};
+
+/** Under a total: one line per Program, names and figures lined up. */
+function ProgramBreakdown({
+    breakdown,
+    metric,
+}: {
+    breakdown: ProgramFigures[];
+    metric: (typeof METRICS)[number];
+}) {
+    const lines = breakdown.flatMap(row => {
+        const value = metric.value(row.metrics);
+        return value === null ? [] : [{ ...row, value }];
+    });
+    if (lines.length === 0) return null;
+    return (
+        <ul className="grid grid-cols-[minmax(0,1fr)_auto] content-start gap-x-2 self-start text-xs tabular-nums">
+            {lines.map(line => (
+                <li key={line.programId} className="contents">
+                    <span
+                        className="text-muted-foreground truncate"
+                        title={line.name}
+                    >
+                        {line.code}
+                    </span>
+                    <span className="text-right font-medium">
+                        <MetricValue
+                            value={line.value}
+                            format={metric.format}
+                        />
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
 /**
- * A Stakeholder's seven summary tiles (three headline, four coverage) on one
- * row on wide screens, so the page above the map stays short.
+ * A Stakeholder's eight summary tiles (three headline, four coverage, then
+ * the deployed models) on one row on wide screens, so the page above the map
+ * stays short. The headline tiles hold one short figure each, so they give up
+ * width to the models tile's lines.
  */
 export const SUMMARY_ROW =
-    'grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7';
+    'grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-[repeat(3,minmax(0,0.7fr))_repeat(4,minmax(0,1fr))_minmax(0,1.25fr)]';
+
+/**
+ * A tile in SUMMARY_ROW. Every tile shares the row's three lines (title,
+ * figure, Program lines), so figures line up whatever sits under them: put
+ * the figure in row 2 (`self-end`) and any per-Program lines in row 3.
+ */
+export const SUMMARY_CELL =
+    'row-span-3 grid grid-rows-subgrid gap-x-0 gap-y-1 px-4 py-3';
 
 export default function KpiTiles({
     current,
@@ -40,6 +98,7 @@ export default function KpiTiles({
     incomplete,
     keys,
     asCells = false,
+    breakdown,
 }: KpiTilesProps) {
     const t = useTranslations('Metrics');
     const tKpi = useTranslations('Kpi');
@@ -74,12 +133,7 @@ export default function KpiTiles({
                 return (
                     <Card
                         key={metric.key}
-                        className={cn(
-                            'gap-1 px-4 py-3',
-                            // In the shared row the figures sit on one line at
-                            // the foot of every tile, whatever is above them.
-                            asCells && 'justify-between gap-3',
-                        )}
+                        className={asCells ? SUMMARY_CELL : 'gap-1 px-4 py-3'}
                     >
                         <p
                             className={cn(
@@ -98,7 +152,12 @@ export default function KpiTiles({
                                 }
                             />
                         </p>
-                        <p className="text-2xl font-semibold tabular-nums">
+                        <p
+                            className={cn(
+                                'text-2xl font-semibold tabular-nums',
+                                asCells && 'self-end',
+                            )}
+                        >
                             {incomplete ? (
                                 <span className="text-destructive text-base font-medium">
                                     {tKpi('incomplete')}
@@ -110,6 +169,13 @@ export default function KpiTiles({
                                 />
                             )}
                         </p>
+                        {/* Each Program's figure under the total. */}
+                        {breakdown && breakdown.length > 1 && (
+                            <ProgramBreakdown
+                                breakdown={breakdown}
+                                metric={metric}
+                            />
+                        )}
                         {trend && (
                             <p className="text-muted-foreground flex items-center gap-1 text-xs">
                                 {delta !== null && previousLabel ? (

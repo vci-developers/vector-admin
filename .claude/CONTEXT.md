@@ -14,20 +14,23 @@ account whose email is on VectorAdmin's stakeholder list, with the Programs they
 may see; it must be whitelisted (VectorCam answers permissions only then), at
 privilege 0 with no Sites so it sees nothing in VectorVerify. They see only
 their Programs, and of those the map (specimens per Area), its side panel, three
-headline cards (Unique specimens, Metadata complete, DHIS2 upload) and the four
-coverage cards: summaries only, never a Session's own record (Session ids are
-renumbered; collectors reach the page only as numbers), the other activity
-cards, user and login counts, the summary table, the device lists, Never Used
-devices, the Session panel or the users section; the server withholds them, not
-just the page. A Developer can preview this view with the header switch.
-VectorCam privilege never grants entry: prod has privilege-1 users in several
-Programs. _Avoid_: admin (collides with the admin token)
+headline cards (Unique specimens, Metadata complete, DHIS2 upload; with several
+Programs, the total above each Program's figure) and the four coverage cards:
+summaries only, never a Session's own record (Session ids are renumbered;
+collectors reach the page only as numbers), the other activity cards, user and
+login counts, the summary table, the device lists, Never Used devices, the
+Session panel or the users section; the server withholds them, not just the
+page. A Developer can preview this view with the header switch. VectorCam
+privilege never grants entry: prod has privilege-1 users in several Programs.
+_Avoid_: admin (collides with the admin token)
 
-**Program Filter**: A multi-select over every Program from `GET /programs`.
-Defaults to all Programs except a **Hidden-by-Default** list (currently prod
-program 5, Johns Hopkins University, whose nature is unconfirmed); a hidden
-Program can still be selected. New Programs appear selected automatically.
-_Avoid_: all programs (means the default selection, not literally every Program)
+**Program Filter**: A multi-select over every Program from `GET /programs`. A
+Stakeholder's page opens on Uganda only (all their Programs when they have no
+Uganda Program); they can tick their others. For a Developer it defaults to all
+Programs except a **Hidden-by-Default** list (currently prod program 5, Johns
+Hopkins University, whose nature is unconfirmed); a hidden Program can still be
+selected. New Programs appear selected automatically. _Avoid_: all programs
+(means the default selection, not literally every Program)
 
 **Reporting Month**: The calendar month a Session belongs to, evaluated in the
 Program's timezone, so programs are comparable side by side. A Session with no
@@ -96,7 +99,22 @@ Sites, a Region where Sites use their own `locationHierarchy`. Sessions at a
 Site with no place names share one "No area" row. The Stakeholder map draws
 specimens per Area, not per Session: one mark per Area at the mean of its
 Sessions' positions, labelled with its specimen count and coloured on its own
-scale (1–99, 100–499, 500–999, 1,000+).
+scale (1–99, 100–499, 500–999, 1,000+). Its device count never exceeds the
+Area's share of the month's Projected Devices (that month's projection ÷ the
+Program's Active units in the coverage workbook, however many have reported;
+Uganda Sep 66 / 11 = 6), keeping the most recently used devices: phones
+re-registered under new ids (Karenga Sep: 17 devices, 5 collectors) would
+otherwise inflate it. Developers see the uncapped counts. Uganda's Stakeholder
+counts come from places and people instead of device ids (Uganda team,
+2026-10-09): in the original Districts a village's VHTs share one phone, so a
+village with any data in the period is one active device; in Madi-Okollo, Oyam
+and Karenga each VHT has their own phone, two per village, so each person named
+is one active device, two at most per village. A village is the Site's path
+above the House. They read against the same rule's plan, not the workbook's
+Projected Devices: 3 phones per District, 6 in the phone-per-VHT ones, summed
+over the Active Districts (Sep: 8 × 3 + 3 × 6 = 42; the workbook says 66, which
+matches Expected Users, 2 VHTs × 3 villages × 11). Uganda Sep: 35 of 42 on the
+map and panel; the tiles are unchanged. Hard-coded for Uganda.
 
 **Team-sheet view**: The summary table, built to paste into the team's sheet
 ("Monthly Entry: VectorVerify log metrics", one row per District per month). Per
@@ -237,22 +255,23 @@ report. _Avoid_: Active Users (collides with `isActive`), Active Device
 (different population)
 
 **Coverage Unit**: A place a Program's surveillance covers, listed by the team
-with one **Coverage Status**: **Active** (using VectorCam), **Targeted** (slated
-for VectorCam, not yet active) or **Surveillance without VectorCam** (under the
-program's active surveillance, not targeted; the workbook's value is
-`Surveillance only`). Shown as "Using VectorCam", "Targeted for VectorCam" and
-"Surveillance without VectorCam", in the coverage tooltips' words. Statuses are
-exclusive and nested: an Active unit counts as targeted, and every listed unit
-is under surveillance. Entered by hand, not derived from Sessions. **Geographic
-Coverage** = Active ÷ (Active + Targeted); **Penetration** = Active ÷ all listed
-units (Uganda example: 11 / 14, 11 / 22). Uganda's units are Districts. The four
-coverage metrics are shown per Program, never pooled; Programs without figures
-are left out. Their tooltips use the team's own definitions word for word. Drawn
-on the map as the **Coverage layer** (a Map Filter layer, on by default): each
-unit's boundary filled by status, under the specimen and device points. The
-fills are planning status and ignore the Reporting Period, so a Targeted unit
-can show points and an Active one none. _Avoid_: Area (top-level place derived
-from Sites; may not match a Coverage Unit)
+in the coverage workbook's Geographic Units sheet with one **Coverage Status**:
+**Active** (using VectorCam), **Targeted** (slated for VectorCam, not yet
+active) or **Surveillance without VectorCam** (under the program's active
+surveillance, not targeted; the workbook's value is `Surveillance only`). Shown
+as "Using VectorCam", "Targeted for VectorCam" and "Surveillance without
+VectorCam", in the coverage tooltips' words. Statuses are exclusive and nested:
+an Active unit counts as targeted, and every listed unit is under surveillance.
+Entered by hand, not derived from Sessions. **Geographic Coverage** = Active ÷
+(Active + Targeted); **Penetration** = Active ÷ all listed units (Uganda
+example: 11 / 14, 11 / 22). Uganda's units are Districts. The four coverage
+metrics are shown per Program, never pooled; Programs without figures are left
+out. Their tooltips use the team's own definitions word for word. Drawn on the
+map as the **Coverage layer** (a Map Filter layer, on by default): each unit's
+boundary filled by status, under the specimen and device points. The fills are
+planning status and ignore the Reporting Period, so a Targeted unit can show
+points and an Active one none. _Avoid_: Area (top-level place derived from
+Sites; may not match a Coverage Unit)
 
 **Field User**: A person collecting with the VectorCam phone app. Field Users
 have no login. **Active Field Users** are counted from VectorCam: distinct
@@ -260,26 +279,43 @@ collector names on the Sessions the Session filter keeps, ignoring case, spacing
 and accents, a joint name ("A and B") counting both, a blank name no one.
 **Expected Field Users** come from the workbook's Expected Users sheet, one
 figure per Program per month (Uganda: Districts rolled out × 6 VHTs, so 48 for
-May–Aug 2026 and 66 from September, each rollout adding 3 Districts); **Targeted
-Field Users** are that month's **Projected Devices**. The user tiles compare the
-period's last month ("currently"): **Instantaneous User Coverage** = Active ÷
-Expected; **Program User Coverage** = Active ÷ Projected Devices. The Field
-Users sheet is no longer read. Every user figure a Stakeholder sees is the
-tiles' figure on the tiles' basis: the map panel's users line counts each
-Program's people in the period's last month on every Session the Session filter
-kept, whatever the map filters show, beside the expected figure map-wide, and
-only the selected Areas when something is clicked. Sentinel sites (and houses)
-in the panel are framed the same way; the location line in the panel and popups
-then shows only the place, never its own counts. A name is not an identity: a
-misspelling still counts twice. _Avoid_: Unique Users (web-app logins), operator
-(free-text name on a Session)
+May–Aug 2026 and 66 from September, each rollout adding 3 Districts; Ghana,
+Kenya and Colombia from the team's VectorCam Active Users chart, May–Sep);
+**Targeted Field Users** are the Program's **Program Potential**. The user tiles
+compare the period's last month ("currently"): **Instantaneous User Coverage** =
+Active ÷ Expected; **Program User Coverage** = Active ÷ Program Potential. The
+workbook's Projected Devices sheet is not read. Every user figure a Stakeholder
+sees is the tiles' figure on the tiles' basis: the map panel's users line counts
+each Program's people in the period's last month on every Session the Session
+filter kept, whatever the map filters show, beside the expected figure map-wide,
+and one line per selected Area when something is clicked (also when the map
+merged neighbouring marks), each beside its share of the expected users: the
+month's Expected Users ÷ the Program's Active units in the coverage workbook,
+the same whoever has reported (Uganda: 66 / 11 = 6). User counts are
+VectorCam's, never capped. A devices line beside them counts active devices (as
+the map's badges count them) against the month's Projected Devices, shared the
+same way (Uganda: against its rollout rule's plan, see Area). Stakeholders see
+places only to the District (or first level): the path in the panel and popups
+stops there, and map search finds only Districts and Coverage Units. Sentinel
+sites (and houses) in the panel are framed the same way, Uganda's against 3
+planned per District (33 for the Program; hard-coded), as a count only, never
+naming which reported; the location line in the panel and popups then shows only
+the place, never its own counts. A name is not an identity: a misspelling still
+counts twice. _Avoid_: Unique Users (web-app logins), operator (free-text name
+on a Session)
 
-**Projected Devices**: A per-program, per-month device target set by the program
-team, read from the coverage workbook's Projected Devices sheet and used as the
-user target (Program User Coverage). Uganda had one device per village (two VHTs
-sharing) until August 2026 and one per VHT from September, so before September
-it counts devices, not people. Program Potential, program stage, updates and
-opportunities are planning data outside VectorAdmin. _Avoid_: expected devices
+**Program Potential**: The Field Users a Program could reach in full, one figure
+per Program (Uganda 84: 14 Districts × 6 VHTs; Ghana 20, Kenya 120, Cameroon 60,
+Colombia 12), read from the coverage workbook's Targeted Users sheet
+(`programId`, and `program potential` or `potential`); the user target (Program
+User Coverage), the same every month. A Program without a row shows no Program
+User Coverage.
+
+**Projected Devices**: A per-program, per-month device rollout plan set by the
+program team (Uganda 24 May–Aug 2026, one phone per village shared by two VHTs;
+66 from September, one per VHT; 84 from December). Kept in the workbook but not
+read: it counts devices, not people. Program stage, updates and opportunities
+are planning data outside VectorAdmin. _Avoid_: expected devices
 
 ## Flagged ambiguities
 

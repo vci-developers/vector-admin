@@ -1,8 +1,25 @@
 import { Card } from '@/components/ui/card';
 import { cn } from '@/utils/cn';
-import { SUMMARY_ROW } from './kpi-tiles';
+import { SUMMARY_CELL, SUMMARY_ROW } from './kpi-tiles';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ReactNode } from 'react';
+
+/** Shaped like a loaded summary tile: title above, figure below. */
+export function TileSkeleton({ asCell = false }: { asCell?: boolean }) {
+    return (
+        <Card
+            className={
+                asCell
+                    ? // As tall as a loaded tile with a two-line title.
+                      cn(SUMMARY_CELL, 'min-h-28')
+                    : 'gap-2 px-4 py-3'
+            }
+        >
+            <Skeleton height="xs" className="w-3/4" />
+            <Skeleton height="lg" className="w-1/2 self-end" />
+        </Card>
+    );
+}
 
 /**
  * Mirrors the loaded page (toolbar, map beside its panel, summary tiles) so
@@ -23,8 +40,8 @@ export default function DashboardSkeleton({
     /** Placeholders for the 8 activity cards: only for viewers who get them. */
     activityCards: boolean;
     /**
-     * Stakeholders: the summary (three headline tiles, then the coverage
-     * cards, given as grid cells) above a map with no heading, filling the
+     * Stakeholders: the summary (three headline tiles, the coverage cards,
+     * given as grid cells, then the deployed models) above a map with no heading, filling the
      * window.
      */
     coverageCardsFirst: boolean;
@@ -40,23 +57,41 @@ export default function DashboardSkeleton({
             <p role="status" className="sr-only">
                 {message}
             </p>
-            {/* Same box as the real toolbar: Program filter, then the period. */}
-            <div className="-mx-4 flex items-center gap-2 border-b px-4 py-3 sm:-mx-6 sm:px-6">
-                <Skeleton height="lg" width="md" rounded="md" />
-                <Skeleton height="lg" width="xl" rounded="md" />
+            {/* Same box as the real toolbar. Stakeholders: the summary
+                heading, then Program, Session and period filters on the
+                right; others: the filters on the left. */}
+            <div
+                className={cn(
+                    '-mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-3 sm:-mx-6 sm:px-6',
+                    coverageCardsFirst && 'justify-between',
+                )}
+            >
+                {coverageCardsFirst && <Skeleton height="md" width="xl" />}
+                <div className="flex items-center gap-2">
+                    <Skeleton height="lg" width="md" rounded="md" />
+                    <Skeleton height="lg" width="sm" rounded="md" />
+                    <Skeleton height="lg" width="lg" rounded="md" />
+                </div>
             </div>
             {coverageCardsFirst && (
-                // The three headline tiles, then the coverage tiles; no
-                // heading, as on the loaded page.
+                // The three headline tiles, the coverage tiles, then the
+                // deployed models; no heading, as on the loaded page.
                 <div className="flex flex-col gap-4">
                     <div className={SUMMARY_ROW}>
                         {Array.from({ length: 3 }, (_, index) => (
-                            <Card key={index} className="gap-2 px-4 py-3">
-                                <Skeleton height="xs" width="sm" />
-                                <Skeleton height="lg" width="md" />
-                            </Card>
+                            <TileSkeleton key={index} asCell />
                         ))}
-                        {coverageCards}
+                        {/* The four coverage tiles hold their places
+                            until coverage answers. */}
+                        {coverageCards ??
+                            Array.from({ length: 4 }, (_, index) => (
+                                <TileSkeleton
+                                    key={`coverage-${index}`}
+                                    asCell
+                                />
+                            ))}
+                        {/* The deployed models tile. */}
+                        <TileSkeleton asCell />
                     </div>
                 </div>
             )}
@@ -103,7 +138,16 @@ export default function DashboardSkeleton({
                     >
                         <Skeleton height="md" width="md" />
                         <Skeleton height="lg" width="full" rounded="md" />
-                        <Skeleton className="mx-auto my-4 size-40 rounded-full" />
+                        {/* The panel's chart opens on bars. */}
+                        <div className="my-4 flex h-40 items-end gap-3 px-2">
+                            {[55, 80, 35, 65, 45].map(height => (
+                                <Skeleton
+                                    key={height}
+                                    className="flex-1"
+                                    style={{ height: `${height}%` }}
+                                />
+                            ))}
+                        </div>
                         {Array.from({ length: 4 }, (_, index) => (
                             <Skeleton key={index} height="sm" width="full" />
                         ))}
