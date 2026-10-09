@@ -1,3 +1,4 @@
+import VectorCamLogo from '@/components/ui/vectorcam-logo';
 import type { ViewAs } from '@/lib/auth-session/viewer';
 import { getTranslations } from 'next-intl/server';
 import ThemeToggle from './theme-toggle';
@@ -13,12 +14,15 @@ export default async function AppHeader({
     return (
         <header className="bg-card border-b">
             <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6">
-                <p className="font-semibold tracking-tight">
-                    {t('title')}
-                    <span className="text-muted-foreground ml-2 text-sm font-normal">
-                        {t('tagline')}
-                    </span>
-                </p>
+                <div className="flex items-center gap-2">
+                    <VectorCamLogo className="h-7" />
+                    <p className="font-semibold tracking-tight">
+                        {t('title')}
+                        <span className="text-muted-foreground ml-2 text-sm font-normal">
+                            {t('tagline')}
+                        </span>
+                    </p>
+                </div>
                 <div className="flex items-center gap-4">
                     {viewAs && <ViewAsToggle current={viewAs} />}
                     <ThemeToggle />

@@ -26,5 +26,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+    // Icons and images are public, so the sign-in page shows its logo and the
+    // tab its icon before anyone signs in.
+    matcher: ['/((?!api|_next/static|_next/image|.*\\.(?:ico|png)$).*)'],
 };
