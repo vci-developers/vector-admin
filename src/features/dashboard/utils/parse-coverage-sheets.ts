@@ -15,13 +15,16 @@ export type SheetRow = { row: number; cells: (string | number | null)[] };
 /** The coverage workbook's sheets; null when a sheet is missing. */
 export type CoverageSheets = {
     units: SheetRow[] | null;
-    /** Optional, as is Projected Devices: without it, no expected figures. */
+    /** Optional, as is Program Potential: without it, no expected figures. */
     expectedUsers: SheetRow[] | null;
-    projectedDevices: SheetRow[] | null;
+    programPotential: SheetRow[] | null;
+    /** Optional: without it, the Stakeholder map's device counts aren't capped. */
+    projectedDevices?: SheetRow[] | null;
 };
 
-export const UNITS_SHEET = 'Units';
+export const UNITS_SHEET = 'Geographic Units';
 export const EXPECTED_USERS_SHEET = 'Expected Users';
+export const PROGRAM_POTENTIAL_SHEET = 'Targeted Users';
 export const PROJECTED_DEVICES_SHEET = 'Projected Devices';
 
 const programIdSchema = z.coerce.number().int().positive();
@@ -53,20 +56,28 @@ export const expectedUsersRowSchema = z.object({
     expected: countSchema,
 });
 
-/** Devices the Program plans to have out in a month: the user target. */
+/** Field Users the Program could reach in full: the user target. */
+export const programPotentialRowSchema = z.object({
+    programId: programIdSchema,
+    programPotential: countSchema,
+});
+
+export type CoverageUnit = z.infer<typeof coverageUnitRowSchema>;
+export type ExpectedUsers = z.infer<typeof expectedUsersRowSchema>;
+/** Devices the Program plans to have out in a month: caps the map's counts. */
 export const projectedDevicesRowSchema = z.object({
     programId: programIdSchema,
     month: monthSchema,
     projected: countSchema,
 });
 
-export type CoverageUnit = z.infer<typeof coverageUnitRowSchema>;
-export type ExpectedUsers = z.infer<typeof expectedUsersRowSchema>;
+export type ProgramPotential = z.infer<typeof programPotentialRowSchema>;
 export type ProjectedDevices = z.infer<typeof projectedDevicesRowSchema>;
 
 export type CoverageFigures = {
     units: CoverageUnit[];
     expectedUsers: ExpectedUsers[];
+    programPotential: ProgramPotential[];
     projectedDevices: ProjectedDevices[];
 };
 
@@ -82,6 +93,11 @@ export function normalizePlaceName(name: string): string {
     return name.toLowerCase().replace(/[\s\-_]+/g, '');
 }
 
+/** Other headers the team uses for a column. */
+const HEADER_ALIASES: Record<string, string[]> = {
+    programPotential: ['potential'],
+};
+
 function readSheet<S extends z.ZodObject>(
     sheet: string,
     rows: SheetRow[] | null,
@@ -91,13 +107,22 @@ function readSheet<S extends z.ZodObject>(
     const [header, ...body] = rows;
     if (!header) return err([{ sheet, row: null, message: 'Sheet is empty' }]);
 
-    // Columns are found by header name, so order and extra columns don't matter.
+    // Columns are found by header name, ignoring case and spaces ("Program
+    // Potential" is programPotential), so order and extra columns don't matter.
     const names = header.cells.map(cell =>
-        typeof cell === 'string' ? cell.trim().toLowerCase() : null,
+        typeof cell === 'string'
+            ? cell.replace(/\s+/g, '').toLowerCase()
+            : null,
     );
     const columns = Object.keys(schema.shape).map(key => ({
         key,
-        index: names.indexOf(key.toLowerCase()),
+        index: names.findIndex(
+            name =>
+                name !== null &&
+                [key, ...(HEADER_ALIASES[key] ?? [])].some(
+                    accepted => accepted.toLowerCase() === name,
+                ),
+        ),
     }));
     const missing = columns.filter(
         ({ key, index }) =>
@@ -159,10 +184,35 @@ function readMonthly<S extends z.ZodObject>(
     return errors.length > 0 ? err(errors) : read;
 }
 
+/** A sheet with one row per Program; a missing sheet has none. */
+function readPerProgram<
+    S extends z.ZodObject<{ programId: typeof programIdSchema }>,
+>(
+    sheet: string,
+    rows: SheetRow[] | null,
+    schema: S,
+): Result<{ row: number; value: z.infer<S> }[], CoverageRowError[]> {
+    if (!rows) return ok([]);
+    const read = readSheet(sheet, rows, schema);
+    if (!read.ok) return read;
+    const seen = new Set<number>();
+    const errors: CoverageRowError[] = [];
+    for (const { row, value } of read.data) {
+        if (seen.has(value.programId))
+            errors.push({
+                sheet,
+                row,
+                message: `Program ${value.programId} has more than one row`,
+            });
+        seen.add(value.programId);
+    }
+    return errors.length > 0 ? err(errors) : read;
+}
+
 /**
  * Reads the team's coverage workbook: one row per Coverage Unit, and
- * (optionally) Expected Users and Projected Devices, one row per Program and
- * month. Other sheets are ignored. Fails on any invalid or duplicate row, so
+ * (optionally) Expected Users, one row per Program and month, and Program
+ * Potential, one row per Program. Other sheets are ignored. Fails on any invalid or duplicate row, so
  * a half-read workbook never reaches the page.
  */
 export function parseCoverageSheets(
@@ -174,17 +224,28 @@ export function parseCoverageSheets(
         sheets.expectedUsers,
         expectedUsersRowSchema,
     );
+    const programPotential = readPerProgram(
+        PROGRAM_POTENTIAL_SHEET,
+        sheets.programPotential,
+        programPotentialRowSchema,
+    );
     const projectedDevices = readMonthly(
         PROJECTED_DEVICES_SHEET,
-        sheets.projectedDevices,
+        sheets.projectedDevices ?? null,
         projectedDevicesRowSchema,
     );
     const errors = [
         ...(units.ok ? [] : units.error),
         ...(expectedUsers.ok ? [] : expectedUsers.error),
+        ...(programPotential.ok ? [] : programPotential.error),
         ...(projectedDevices.ok ? [] : projectedDevices.error),
     ];
-    if (!units.ok || !expectedUsers.ok || !projectedDevices.ok)
+    if (
+        !units.ok ||
+        !expectedUsers.ok ||
+        !programPotential.ok ||
+        !projectedDevices.ok
+    )
         return err(errors);
 
     const seenUnits = new Set<string>();
@@ -203,6 +264,7 @@ export function parseCoverageSheets(
     return ok({
         units: units.data.map(({ value }) => value),
         expectedUsers: expectedUsers.data.map(({ value }) => value),
+        programPotential: programPotential.data.map(({ value }) => value),
         projectedDevices: projectedDevices.data.map(({ value }) => value),
     });
 }

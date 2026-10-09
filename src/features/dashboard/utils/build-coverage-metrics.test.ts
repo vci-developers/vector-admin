@@ -29,10 +29,8 @@ const uganda: CoverageFigures = {
         { programId: 1, month: '2026-08', expected: 48 },
         { programId: 1, month: '2026-09', expected: 66 },
     ],
-    projectedDevices: [
-        { programId: 1, month: '2026-09', projected: 66 },
-        { programId: 1, month: '2026-12', projected: 84 },
-    ],
+    programPotential: [{ programId: 1, programPotential: 84 }],
+    projectedDevices: [],
 };
 
 describe('buildCoverageMetrics', () => {
@@ -84,7 +82,7 @@ describe('buildCoverageMetrics', () => {
 });
 
 describe('buildUserCoverage', () => {
-    it("divides the month's active users by its expected users and projected devices", () => {
+    it("divides the month's active users by its expected users and the Program's potential", () => {
         expect(
             buildUserCoverage(uganda, '2026-09', new Map([[1, 52]])),
         ).toEqual([
@@ -98,36 +96,43 @@ describe('buildUserCoverage', () => {
                 },
                 programUserCoverage: {
                     numerator: 52,
-                    denominator: 66,
-                    value: 52 / 66,
+                    denominator: 84,
+                    value: 52 / 84,
                 },
             },
         ]);
     });
 
-    it('uses the figures of the month asked for', () => {
-        const [december] = buildUserCoverage(
-            uganda,
-            '2026-12',
-            new Map([[1, 70]]),
-        );
-        expect(december.programUserCoverage?.denominator).toBe(84);
-    });
-
-    it('leaves a ratio out when its figure is missing', () => {
+    it("uses the month's expected users and the same potential every month", () => {
         const [august] = buildUserCoverage(
             uganda,
             '2026-08',
-            new Map([[1, 42]]),
+            new Map([[1, 43]]),
         );
         expect(august.instantaneousUserCoverage?.denominator).toBe(48);
-        expect(august.programUserCoverage).toBeNull();
+        expect(august.programUserCoverage?.denominator).toBe(84);
+    });
+
+    it('leaves a ratio out when its figure is missing', () => {
         const [december] = buildUserCoverage(
             uganda,
             '2026-12',
             new Map([[1, 70]]),
         );
         expect(december.instantaneousUserCoverage).toBeNull();
+        expect(december.programUserCoverage?.denominator).toBe(84);
+        const [kenya] = buildUserCoverage(
+            {
+                ...uganda,
+                programPotential: [],
+                expectedUsers: [
+                    { programId: 4, month: '2026-10', expected: 14 },
+                ],
+            },
+            '2026-10',
+            new Map([[4, 3]]),
+        );
+        expect(kenya.programUserCoverage).toBeNull();
     });
 
     it('leaves out a Program with no user figures', () => {

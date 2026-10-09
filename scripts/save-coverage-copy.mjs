@@ -1,4 +1,5 @@
-// Saves a downloaded coverage workbook as the dashboard's fallback copy.
+// Saves a downloaded coverage workbook as the committed fallback: the last
+// resort, used only when SharePoint and the blob store's last good copy both fail.
 // Usage: node scripts/save-coverage-copy.mjs ~/Downloads/vectorcam-coverage.xlsx
 import { readFile, writeFile } from 'node:fs/promises';
 

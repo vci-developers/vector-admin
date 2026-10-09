@@ -56,8 +56,9 @@ export function buildCoverageMetrics(
 
 /**
  * The user metrics for one month: active users (counted from VectorCam) over
- * the month's expected users and over its projected devices (the target),
- * both from the workbook. A Program with neither figure is left out.
+ * the month's expected users, and over the Program's potential users (the
+ * full target), both from the workbook. A Program with neither figure is
+ * left out.
  */
 export function buildUserCoverage(
     figures: CoverageFigures,
@@ -68,10 +69,10 @@ export function buildUserCoverage(
         const expected = figures.expectedUsers.find(
             row => row.programId === programId && row.month === month,
         );
-        const target = figures.projectedDevices.find(
-            row => row.programId === programId && row.month === month,
+        const potential = figures.programPotential.find(
+            row => row.programId === programId,
         );
-        if (!expected && !target) return [];
+        if (!expected && !potential) return [];
         return [
             {
                 programId,
@@ -79,8 +80,8 @@ export function buildUserCoverage(
                 instantaneousUserCoverage: expected
                     ? ratio(active, expected.expected)
                     : null,
-                programUserCoverage: target
-                    ? ratio(active, target.projected)
+                programUserCoverage: potential
+                    ? ratio(active, potential.programPotential)
                     : null,
             },
         ];

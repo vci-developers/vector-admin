@@ -2,8 +2,9 @@ import 'server-only';
 
 import {
     EXPECTED_USERS_SHEET,
-    PROJECTED_DEVICES_SHEET,
     parseCoverageSheets,
+    PROGRAM_POTENTIAL_SHEET,
+    PROJECTED_DEVICES_SHEET,
     UNITS_SHEET,
     type CoverageFigures,
     type CoverageRowError,
@@ -58,6 +59,7 @@ export async function readCoverageWorkbook(
     return parseCoverageSheets({
         units: sheetRows(workbook, UNITS_SHEET),
         expectedUsers: sheetRows(workbook, EXPECTED_USERS_SHEET),
+        programPotential: sheetRows(workbook, PROGRAM_POTENTIAL_SHEET),
         projectedDevices: sheetRows(workbook, PROJECTED_DEVICES_SHEET),
     });
 }

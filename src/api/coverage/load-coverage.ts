@@ -7,15 +7,22 @@ import {
 import { err, ok, type Result } from '@/lib/result/result';
 import { cacheLife, cacheTag } from 'next/cache';
 import savedCopy from './coverage-saved-copy.json';
+import {
+    readLastGoodWorkbook,
+    storeLastGoodWorkbook,
+} from './last-good-workbook';
 import { readCoverageWorkbook } from './read-coverage-workbook';
 
 export const COVERAGE_TAG = 'coverage';
 
 export type LoadedCoverage = {
     figures: CoverageFigures;
-    /** 'saved' when SharePoint failed and the committed copy is shown. */
+    /**
+     * 'saved' when SharePoint failed or the workbook was invalid: the last
+     * good workbook is shown, or the committed copy before there is one.
+     */
     source: 'live' | 'saved';
-    /** When the committed copy was saved; null for live figures. */
+    /** When the shown copy was saved; null for live figures. */
     savedAt: number | null;
     /** Why the live workbook wasn't used; null when it was. */
     liveProblem: string | null;
@@ -76,7 +83,9 @@ async function fetchSharedFile(
     }
 }
 
-async function loadLive(): Promise<Result<CoverageFigures, string>> {
+async function loadLive(): Promise<
+    Result<{ figures: CoverageFigures; file: ArrayBuffer }, string>
+> {
     const link = process.env.COVERAGE_WORKBOOK_URL;
     if (!link) return err('COVERAGE_WORKBOOK_URL is not set');
 
@@ -84,31 +93,54 @@ async function loadLive(): Promise<Result<CoverageFigures, string>> {
     if (!file.ok) return file;
     const figures = await readCoverageWorkbook(file.data);
     return figures.ok
-        ? figures
+        ? ok({ figures: figures.data, file: file.data })
+        : err(figures.error.map(describeCoverageError).join(' · '));
+}
+
+/** The last good workbook from the blob store, if it is there and valid. */
+async function loadLastGood(): Promise<
+    Result<{ figures: CoverageFigures; savedAt: number }, string>
+> {
+    const stored = await readLastGoodWorkbook();
+    if (!stored.ok) return stored;
+    const figures = await readCoverageWorkbook(stored.data.file);
+    return figures.ok
+        ? ok({ figures: figures.data, savedAt: stored.data.savedAt })
         : err(figures.error.map(describeCoverageError).join(' · '));
 }
 
 /**
- * The team's coverage workbook from SharePoint, or the committed copy when
- * SharePoint fails or the workbook is invalid. Errors only if both fail.
+ * The team's coverage workbook from SharePoint, re-read every minute or so.
+ * When SharePoint fails or the workbook is invalid: the last workbook that
+ * loaded (kept in the blob store), else the committed copy. Errors only if
+ * all three fail.
  */
 export async function loadCoverage(): Promise<Result<LoadedCoverage, string>> {
     'use cache';
     cacheTag(COVERAGE_TAG);
+    cacheLife('minutes');
 
     const live = await loadLive();
     if (live.ok) {
-        cacheLife('hours');
+        await storeLastGoodWorkbook(live.data.file);
         return ok({
-            figures: live.data,
+            figures: live.data.figures,
             source: 'live',
             savedAt: null,
             liveProblem: null,
         });
     }
 
-    // Retry SharePoint soon; the saved copy holds until then.
-    cacheLife('minutes');
+    const lastGood = await loadLastGood();
+    if (lastGood.ok) {
+        return ok({
+            figures: lastGood.data.figures,
+            source: 'saved',
+            savedAt: lastGood.data.savedAt,
+            liveProblem: live.error,
+        });
+    }
+
     const saved = await readCoverageWorkbook(
         Uint8Array.from(Buffer.from(savedCopy.workbook, 'base64')).buffer,
     );
