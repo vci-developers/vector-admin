@@ -48,6 +48,37 @@ describe('buildSelectionTimeline', () => {
         expect(timeline.total).toBe(6);
     });
 
+    it('buckets by UTC day when asked, keeping every day of the period', () => {
+        const timeline = buildSelectionTimeline({
+            sessions: [
+                at('2026-06-03T10:00:00Z', [group('Culex', 2)]),
+                at('2026-06-03T23:30:00Z', [group('Culex', 1)]),
+                at('2026-06-30T06:00:00Z', [group('Anopheles gambiae', 4)]),
+            ],
+            period: { from: '2026-06', to: '2026-06' },
+            dimension: 'species',
+            ranking: RANKING,
+            granularity: 'day',
+        });
+
+        expect(timeline.granularity).toBe('day');
+        expect(timeline.buckets).toHaveLength(30);
+        expect(
+            timeline.buckets
+                .filter(b => b.total > 0)
+                .map(b => [
+                    new Date(b.start).toISOString().slice(0, 10),
+                    b.total,
+                ]),
+        ).toEqual([
+            ['2026-06-03', 3],
+            ['2026-06-30', 4],
+        ]);
+        expect(new Date(timeline.buckets[0].start).toISOString()).toBe(
+            '2026-06-01T00:00:00.000Z',
+        );
+    });
+
     it('buckets by month for longer periods, from the first specimen on', () => {
         const timeline = buildSelectionTimeline({
             sessions: [at('2026-05-20T00:00:00Z', [group('Culex', 4)])],

@@ -322,6 +322,7 @@
         },
         "chartInPeriod": "in {period}",
         "chartTitle": {
+            "day": "Specimens per day",
             "week": "Specimens per week",
             "month": "Specimens per month",
             "quarter": "Specimens per quarter"
@@ -336,9 +337,10 @@
         "chartPieAria": "Pie chart of specimens by value for the whole period",
         "chartLegend": "Chart key",
         "chartReadoutBucket": "{bucket} · {total} total",
-        "chartReadoutPeriod": "Whole period · hover a bar for just that {granularity, select, week {week} month {month} other {quarter}}",
+        "chartReadoutPeriod": "Whole period · hover a bar for just that {granularity, select, day {day} week {week} month {month} other {quarter}}",
         "chartAxisY": "Specimens",
         "chartAxisX": {
+            "day": "Day",
             "week": "Week starting",
             "month": "Month",
             "quarter": "Quarter"
@@ -351,6 +353,10 @@
         "chartNotRecorded": "Image upload pending",
         "chartOtherOrNotRecorded": "Other or image upload pending",
         "chartEmpty": "No specimens to chart.",
+        "dailyOpen": "Expand chart view",
+        "dailyTitle": "Specimens per day · {title}",
+        "dailyDescription": "{period}, by collection date (UTC days). Hover a bar for that day; days with no bar had no specimens.",
+        "dailyClose": "Close the daily breakdown",
         "chartListSessions": "{count, plural, one {Show the session} other {Show the # sessions}}",
         "chartListDevices": "{count, plural, one {Show the device} other {Show the # devices}}",
         "zoomIn": "Zoom in",

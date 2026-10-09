@@ -21,13 +21,13 @@ export type TimelineSeries =
 
 export type TimelineBucket = {
     key: string;
-    /** UTC midnight at the start of the week, month or quarter. */
+    /** UTC midnight at the start of the day, week, month or quarter. */
     start: number;
     total: number;
     counts: Record<string, number>;
 };
 
-export type TimelineGranularity = 'week' | 'month' | 'quarter';
+export type TimelineGranularity = 'day' | 'week' | 'month' | 'quarter';
 
 export type SelectionTimeline = {
     granularity: TimelineGranularity;
@@ -59,20 +59,20 @@ function granularityFor(monthCount: number): TimelineGranularity {
 }
 
 function bucketKey(time: number, granularity: TimelineGranularity): string {
+    if (granularity === 'day') return String(dayStart(time));
     if (granularity === 'week') return String(weekStart(time));
     const month = monthKeyUtc(time);
     return granularity === 'month' ? month : quarterKey(month);
 }
 
+/** 00:00 UTC of the day containing `time`. */
+function dayStart(time: number): number {
+    return time - (((time % DAY) + DAY) % DAY);
+}
+
 /** Monday 00:00 UTC of the week containing `time`. */
 function weekStart(time: number): number {
-    const day = new Date(time);
-    const midnight = Date.UTC(
-        day.getUTCFullYear(),
-        day.getUTCMonth(),
-        day.getUTCDate(),
-    );
-    return midnight - ((day.getUTCDay() + 6) % 7) * DAY;
+    return dayStart(time) - ((new Date(time).getUTCDay() + 6) % 7) * DAY;
 }
 
 function emptyBuckets(
@@ -111,10 +111,14 @@ function emptyBuckets(
         1,
     );
     const buckets: TimelineBucket[] = [];
+    const step = granularity === 'day' ? DAY : 7 * DAY;
     for (
-        let start = weekStart(monthStart(months[0]));
+        let start =
+            granularity === 'day'
+                ? monthStart(months[0])
+                : weekStart(monthStart(months[0]));
         start < periodEnd;
-        start += 7 * DAY
+        start += step
     ) {
         buckets.push({ key: String(start), start, total: 0, counts: {} });
     }
@@ -123,7 +127,8 @@ function emptyBuckets(
 
 /**
  * Specimens per week (periods of up to three months), month (up to two years)
- * or quarter, stacked by species, sex or abdomen status. Empty buckets before
+ * or quarter, or per day when asked, stacked by species, sex or abdomen
+ * status. Empty buckets before
  * the first specimen are dropped; later ones stay, so a quiet stretch shows as
  * a gap. Buckets are UTC; the chart is a shape, not the Reporting Month counts.
  *
@@ -136,15 +141,15 @@ export function buildSelectionTimeline({
     period,
     dimension,
     ranking,
+    granularity = granularityFor(monthsInRange(period.from, period.to).length),
 }: {
     sessions: TimelineSession[];
     period: { from: MonthKey; to: MonthKey };
     dimension: TimelineDimension;
     ranking: string[];
+    /** Overrides the bucket size picked from the period's length. */
+    granularity?: TimelineGranularity;
 }): SelectionTimeline {
-    const granularity = granularityFor(
-        monthsInRange(period.from, period.to).length,
-    );
     const buckets = emptyBuckets(period, granularity);
     const byKey = new Map(buckets.map(bucket => [bucket.key, bucket]));
     const slots = new Map(
@@ -191,12 +196,14 @@ export function buildSelectionTimeline({
             hasNotRecorded,
         });
     }
-    // "All time" can start years before anything was caught.
+    // "All time" can start years before anything was caught; days keep the
+    // whole period, so the quiet ones at the start show too.
     const first = buckets.findIndex(bucket => bucket.total > 0);
     return {
         granularity,
         series,
-        buckets: first > 0 ? buckets.slice(first) : buckets,
+        buckets:
+            granularity !== 'day' && first > 0 ? buckets.slice(first) : buckets,
         total,
     };
 }

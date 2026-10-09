@@ -310,13 +310,16 @@ function PieView({ timeline }: { timeline: SelectionTimeline }) {
     );
 }
 
-/** Specimens per week or month as stacked bars, or the period as a pie. */
+/** Specimens per day, week or month as stacked bars, or the period as a pie. */
 export default function SelectionChart({
     timeline,
     view,
+    tall = false,
 }: {
     timeline: SelectionTimeline;
     view: ChartView;
+    /** Taller bars, for the expanded view. */
+    tall?: boolean;
 }) {
     const t = useTranslations('MapSection');
     const formatter = useFormatter();
@@ -345,7 +348,8 @@ export default function SelectionChart({
               })
             : formatter.dateTime(
                   start,
-                  timeline.granularity === 'week'
+                  timeline.granularity === 'week' ||
+                      timeline.granularity === 'day'
                       ? { month: 'short', day: 'numeric', timeZone: 'UTC' }
                       : {
                             month: 'short',
@@ -354,15 +358,22 @@ export default function SelectionChart({
                         },
               );
     const bucketLabel = (bucket: TimelineBucket) =>
-        timeline.granularity === 'week'
-            ? t('chartWeekOf', { date: tick(bucket.start) })
-            : timeline.granularity === 'quarter'
-              ? t('chartQuarter', quarterOf(bucket.start))
-              : formatter.dateTime(bucket.start, {
-                    month: 'long',
-                    year: 'numeric',
-                    timeZone: 'UTC',
-                });
+        timeline.granularity === 'day'
+            ? formatter.dateTime(bucket.start, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  timeZone: 'UTC',
+              })
+            : timeline.granularity === 'week'
+              ? t('chartWeekOf', { date: tick(bucket.start) })
+              : timeline.granularity === 'quarter'
+                ? t('chartQuarter', quarterOf(bucket.start))
+                : formatter.dateTime(bucket.start, {
+                      month: 'long',
+                      year: 'numeric',
+                      timeZone: 'UTC',
+                  });
 
     if (view === 'pie') return <PieView timeline={timeline} />;
 
@@ -432,7 +443,7 @@ export default function SelectionChart({
                 {t(`chartTitle.${timeline.granularity}`)}
             </p>
             <div
-                className="h-52"
+                className={tall ? 'h-80' : 'h-52'}
                 role="img"
                 aria-label={t('chartAria', {
                     total: timeline.total,

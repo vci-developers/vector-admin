@@ -20,9 +20,10 @@ import { countCollectors } from '@/features/dashboard/utils/count-collectors';
 import { programTitle } from '@/features/dashboard/utils/program-title';
 import type { UserCoverageDto } from '@/api/dashboard/validation/dashboard-schema';
 import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Maximize2, Users } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
+import DailyChartSheet from './daily-chart-sheet';
 import SelectionChart, { CHART_VIEWS, type ChartView } from './selection-chart';
 import SelectionList from './selection-list';
 import LocationPath from './location-path';
@@ -93,6 +94,7 @@ export default function SelectionPanel({
     const [dimension, setDimension] = useState<TimelineDimension>('species');
     // Temporary: lets us compare chart forms before settling on one.
     const [view, setView] = useState<ChartView>('bar');
+    const [daily, setDaily] = useState(false);
 
     const selected = useMemo(() => {
         if (!selection)
@@ -118,19 +120,23 @@ export default function SelectionPanel({
     }, [selection, sessions, devices, sessionsByDevice]);
 
     const periodLabel = period.label;
+    // N/A is never a filter value, so it joins the ranking last.
+    const ranking = useMemo(
+        () =>
+            dimension === 'species'
+                ? rankingOf(facets[dimension])
+                : [...rankingOf(facets[dimension]), NOT_APPLICABLE],
+        [dimension, facets],
+    );
     const timeline = useMemo(
         () =>
             buildSelectionTimeline({
                 sessions: selected.sessions,
                 period,
                 dimension,
-                // N/A is never a filter value, so it joins the ranking last.
-                ranking:
-                    dimension === 'species'
-                        ? rankingOf(facets[dimension])
-                        : [...rankingOf(facets[dimension]), NOT_APPLICABLE],
+                ranking,
             }),
-        [selected.sessions, period, dimension, facets],
+        [selected.sessions, period, dimension, ranking],
     );
 
     const unit = selection?.unit;
@@ -260,22 +266,48 @@ export default function SelectionPanel({
                 </p>
             </div>
 
-            <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={view}
-                onValueChange={value => {
-                    if (value) setView(value as ChartView);
-                }}
-                aria-label={t('chartView')}
-            >
-                {CHART_VIEWS.map(v => (
-                    <ToggleGroupItem key={v} value={v} className="px-3 text-xs">
-                        {t(`chartViews.${v}`)}
-                    </ToggleGroupItem>
-                ))}
-            </ToggleGroup>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={view}
+                    onValueChange={value => {
+                        if (value) setView(value as ChartView);
+                    }}
+                    aria-label={t('chartView')}
+                >
+                    {CHART_VIEWS.map(v => (
+                        <ToggleGroupItem
+                            key={v}
+                            value={v}
+                            className="px-3 text-xs"
+                        >
+                            {t(`chartViews.${v}`)}
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
+                <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={timeline.total === 0}
+                    onClick={() => setDaily(true)}
+                >
+                    <Maximize2 />
+                    {t('dailyOpen')}
+                </Button>
+            </div>
+            <DailyChartSheet
+                open={daily}
+                onOpenChange={setDaily}
+                title={title}
+                period={period}
+                sessions={selected.sessions}
+                dimensions={DIMENSIONS}
+                dimension={dimension}
+                onDimensionChange={setDimension}
+                ranking={ranking}
+            />
 
             {timeline.total > 0 ? (
                 <SelectionChart timeline={timeline} view={view} />

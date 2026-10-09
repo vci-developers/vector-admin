@@ -193,7 +193,8 @@ charts specimens per week (periods of up to three months) or per month, stacked
 by species, sex or abdomen status, for the clicked point, cluster or device, or
 for everything on the map when nothing is clicked; each value keeps its colour
 whatever is clicked, and the Sessions or devices behind the chart are listed
-under it. _Avoid_: layer filter
+under it. Expand chart view opens the same chart from the right with a bar per
+UTC day of the period, quiet days included. _Avoid_: layer filter
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Every Specimen is a Record, with or without an Image; one with no Image has no
