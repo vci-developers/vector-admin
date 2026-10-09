@@ -134,13 +134,19 @@ export default function SelectionPanel({
     }, [selection, sessions, devices, sessionsByDevice]);
 
     const periodLabel = period.label;
-    // N/A is never a filter value, so it joins the ranking last.
+    // N/A is never a filter value, so it joins the sex ranking last; abdomen
+    // leaves it out (males and non-mosquitoes have no abdomen status).
     const ranking = useMemo(
         () =>
-            dimension === 'species'
-                ? rankingOf(facets[dimension])
-                : [...rankingOf(facets[dimension]), NOT_APPLICABLE],
+            dimension === 'sex'
+                ? [...rankingOf(facets[dimension]), NOT_APPLICABLE]
+                : rankingOf(facets[dimension]),
         [dimension, facets],
+    );
+    // Every specimen, whatever the chart stacks by.
+    const specimenTotal = selected.sessions.reduce(
+        (sum, session) => sum + session.specimenCount,
+        0,
     );
     const timeline = useMemo(
         () =>
@@ -235,7 +241,7 @@ export default function SelectionPanel({
                     )}
                     {locatingCount > 0 && (
                         <p className="text-muted-foreground mt-1 text-xs">
-                            {t('panelPartial', { count: locatingCount })}
+                            {t('panelPartial')}
                         </p>
                     )}
                 </div>
@@ -273,7 +279,7 @@ export default function SelectionPanel({
                 <p className="text-xs">
                     <span className="font-medium">
                         {t('summaryTotal', {
-                            specimens: timeline.total,
+                            specimens: specimenTotal,
                             sessions: selected.sessions.length,
                         })}
                     </span>

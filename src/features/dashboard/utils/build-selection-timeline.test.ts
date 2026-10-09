@@ -156,4 +156,27 @@ describe('buildSelectionTimeline', () => {
         });
         expect(timeline.series.map(s => s.key)).toEqual(['Female', 'Male']);
     });
+
+    it('leaves males and non-mosquitoes out when stacking by abdomen', () => {
+        const timeline = buildSelectionTimeline({
+            sessions: [
+                at('2026-06-03T00:00:00Z', [
+                    group('Culex', 2, 'Male'),
+                    group('Non-Mosquito', 1, null),
+                    {
+                        species: 'Culex',
+                        sex: 'Female',
+                        abdomenStatus: 'Fed',
+                        count: 3,
+                    },
+                ]),
+            ],
+            period: { from: '2026-06', to: '2026-06' },
+            dimension: 'abdomen',
+            ranking: ['Fed'],
+        });
+
+        expect(timeline.total).toBe(3);
+        expect(timeline.series.map(s => s.key)).toEqual(['Fed']);
+    });
 });

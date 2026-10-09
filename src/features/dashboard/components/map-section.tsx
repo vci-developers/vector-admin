@@ -382,9 +382,7 @@ export default function MapSection({
                                     className="size-3 animate-spin"
                                     aria-hidden="true"
                                 />
-                                {t('locatingSites', {
-                                    count: view.locatingCount,
-                                })}
+                                {t('locatingSites')}
                             </p>
                         )}
                         {nothingPlaced && !emptyNoteOpen && (

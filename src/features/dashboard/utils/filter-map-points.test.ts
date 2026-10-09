@@ -111,7 +111,7 @@ describe('activeDevices', () => {
 });
 
 describe('summarizeSpecimens', () => {
-    it('adds up species, sex and abdomen status, most common first', () => {
+    it('adds up species, sex and abdomen status, most common first, leaving males out of abdomen', () => {
         const summary = summarizeSpecimens([
             session(1, [group('Culex', 1), group('Anopheles gambiae', 3)]),
             session(2, [group('Anopheles gambiae', 2, 'Male', null)]),
@@ -130,10 +130,7 @@ describe('summarizeSpecimens', () => {
                 ['Female', 4],
                 ['Male', 2],
             ],
-            abdomen: [
-                ['Unfed', 4],
-                ['N/A', 2],
-            ],
+            abdomen: [['Unfed', 4]],
         });
     });
 });

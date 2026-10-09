@@ -1,5 +1,5 @@
 import type { SpecimenGroup } from './build-specimen-points';
-import { fieldValue, NOT_RECORDED } from './filter-map-points';
+import { fieldValue, NOT_APPLICABLE, NOT_RECORDED } from './filter-map-points';
 import { monthsInRange, type MonthKey } from './month-key';
 
 export type TimelineDimension = 'species' | 'sex' | 'abdomen';
@@ -168,6 +168,9 @@ export function buildSelectionTimeline({
         if (!bucket) continue;
         for (const group of session.specimenGroups) {
             const value = valueOf(group, dimension);
+            // Males and non-mosquitoes have no abdomen status: left out of
+            // it rather than counted as a share.
+            if (dimension === 'abdomen' && value === NOT_APPLICABLE) continue;
             const key = slots.has(value) ? value : FOLDED_KEY;
             if (key === FOLDED_KEY) {
                 if (value === NOT_RECORDED) hasNotRecorded = true;

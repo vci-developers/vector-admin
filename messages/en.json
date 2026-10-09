@@ -112,7 +112,7 @@
         },
         "imagesPerActiveDevice": {
             "title": "Images / device",
-            "description": "Images ÷ active devices, for the same programs and period. Blank when no devices were active."
+            "description": "Images / active devices, for the same programs and period. Blank when no devices were active."
         },
         "metadataCompleteness": {
             "title": "Metadata complete",
@@ -120,7 +120,7 @@
         },
         "dhis2UploadRate": {
             "title": "DHIS2 upload",
-            "description": "Records sent to DHIS2 (their session is submitted) ÷ all records. Uganda only."
+            "description": "Records sent to DHIS2 (their session is submitted) / all records. Uganda only."
         },
         "uniqueUsers": {
             "title": "Unique users",
@@ -170,7 +170,7 @@
             "median": "The middle gap: half the gaps between consecutive images are shorter. Every gap in every session in the period, pooled (Excel MEDIAN).",
             "p25": "A quarter of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.25).",
             "p75": "Three quarters of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.75).",
-            "mean": "Sum of every gap between consecutive images ÷ number of gaps. Long pauses pull it up, so it sits above the median.",
+            "mean": "Sum of every gap between consecutive images / number of gaps. Long pauses pull it up, so it sits above the median.",
             "sd": "How spread out the gaps are (Excel STDEV.S, sample standard deviation). Blank with fewer than two gaps."
         },
         "timingHowDerived": "How {stat} is worked out",
@@ -304,7 +304,7 @@
         "searchClear": "Clear search",
         "searchEmpty": "Nothing on the map matches.",
         "searchSite": "Site #{id}",
-        "locatingSites": "{count, plural, one {Locating # site…} other {Locating # sites…}}",
+        "locatingSites": "Loading…",
         "legendBySite": "Dashed outline: site location (no GPS)",
         "gapsTitle": "Not on the map",
         "gapsOpen": "{count, plural, one {# program not on the map} other {# programs not on the map}}: see why",
@@ -383,7 +383,7 @@
         "emptyMapClose": "Close this note",
         "emptyMapOpen": "Why is the map empty?",
         "panelLoading": "Loading site locations…",
-        "panelPartial": "{count, plural, one {Still locating # site; counts will grow.} other {Still locating # sites; counts will grow.}}",
+        "panelPartial": "Loading…",
         "searchUnit": "Coverage · {status}",
         "unitSummary": "{status} · {sessions, plural, =0 {no sessions on the map} one {# session} other {# sessions}}",
         "pointLabel": "Collection point",

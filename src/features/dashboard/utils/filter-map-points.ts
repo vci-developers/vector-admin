@@ -197,7 +197,9 @@ export function summarizeSpecimens(
         for (const group of session.specimenGroups) {
             add(species, fieldValue(group, 'species'), group.count);
             add(sex, fieldValue(group, 'sex'), group.count);
-            add(abdomen, fieldValue(group, 'abdomen'), group.count);
+            // Males and non-mosquitoes have no abdomen status to count.
+            const status = fieldValue(group, 'abdomen');
+            if (status !== NOT_APPLICABLE) add(abdomen, status, group.count);
         }
     }
     const hiddenBy = mergeHidden(sessions.flatMap(s => s.hiddenBy ?? []));

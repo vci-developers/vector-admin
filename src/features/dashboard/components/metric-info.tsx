@@ -84,7 +84,7 @@ export default function MetricInfo({
                 <p className="mt-2 border-t border-current/20 pt-2 tabular-nums">
                     <Terms terms={calculation.numerator} bracketed={false} />
                     <br />
-                    {'÷ '}
+                    {'/ '}
                     <Terms terms={calculation.denominator} bracketed />
                     <br />
                     {'= '}
