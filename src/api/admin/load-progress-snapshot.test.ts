@@ -70,6 +70,33 @@ afterEach(() => {
 });
 
 describe('loadProgressSnapshot', () => {
+    it('does not require usable session GPS to load collection-site reporting data', async () => {
+        stubApi(async url => {
+            const response = healthyApi(url);
+            if (url.pathname !== '/sessions/') return response;
+            const body = await response.json();
+            body.sessions = body.sessions.map(
+                (session: Record<string, unknown>, index: number) => ({
+                    ...session,
+                    latitude:
+                        index === 0 ? 'not a collection location' : undefined,
+                    longitude: index === 0 ? {} : undefined,
+                }),
+            );
+            return json(body);
+        });
+        const result = await loadProgressSnapshot(7);
+        if (!result.ok)
+            throw new Error('Expected site-based snapshot loading to succeed');
+
+        expect(result.data.sessions).toHaveLength(205);
+        expect(result.data.sessions[0].siteId).toBe(1);
+        expect(result.data.sessions[0].latitude).toBeNull();
+        expect(result.data.sessions[1].latitude).toBeUndefined();
+        expect(result.data.sites[0].district).toBe('Gulu');
+        expect(result.data.specimens).toHaveLength(105);
+    });
+
     it('loads every page and tolerates nullable collector names and legacy session types', async () => {
         const fetchMock = stubApi();
         const result = await loadProgressSnapshot(7);

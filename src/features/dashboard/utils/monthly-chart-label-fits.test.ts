@@ -5,59 +5,42 @@ import { jsx } from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { BarChart, ResponsiveContainer } from 'recharts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { monthlyChartMinimumWidth } from './monthly-chart-minimum-width';
+import { monthlyChartLabelFits } from './monthly-chart-label-fits';
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('monthly chart label spacing', () => {
-    it('fits the default three months into a narrow sidebar', () => {
-        const labels = [
-            { month: 'Jan', value: '1,234' },
-            { month: 'Feb', value: '5,678' },
-            { month: 'Mar', value: '0' },
-        ];
-        expect(monthlyChartMinimumWidth(labels)).toBeLessThanOrEqual(300);
-        expect(
-            (monthlyChartMinimumWidth(labels) - 52) / 3,
-        ).toBeGreaterThanOrEqual(76);
+describe('monthly chart label visibility', () => {
+    it('shows values above wide bars, including zero counts', () => {
+        for (const value of ['1,234', '5,678', '0']) {
+            expect(monthlyChartLabelFits(value, 64)).toBe(true);
+        }
     });
 
-    it('reserves a full readable column for every all-time month, including zeros', () => {
-        const labels = Array.from({ length: 24 }, (_, index) => ({
-            month: `${index % 2 ? 'Jan' : 'Dec'} ${2024 + Math.floor(index / 12)}`,
-            value: index % 3 === 0 ? '0' : '1,234',
-        }));
-        const width = monthlyChartMinimumWidth(labels);
-        expect(width).toBeGreaterThan(1800);
-        expect((width - 52) / labels.length).toBeGreaterThanOrEqual(80);
-    });
-
-    it('widens columns for long exact scan totals instead of abbreviating them', () => {
-        const ordinary = [
-            { month: 'Jan', value: '12' },
-            { month: 'Feb', value: '34' },
-        ];
-        const large = [
-            { month: 'Jan', value: '123,456,789' },
-            { month: 'Feb', value: '34' },
-        ];
-        expect(monthlyChartMinimumWidth(large)).toBeGreaterThan(
-            monthlyChartMinimumWidth(ordinary),
+    it('hides every value on narrow long-range bars instead of sampling labels', () => {
+        const values = Object.freeze(
+            Array.from({ length: 24 }, (_, index) =>
+                index % 3 === 0 ? '0' : '1,234',
+            ),
         );
-        expect(
-            (monthlyChartMinimumWidth(large) - 52) / 2,
-        ).toBeGreaterThanOrEqual(104);
+        expect(values.some(value => monthlyChartLabelFits(value, 8))).toBe(
+            false,
+        );
+        expect(values).toHaveLength(24);
+        expect(values.filter(value => value === '0')).toHaveLength(8);
     });
 
-    it('accounts for longer localized month labels without changing the data', () => {
-        const labels = Object.freeze([
-            Object.freeze({ month: 'September 2026', value: '0' }),
-            Object.freeze({ month: 'October 2026', value: '42' }),
-        ]);
-        expect(
-            (monthlyChartMinimumWidth(labels) - 52) / 2,
-        ).toBeGreaterThanOrEqual(122);
-        expect(labels[0]).toEqual({ month: 'September 2026', value: '0' });
+    it('checks each exact value against its own bar width without abbreviating it', () => {
+        expect(monthlyChartLabelFits('12', 32)).toBe(true);
+        expect(monthlyChartLabelFits('123,456,789', 32)).toBe(false);
+        expect(monthlyChartLabelFits('123,456,789', 104)).toBe(true);
+    });
+
+    it('responds to resized bars and hides labels until their width is known', () => {
+        expect(monthlyChartLabelFits('1,234', 34)).toBe(false);
+        expect(monthlyChartLabelFits('1,234', 56)).toBe(true);
+        expect(monthlyChartLabelFits('1,234', 0)).toBe(false);
+        expect(monthlyChartLabelFits('1,234', Number.NaN)).toBe(false);
+        expect(monthlyChartLabelFits('', 64)).toBe(false);
     });
 });
 
@@ -78,7 +61,7 @@ describe('monthly chart initial sizing', () => {
         ).toBe(true);
     });
 
-    it.each([3, 24])(
+    it.each([3, 24, 120])(
         'prerenders %i months without invalid-size warnings',
         count => {
             const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -97,6 +80,8 @@ describe('monthly chart initial sizing', () => {
             expect(markup).toContain('role="region"');
             expect(markup).toContain('tabindex="0"');
             expect(markup).not.toContain('recharts-responsive-container');
+            expect(markup).not.toContain('min-width:');
+            expect(markup).not.toContain('Scroll horizontally');
             expect(
                 warn.mock.calls.some(([message]) =>
                     String(message).includes('width('),

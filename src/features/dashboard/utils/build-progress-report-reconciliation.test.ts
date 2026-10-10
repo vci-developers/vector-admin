@@ -119,6 +119,7 @@ const data: ProgressProgramData[] = [
             name: null,
             district: null,
             locationHierarchy: {
+                Region: 'North',
                 'Health District': 'Garoua',
                 'Health Centre': `Centre ${siteId}`,
             },
@@ -243,6 +244,18 @@ describe('downloaded progress workbook reconciliation', () => {
             expect(
                 districtTotals.reduce((sum, row) => sum + Number(row[3]), 0),
             ).toBe(expectedScans);
+            expect(districtTotals.filter(row => row[0] === 'Cameroon')).toEqual(
+                [
+                    [
+                        'Cameroon',
+                        'Cameroon reporting',
+                        'Garoua',
+                        1,
+                        '1 health district',
+                        new Date(SEPTEMBER + 86_400_000).toISOString(),
+                    ],
+                ],
+            );
             const districtMonths = table(actuals, 'Monthly district actuals');
             expect(
                 districtMonths.reduce((sum, row) => sum + Number(row[4]), 0),

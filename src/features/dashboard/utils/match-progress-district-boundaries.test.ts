@@ -13,6 +13,7 @@ import {
 import {
     matchProgressDistrictBoundaries,
     progressAreaBoundaries,
+    progressMapPlacement,
 } from './match-progress-district-boundaries';
 
 const polygon: MultiPolygon = {
@@ -78,6 +79,43 @@ function district(
 }
 
 describe('matchProgressDistrictBoundaries', () => {
+    it('does not flag Antioquia as unplaced when its known boundary can be drawn without a point', () => {
+        const rows = [
+            district('Antioquia', {
+                country: 'Colombia',
+                key: 'colombia:antioquia',
+                position: null,
+            }),
+            district('New reporting area', {
+                country: 'Colombia',
+                key: 'colombia:new',
+                position: null,
+            }),
+            district('Point fallback', {
+                country: 'Colombia',
+                key: 'colombia:point',
+                position: { latitude: 6, longitude: -75 },
+            }),
+        ];
+        const original = structuredClone(rows);
+        const { fills } = matchProgressDistrictBoundaries(
+            rows,
+            new Map([['Colombia', progressAreaBoundaries(colombiaAreas)]]),
+        );
+        const placement = progressMapPlacement(rows, fills);
+
+        expect(fills.map(fill => fill.district.key)).toEqual([
+            'colombia:antioquia',
+        ]);
+        expect(placement.source).toBe(rows);
+        expect(placement.unplaced).toEqual([rows[1]]);
+        expect(rows).toEqual(original);
+        expect(progressMapPlacement(rows, []).unplaced).toEqual([
+            rows[0],
+            rows[1],
+        ]);
+    });
+
     it('matches all eighteen recorded reporting areas to their actual public polygons at the reviewed country level', () => {
         const names = [
             {

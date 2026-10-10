@@ -9,6 +9,11 @@ import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import { programTitle } from '@/features/dashboard/utils/program-title';
 import {
+    PROGRESS_SCAN_FILL_OPACITY,
+    PROGRESS_SCAN_LEGEND,
+} from '@/features/dashboard/utils/progress-map-colors';
+import type { ProgressMapPlacement } from '@/features/dashboard/utils/match-progress-district-boundaries';
+import {
     isInProgress,
     resolveReportingRange,
 } from '@/features/dashboard/utils/resolve-reporting-range';
@@ -85,6 +90,8 @@ export default function ProgressView() {
     );
     const [exporting, setExporting] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
+    const [mapPlacement, setMapPlacement] =
+        useState<ProgressMapPlacement | null>(null);
     const { range, currentMonth } = useMemo(() => {
         const now = new Date();
         return {
@@ -128,9 +135,10 @@ export default function ProgressView() {
     const unavailable = dashboard !== null && dashboard.uniqueScans === null;
     const noSelection = dashboard?.selectedProgramIds.length === 0;
     const updating = query.isPlaceholderData;
-    const unlocated =
-        dashboard?.districts.filter(district => district.position === null) ??
-        [];
+    const unplaced =
+        mapPlacement?.source === dashboard?.districts
+            ? (mapPlacement?.unplaced ?? [])
+            : [];
     const failedNames =
         dashboard?.programs
             .filter(program =>
@@ -198,38 +206,36 @@ export default function ProgressView() {
                     </p>
                     <h1 className={styles.heading}>VectorCam in the field</h1>
                 </div>
-                <div
-                    className={cn(
-                        'flex max-w-full flex-wrap items-end gap-x-4 gap-y-3',
-                        styles.filters,
-                    )}
-                >
-                    <div className="w-full min-w-0 sm:w-64">
+                <div className={styles.filters}>
+                    <div className="min-w-0">
                         <ProgressProgramPicker
                             programs={offeredPrograms}
                             excludedProgramIds={filters.exclude}
                             onChange={choosePrograms}
                         />
                     </div>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex min-w-0 flex-col gap-1.5">
                         <span className="text-muted-foreground text-[11px] font-medium">
                             Reporting period
                         </span>
                         <PeriodPicker
                             range={range}
                             currentMonth={currentMonth}
+                            className={styles.periodFilter}
                         />
                     </div>
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
-                <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-foreground font-medium">
+                <p className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-lg">
+                    <span className="text-foreground font-semibold">
                         {dashboard ? scope : 'Reporting overview'}
                     </span>
-                    <span aria-hidden="true">/</span>
-                    {label}
+                    <span aria-hidden="true">·</span>
+                    <span className="font-medium whitespace-nowrap">
+                        {label}
+                    </span>
                     {dashboard && isInProgress(dashboard.to, currentMonth) && (
                         <span className="bg-primary/8 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium">
                             Current month in progress
@@ -239,7 +245,7 @@ export default function ProgressView() {
                         <button
                             type="button"
                             onClick={() => void setDistrictKey(null)}
-                            className="text-primary focus-visible:ring-ring ml-1 inline-flex items-center gap-1 rounded py-1 outline-none hover:underline focus-visible:ring-2"
+                            className="text-primary focus-visible:ring-ring ml-1 inline-flex items-center gap-1 rounded py-1 text-xs outline-none hover:underline focus-visible:ring-2"
                         >
                             <X className="size-3" aria-hidden="true" />
                             Clear area
@@ -381,6 +387,7 @@ export default function ProgressView() {
                                         onSelect={key =>
                                             void setDistrictKey(key)
                                         }
+                                        onPlacementChange={setMapPlacement}
                                     />
                                 ) : (
                                     <div className="bg-muted/60 flex h-full flex-col items-center justify-center px-6 text-center">
@@ -410,7 +417,15 @@ export default function ProgressView() {
                                         aria-hidden="true"
                                         className="flex items-end gap-1.5"
                                     >
-                                        <span className="h-2.5 w-9 rounded-sm bg-linear-to-r from-[#2fbe94]/50 to-[#2fbe94]/[84%]" />
+                                        <span
+                                            className="h-3 w-14 rounded-sm"
+                                            style={{
+                                                background:
+                                                    PROGRESS_SCAN_LEGEND,
+                                                opacity:
+                                                    PROGRESS_SCAN_FILL_OPACITY,
+                                            }}
+                                        />
                                     </span>
                                     Darker shade = more scans
                                 </p>
@@ -426,10 +441,10 @@ export default function ProgressView() {
                                 Select an area to see its reporting locations
                                 and scans.
                             </p>
-                            {unlocated.length > 0 && (
+                            {unplaced.length > 0 && (
                                 <p className="text-muted-foreground border-t px-5 py-3 text-[11px] leading-relaxed sm:px-6">
-                                    Coordinates missing:{' '}
-                                    {unlocated
+                                    Not mapped:{' '}
+                                    {unplaced
                                         .map(
                                             area =>
                                                 `${area.key.endsWith(':unknown') ? 'Area not recorded' : area.name} (${area.country})`,

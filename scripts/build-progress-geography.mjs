@@ -299,9 +299,19 @@ assert.deepEqual(
     output.districts.features.map(feature => feature.properties.name),
     districts.features.map(feature => feature.properties.name),
 );
+// Make adapted ODbL boundary datasets available to map recipients. These
+// files contain reference geography and its credits, without reporting data.
+const boundaryDownloads = reportingAreaOutputs.flatMap(({ data }) => {
+    const downloadUrl = data.source.derivativeDownloadUrl;
+    if (!downloadUrl) return [];
+    assert.match(downloadUrl, /^\/map-boundaries\/[a-z]+\.geojson$/);
+    assert.equal(data.source.license, 'ODbL 1.0');
+    return [{ path: new URL(`public${downloadUrl}`, root), data }];
+});
 const outputs = [
     { path: outputPath, data: output },
     ...reportingAreaOutputs,
+    ...boundaryDownloads,
 ].map(({ path, data }) => ({
     path,
     bytes: Buffer.from(JSON.stringify(data) + '\n'),

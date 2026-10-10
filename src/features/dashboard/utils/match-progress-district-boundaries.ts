@@ -11,6 +11,26 @@ export type ProgressDistrictFill = {
     geometry: MultiPolygon;
 };
 
+export type ProgressMapPlacement = {
+    source: readonly ProgressDistrict[];
+    unplaced: readonly ProgressDistrict[];
+};
+
+/** An area can be mapped from a known boundary even without a point location. */
+export function progressMapPlacement(
+    districts: readonly ProgressDistrict[],
+    fills: readonly ProgressDistrictFill[],
+): ProgressMapPlacement {
+    const filledKeys = new Set(fills.map(fill => fill.district.key));
+    return {
+        source: districts,
+        unplaced: districts.filter(
+            district =>
+                district.position === null && !filledKeys.has(district.key),
+        ),
+    };
+}
+
 /** Only source-reviewed alternative names may be supplied by the local atlas. */
 export type ProgressAreaBoundary = Boundary & {
     aliases?: readonly string[];

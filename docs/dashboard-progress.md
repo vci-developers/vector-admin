@@ -4,7 +4,9 @@ The default Progress view opens on Uganda and the last three completed months.
 It shows active reporting locations, image scans, a map of reporting activity,
 and monthly scans. Selecting a district updates the headline figures and monthly
 chart together. Developers can explicitly switch to Internal. The coverage
-footnote reads “Locations reporting during the selected period.”
+footnote reads “Locations reporting during the selected period.” The scan
+footnote explains that each image counts as one scan, including multiple images
+of the same specimen.
 
 The presentation emphasizes the two headline figures and a tall district map. At
 desktop widths of 1280 pixels and above, the map and monthly chart sit side by
@@ -15,73 +17,85 @@ geographic context even when external tiles are unavailable. The map refits when
 its viewport changes and keeps map controls accessible. Reporting areas are
 filled using reference polygons at each program's recorded geographic level:
 districts in Uganda and Ghana, Turkana County in Kenya, departments/capital
-district in Colombia, and health districts in Cameroon. Darker shading
-represents larger scan totals, with a stronger selected outline. Reporting-area
-names are bold in the detailed view, with leader lines where needed. Zooming out
-switches to country summaries and hides granular area names, individual markers,
-district hover actions and persistent district tooltips. Country summaries are
-used below zoom 6, and until zoom 7 for compact reporting footprints. Shaded
-reporting polygons remain visible as context. A shaded area means it has
-reporting sites, not that every part has been sampled. Exact normalized
-country/name matches and a small set of explicitly reviewed, country-scoped
-aliases preserve the original reporting counts; ambiguous or unmatched names
-never receive a guessed polygon. Known boundaries can be drawn even when a
-reporting record has no point coordinates. The additional boundary registry
-covers the 18 reporting areas registered in the approved site metadata for
-Colombia, Ghana, Kenya and Cameroon. Further unmatched names retain reporting
-points. Its overview summarizes each reporting country with a compact label. The
-map caption explains that selecting an area reveals its reporting locations and
-scans. If an area has no point coordinates, the note identifies its name and
-country, using “Area not recorded” when its name is missing. These records stay
-in all scan totals and monthly charts, including when a known boundary can still
-be shaded. Generic introductory copy, the duplicate chart note and the visible
-surveillance-scope footer have been removed; counting definitions remain in the
-collapsed explanation. Country and point-group activation only zooms, without
-changing the reporting filters or making another data request. District areas
-support hover, click, Enter and Space, keeping the original district's exact
-counts. Labels avoid other markers, controls and each other. Only mapped
-districts contribute to map group totals; other data remains in the headline and
-chart totals. Monthly charts show exact values above every bar. Long ranges use
-a horizontally scrollable chart with adequate space for each month and its
-value. Chart sizing uses Recharts' native responsive chart support, avoiding its
-legacy responsive container's unmeasured negative initial dimensions. The
-monthly chart is 280 pixels tall on desktop, 260 on tablets and 220 on phones.
-The geographic scan breakdown takes the freed space beside the fixed-height map;
-on stacked layouts its list can use up to 440 pixels before scrolling. The
-design keeps the same metrics across desktop and mobile. The reporting-program
-dropdown supports multiple selections, with country names above actual program
-names. Its authorized program list is supplied with the page so the selector can
-be used before reporting totals arrive. Geographic coverage shows a total above
-individual country/program counts, including when Uganda, Ghana and Kenya all
-count households. Programs remain separate even within the same country. A
-shared reporting unit keeps its specific headline label; mixed units use “active
-reporting locations” and retain each program's unit beside its numeric count.
-This total sums program-specific locations at their reviewed reporting levels,
-rather than claiming an equivalent household count or deduplicating physical
-sites across programs. An incomplete total remains unavailable while individual
-known counts are shown. Both cards share their heading, total, breakdown and
-footer grid tracks, with matching row typography. Long program names truncate
-with their full names available in the title, preserving aligned row dividers.
-The “Data captured” card includes per-program image scan counts and their total,
-retaining zero-count programs and labeling unavailable programs explicitly.
-Shared reporting areas keep each program's original image counts rather than
-inferring attribution from coverage. The space beneath the chart shows “Where
-scans come from”: the six highest-volume reporting areas across the selected
-programs and period, with exact image scan counts and small comparison bars.
-Selecting a row focuses its reporting area using the already loaded data; the
-comparison continues to show all selected programs. Areas without map
-coordinates or a recorded area name remain eligible, and the list scrolls within
-the available desktop panel height. Areas with zero scans remain in reporting
-coverage but have no scan contribution to rank. The map canvas retains its
-existing fixed height at each breakpoint. Map panning is bounded by the
-displayed country mainland outlines and located reporting points, with a 20%
-framing margin (at least one degree), clamped to world/Mercator limits. The
-minimum zoom adapts to the viewport and extent while retaining the country
-overview; maximum zoom is 12. Hard drag bounds and non-wrapping tiles prevent
-drifting into duplicate worlds. Touch pinch and map-local trackpad pinch zoom
-around their gesture anchor and obey the same limits. Unmodified wheel scrolling
-remains page scrolling. Navigation limits update for changed geography or
-viewport size, without refitting on ordinary pan or zoom.
+district in Colombia, and health districts in Cameroon. Shading progresses from
+pale mint through bright emerald to deep teal as scan totals increase, using one
+continuous scale across the displayed countries. Selection and hover emphasize
+outlines while preserving volume colors. Reporting-area names are bold in the
+detailed view, with leader lines where needed. Zooming out switches to country
+summaries and hides granular area names, individual markers, district hover
+actions and persistent district tooltips. Country summaries are used below zoom
+6, and until zoom 7 for compact reporting footprints. Shaded reporting polygons
+remain visible as context. A shaded area means it has reporting sites, not that
+every part has been sampled. Exact normalized country/name matches and a small
+set of explicitly reviewed, country-scoped aliases preserve the original
+reporting counts; ambiguous or unmatched names never receive a guessed polygon.
+Known boundaries can be drawn even when a reporting record has no point
+coordinates. The additional boundary registry covers the 18 reporting areas
+registered in the approved site metadata for Colombia, Ghana, Kenya and
+Cameroon. Further unmatched names remain in totals without an assumed map
+position. Its overview summarizes each reporting country with a compact label.
+The map caption explains that selecting an area reveals its reporting locations
+and scans. Placement uses collection-site names and hierarchy to match their
+reporting boundaries. Session GPS describes where a session was conducted and is
+never used to infer where specimens were collected. Known boundaries can be
+shaded without a recorded point. After local country geometry finishes loading,
+the notice lists only areas with neither a usable point nor a matched boundary.
+It identifies the name and country, using “Area not recorded” when its name is
+missing. Unplaced records stay in all scan totals and monthly charts. Notice
+state is tied to the original dashboard response, so a previous selection cannot
+supply the new selection's warning. Generic introductory copy, the duplicate
+chart note and the visible surveillance-scope footer have been removed; counting
+definitions remain in the collapsed explanation. Country and point-group
+activation only zooms, without changing the reporting filters or making another
+data request. District areas support hover, click, Enter and Space, keeping the
+original district's exact counts. Labels avoid other markers, controls and each
+other. Only mapped districts contribute to map group totals; other data remains
+in the headline and chart totals. Monthly charts fit the full selected range
+within the panel without horizontal scrolling. Every month retains its bar,
+including zero-count months; bars narrow for longer ranges. Date labels preserve
+the range's ends and skip crowded intermediate ticks. Exact values appear above
+each bar only when that value fits within its rendered width; narrow bars use
+tooltips without a value above them. Hover and keyboard tooltips retain every
+month's exact count. Chart sizing uses Recharts' native responsive chart
+support, avoiding its legacy responsive container's unmeasured negative initial
+dimensions. The monthly chart is 280 pixels tall on desktop, 260 on tablets and
+220 on phones. The geographic scan breakdown takes the freed space beside the
+fixed-height map; on stacked layouts its list can use up to 440 pixels before
+scrolling. The design keeps the same metrics across desktop and mobile. The
+reporting-program dropdown supports multiple selections, with country names
+above actual program names. Its authorized program list is supplied with the
+page so the selector can be used before reporting totals arrive. Geographic
+coverage shows a total above individual country/program counts, including when
+Uganda, Ghana and Kenya all count households. Programs remain separate even
+within the same country. A shared reporting unit keeps its specific headline
+label; mixed units use “active reporting locations” and retain each program's
+unit beside its numeric count. This total sums program-specific locations at
+their reviewed reporting levels, rather than claiming an equivalent household
+count or deduplicating physical sites across programs. An incomplete total
+remains unavailable while individual known counts are shown. Both cards share
+their heading, total, breakdown and footer grid tracks, with matching row
+typography. Long program names truncate with their full names available in the
+title, preserving aligned row dividers. The “Data captured” card includes
+per-program image scan counts and their total, retaining zero-count programs and
+labeling unavailable programs explicitly. Shared reporting areas keep each
+program's original image counts rather than inferring attribution from coverage.
+The space beneath the chart shows “Where scans come from”: the six
+highest-volume reporting areas across the selected programs and period, with
+exact image scan counts and small comparison bars. Selecting a row focuses its
+reporting area using the already loaded data; the comparison continues to show
+all selected programs. Areas without map coordinates or a recorded area name
+remain eligible, and the list scrolls within the available desktop panel height.
+Areas with zero scans remain in reporting coverage but have no scan contribution
+to rank. The map canvas retains its existing fixed height at each breakpoint.
+Map panning is bounded by the displayed country mainland outlines and located
+reporting points, with a 20% framing margin (at least one degree), clamped to
+world/Mercator limits. The minimum zoom adapts to the viewport and extent while
+retaining the country overview; maximum zoom is 12. Hard drag bounds and
+non-wrapping tiles prevent drifting into duplicate worlds. Touch pinch and
+map-local trackpad pinch zoom around their gesture anchor and obey the same
+limits. Unmodified wheel scrolling remains page scrolling. Navigation limits
+update for changed geography or viewport size, without refitting on ordinary pan
+or zoom.
 
 ## Loading behavior
 
@@ -283,8 +297,11 @@ label change does not invent more reporting sites or change scans. Explicit
 Department/Municipality hierarchy levels and their Spanish equivalents are
 supported alongside the legacy fields. Generic community units remain valid for
 other, unreviewed program models. Summary/browser cache keys now use
-`image-count-v1-locations-v3` so older coverage labels or summaries without
-per-program scan counts cannot remain cached.
+`image-count-v1-locations-v3-site-hierarchy-v1` so older coverage labels,
+summaries without per-program scan counts, or session-GPS-derived placement
+cannot remain cached. Raw snapshot cache keys retain `image-count-v1`; snapshot
+contents and scan counting have not changed, and session GPS is ignored for
+placement and optional during donor loading.
 
 One saved Colombia entry pairs Angostura with Chocó, whereas the
 [official DANE Angostura profile](https://sitios.dane.gov.co/cnpv/app/views/informacion/fichas/05038.pdf)
@@ -378,3 +395,45 @@ Validation passed with all network connections blocked: 430 tests in 66 files,
 TypeScript, targeted ESLint/Prettier and a webpack production build. No
 production records were fetched, and no production mutations or browser sessions
 were made during this refinement.
+
+Collection-site placement now excludes session GPS entirely. The map reports
+only genuinely unplaced records after the selected countries' boundary chunks
+resolve; Antioquia without a point is still mapped through its department
+boundary. Regression tests confirm that session GPS elsewhere, missing GPS and
+unusable GPS do not affect site attribution or reporting counts. Server and
+browser cache versions exclude the previous GPS-derived placement. Validation
+passed with all network connections blocked: 433 tests in 66 files, TypeScript,
+targeted ESLint/Prettier and a webpack production build. No production requests,
+mutations or browser sessions were made for this placement correction.
+
+The Cameroon map uses the Ministry of Health / UNAIDS 2023 health-district
+boundaries, matching the site's recorded health district. Administrative regions
+are not substituted for these health-district areas. The
+[dataset's stated license](https://adr.unaids.org/en/geographic-data-package-3/cameroon-geographic-health-boundaries)
+is [CC BY 3.0 IGO](https://creativecommons.org/licenses/by/3.0/igo/), permitting
+reuse and adaptation, including commercial use, with appropriate attribution, a
+license link and identification of changes, without implying endorsement.
+
+Boundary credits now visibly link to each original source and its specific
+license and disclose display simplification. geoBoundaries credits also link to
+the catalogue's homepage as requested by its
+[web attribution guidance](https://www.geoboundaries.org/). Individual layers
+retain their original licenses: Ghana CC BY 4.0, Kenya Public Domain, and
+Colombia ODbL 1.0. The adapted Colombia boundary dataset is offered at
+`/map-boundaries/colombia.geojson` under ODbL, preserving source notices and
+containing reference geometry only. It is generated by the same offline script
+as the displayed polygons; no scan, session or household data is included.
+
+Trackpad pinch zoom now uses continuous fractional zoom with a short 28 ms
+response, one animation-frame update at a time and one completion event per
+gesture. Sensitivity is about 13.3 normalized wheel pixels per zoom level (40 /
+3), three times the previous 40-pixel setting, so a single pinch covers more
+zoom distance. The adapter uses the installed Leaflet 1.9 TouchZoom rendering
+path instead of repeatedly resetting the entire view. It preserves the pointer's
+geographic anchor and applies the existing pan and zoom bounds on each update.
+Touchscreen pinches no longer snap to quarter zoom levels when released. Tile
+replacements and detailed label layout wait for the gesture to settle; district
+names and their screen-space leader lines are temporarily hidden during zoom.
+Ordinary wheel scrolling continues to scroll the page. Gesture tests cover fine
+input, rapid input, both zoom limits, direction reversals, interrupted
+navigation and cleanup without any network access.

@@ -33,7 +33,7 @@ import {
 
 type ProgressRange = Pick<GetProgressQuery, 'from' | 'to'>;
 type ProgressSummary = Omit<ProgressDashboard, 'programs'>;
-const SCAN_COUNT_VERSION = 'image-count-v1-locations-v3';
+const SCAN_COUNT_VERSION = 'image-count-v1-locations-v3-site-hierarchy-v1';
 
 export async function getProgress(
     query: GetProgressQuery,

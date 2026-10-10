@@ -2,9 +2,8 @@
 
 import type { ProgressMonth } from '@/api/progress/validation/progress-schema';
 import { monthStartDate } from '@/features/dashboard/utils/month-key';
-import { monthlyChartMinimumWidth } from '@/features/dashboard/utils/monthly-chart-minimum-width';
+import { monthlyChartLabelFits } from '@/features/dashboard/utils/monthly-chart-label-fits';
 import { useFormatter } from 'next-intl';
-import { useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -16,41 +15,54 @@ import {
 } from 'recharts';
 import styles from './progress-monthly-chart.module.css';
 
+function MonthlyScanLabels({ months }: { months: ProgressMonth[] }) {
+    const formatter = useFormatter();
+    const values = months.map(month => formatter.number(month.uniqueScans));
+
+    return (
+        <LabelList
+            valueAccessor={(entry, index) => {
+                const value = values[index];
+                return 'width' in entry &&
+                    monthlyChartLabelFits(value, entry.width)
+                    ? value
+                    : undefined;
+            }}
+            position="top"
+            offset={12}
+            fill="var(--progress-ink, var(--foreground))"
+            fontSize={13}
+            fontWeight={600}
+        />
+    );
+}
+
 export default function ProgressMonthlyChart({
     months,
 }: {
     months: ProgressMonth[];
 }) {
     const formatter = useFormatter();
-    const [scrollLeft, setScrollLeft] = useState(0);
     const monthLabel = (month: string, full = false) =>
         formatter.dateTime(monthStartDate(month), {
             month: full ? 'long' : 'short',
             ...(full || months.length > 12 ? { year: 'numeric' as const } : {}),
             timeZone: 'UTC',
         });
-    const minimumWidth = monthlyChartMinimumWidth(
-        months.map(month => ({
-            value: formatter.number(month.uniqueScans),
-            month: monthLabel(month.month),
-        })),
-    );
-
     return (
         <div
-            className={styles.scroller}
+            className={styles.chart}
             role="region"
-            aria-label="Monthly VectorCam scans. Scroll horizontally to see additional months."
+            aria-label="Monthly VectorCam scans for the entire selected period."
             tabIndex={0}
-            onScroll={event => setScrollLeft(event.currentTarget.scrollLeft)}
         >
-            <div className={styles.canvas} style={{ minWidth: minimumWidth }}>
+            <div className={styles.canvas}>
                 <BarChart
                     responsive
                     style={{ width: '100%', height: '100%' }}
                     data={months}
                     margin={{ top: 30, right: 8, bottom: 0, left: -12 }}
-                    barCategoryGap="30%"
+                    barCategoryGap={months.length > 12 ? '15%' : '30%'}
                     accessibilityLayer
                 >
                     <CartesianGrid
@@ -68,7 +80,8 @@ export default function ProgressMonthlyChart({
                             fontSize: 12,
                         }}
                         tickMargin={16}
-                        interval={0}
+                        interval="preserveStartEnd"
+                        minTickGap={16}
                         height={42}
                     />
                     <YAxis
@@ -89,7 +102,7 @@ export default function ProgressMonthlyChart({
                         tickCount={5}
                     />
                     <Tooltip
-                        position={{ x: scrollLeft + 8, y: 8 }}
+                        position={{ x: 8, y: 8 }}
                         cursor={{ fill: 'var(--muted)', radius: 8 }}
                         labelFormatter={month =>
                             monthLabel(String(month), true)
@@ -113,19 +126,13 @@ export default function ProgressMonthlyChart({
                         dataKey="uniqueScans"
                         name="Scans"
                         fill="var(--primary)"
-                        radius={[7, 7, 0, 0]}
+                        radius={
+                            months.length > 12 ? [2, 2, 0, 0] : [7, 7, 0, 0]
+                        }
                         maxBarSize={72}
                         isAnimationActive={false}
                     >
-                        <LabelList
-                            dataKey="uniqueScans"
-                            position="top"
-                            offset={12}
-                            fill="var(--progress-ink, var(--foreground))"
-                            fontSize={13}
-                            fontWeight={600}
-                            formatter={value => formatter.number(Number(value))}
-                        />
+                        <MonthlyScanLabels months={months} />
                     </Bar>
                 </BarChart>
             </div>

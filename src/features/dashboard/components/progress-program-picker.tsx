@@ -75,7 +75,7 @@ export default function ProgressProgramPicker({
                         type="button"
                         disabled={disabled || programs.length === 0}
                         aria-labelledby={`${labelId} ${valueId}`}
-                        className="bg-card text-foreground hover:border-primary/40 focus-visible:ring-ring flex min-h-14 w-full min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-2 text-left transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="bg-card text-foreground hover:border-primary/40 focus-visible:ring-ring flex h-15 w-full min-w-0 items-center justify-between gap-3 rounded-xl border px-3.5 py-1.5 text-left transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         <span id={valueId} className="flex min-w-0 flex-col">
                             <span
@@ -101,9 +101,9 @@ export default function ProgressProgramPicker({
                     align="start"
                     sideOffset={8}
                     aria-label="Choose reporting programs"
-                    className="max-h-[min(28rem,var(--radix-popover-content-available-height))] w-[360px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl p-2 shadow-xl shadow-black/8"
+                    className="max-h-[min(28rem,var(--radix-popover-content-available-height))] w-[480px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl p-2 shadow-xl shadow-black/8"
                 >
-                    <fieldset className="min-w-0">
+                    <fieldset className="grid min-w-0 gap-1">
                         <legend className="sr-only">Reporting programs</legend>
                         {offered.map(program => {
                             const checked = selectedIds.has(program.programId);

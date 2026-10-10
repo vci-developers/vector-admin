@@ -8,7 +8,6 @@ import type {
     ProgressProgramScans,
 } from '@/api/progress/validation/progress-schema';
 import type { Site } from '@/api/site/validation/site-schema';
-import { isInsideCountry } from './country-bounding-boxes';
 import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
 import { siteLocationPath } from './site-location-path';
@@ -116,7 +115,6 @@ function coverageOf(group: CoverageAccumulator): ProgressLocationCoverage {
 type DistrictAccumulator = ProgressDistrict & {
     coverage: Map<number, CoverageAccumulator>;
     scans: Map<number, number>;
-    gps: Position[];
     months: Map<string, ProgressMonth>;
 };
 
@@ -264,7 +262,6 @@ export function buildProgress(
                     latestReceivedAt: null,
                     coverage: new Map(),
                     scans: new Map(),
-                    gps: [],
                     months: new Map(monthly.map(row => [row.month, row])),
                 };
                 districts.set(key, district);
@@ -308,21 +305,6 @@ export function buildProgress(
                 latestReceivedAt ?? session.submittedAt,
                 session.submittedAt,
             );
-            if (
-                districtName !== null &&
-                session.latitude !== null &&
-                session.longitude !== null &&
-                isInsideCountry(
-                    session.latitude,
-                    session.longitude,
-                    program.country,
-                )
-            ) {
-                district.gps.push({
-                    latitude: session.latitude,
-                    longitude: session.longitude,
-                });
-            }
         }
     }
 
@@ -344,7 +326,9 @@ export function buildProgress(
                 .map(([programId, scans]) => ({ programId, scans }))
                 .sort((a, b) => a.programId - b.programId),
             reportingLocations: totalReportingLocations(coverageByProgram),
-            position: district.position ?? meanPosition(district.gps),
+            // Anchors resolve the collection site's named reporting area.
+            // Session GPS describes where the session was conducted.
+            position: district.position,
         };
     });
     rows.sort(
@@ -369,20 +353,5 @@ export function buildProgress(
         monthly,
         lastUpdatedAt: fetchedAt.length ? Math.min(...fetchedAt) : null,
         latestReceivedAt,
-    };
-}
-
-function meanPosition(points: Position[]): Position | null {
-    if (points.length === 0) return null;
-    const total = points.reduce(
-        (sum, point) => ({
-            latitude: sum.latitude + point.latitude,
-            longitude: sum.longitude + point.longitude,
-        }),
-        { latitude: 0, longitude: 0 },
-    );
-    return {
-        latitude: total.latitude / points.length,
-        longitude: total.longitude / points.length,
     };
 }

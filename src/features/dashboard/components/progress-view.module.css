@@ -23,6 +23,12 @@
 }
 
 .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    align-items: start;
+    gap: 16px;
+    width: min(100%, 50.875rem);
+    min-width: 0;
     background: var(--card);
     border: 1px solid var(--progress-line);
     border-radius: 14px;
@@ -30,10 +36,49 @@
     box-shadow: 0 2px 4px rgb(20 55 43 / 2%);
 }
 
-.filters :global(button) {
-    height: 40px;
-    border-radius: 8px;
+.periodFilter {
+    height: 60px;
+    min-width: 0;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
     background: var(--card);
+}
+
+.periodFilter :global(button) {
+    height: 100%;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.periodFilter :global(button[data-size='sm']) {
+    flex: 1;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.periodFilter :global(button[data-size='icon-sm']) {
+    width: 36px;
+    flex-shrink: 0;
+}
+
+.periodFilter :global(button[data-size='icon-sm']:first-child) {
+    border-right: 1px solid var(--border);
+}
+
+.periodFilter :global(button[data-size='icon-sm']:last-child) {
+    border-left: 1px solid var(--border);
+}
+
+.periodFilter :global(button:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: -3px;
 }
 
 .headlineCards {
@@ -354,6 +399,8 @@
 }
 
 .contributionList li + li {
+    margin-top: 2px;
+    padding-top: 2px;
     border-top: 1px solid var(--progress-line);
 }
 
@@ -475,10 +522,6 @@
         width: 100%;
         border-radius: 12px;
         padding: 10px;
-    }
-
-    .filters :global(button) {
-        height: 36px;
     }
 
     .headline {

@@ -14,8 +14,10 @@ export const progressSessionSchema = z.object({
         .transform(value => value ?? ''),
     collectionDate: z.number().nullable(),
     submittedAt: z.number(),
-    latitude: z.number().nullable(),
-    longitude: z.number().nullable(),
+    // Session GPS is not the collection-site location. Preserve compatible
+    // snapshots without requiring usable GPS for donor counts or placement.
+    latitude: z.number().nullish().catch(null),
+    longitude: z.number().nullish().catch(null),
 });
 
 export const progressSessionsPageSchema = z

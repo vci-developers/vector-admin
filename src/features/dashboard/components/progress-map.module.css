@@ -10,6 +10,12 @@
     touch-action: none;
 }
 
+/* Re-place detailed labels after zoom so they do not collide mid-gesture. */
+.canvas[data-map-zooming='true'] .labelLeaders,
+.canvas[data-map-zooming='true'] .districtLabel {
+    visibility: hidden;
+}
+
 .canvas :global(.leaflet-tile-pane) {
     filter: saturate(0.12) brightness(1.03) contrast(0.96);
 }

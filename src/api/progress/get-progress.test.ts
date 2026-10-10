@@ -62,7 +62,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(

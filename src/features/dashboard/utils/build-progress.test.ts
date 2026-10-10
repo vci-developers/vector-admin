@@ -368,7 +368,7 @@ describe('buildProgress', () => {
         expect(data.districts[0].position).toBeNull();
     });
 
-    it('merges canonical district names and prefers committed anchors to upload GPS', () => {
+    it('merges collection-site district names and places them using committed boundaries', () => {
         const data = buildProgress(
             [
                 program({
@@ -523,6 +523,137 @@ describe('buildProgress', () => {
         ).toBeNull();
     });
 
+    it('reconciles Cameroon scans, months and health-district coverage while keeping districts in the same region separate', () => {
+        const sites: Site[] = [
+            {
+                siteId: 1,
+                name: null,
+                locationHierarchy: {
+                    Region: 'Centre',
+                    'Health District': 'Esse',
+                    District: 'Ward A',
+                },
+            },
+            {
+                siteId: 2,
+                name: null,
+                locationHierarchy: {
+                    Region: 'Centre',
+                    'Health District': 'Esse',
+                    District: 'Ward B',
+                },
+            },
+            {
+                siteId: 3,
+                name: null,
+                locationHierarchy: {
+                    Region: 'Centre',
+                    'Health District': 'Mbandjock',
+                },
+            },
+            {
+                siteId: 4,
+                name: null,
+                locationHierarchy: {
+                    Region: 'North',
+                    'Health District': 'Lagdo',
+                },
+            },
+            {
+                siteId: 5,
+                name: null,
+                locationHierarchy: { 'Health District': 'Unmapped district' },
+            },
+            {
+                siteId: 6,
+                name: null,
+                locationHierarchy: {
+                    Region: 'Ouest',
+                    'Health District': 'Foumbot',
+                },
+            },
+        ];
+        const data = buildProgress(
+            [
+                program(
+                    {
+                        sites,
+                        sessions: sites.map(({ siteId }) =>
+                            session(siteId, {
+                                siteId,
+                                collectionDate: siteId <= 2 ? FEB : MAR,
+                                latitude: 40.7,
+                                longitude: -74,
+                            }),
+                        ),
+                        specimens: [
+                            {
+                                id: 1,
+                                sessionId: 1,
+                                images: [{ id: 10 }, { id: 11 }],
+                            },
+                            { id: 2, sessionId: 2, images: [{ id: 12 }] },
+                            { id: 3, sessionId: 3, images: [{ id: 13 }] },
+                            { id: 4, sessionId: 4, images: [{ id: 14 }] },
+                            { id: 5, sessionId: 5, images: [{ id: 15 }] },
+                        ],
+                    },
+                    6,
+                    'Cameroon',
+                ),
+            ],
+            { from: '2026-02', to: '2026-03' },
+        );
+
+        expect(data.uniqueScans).toBe(6);
+        expect(data.scansByProgram).toEqual([{ programId: 6, scans: 6 }]);
+        expect(data.coverageByProgram).toEqual([
+            { programId: 6, unit: 'health-district', count: 5 },
+        ]);
+        expect(data.monthly).toEqual([
+            { month: '2026-02', uniqueScans: 3 },
+            { month: '2026-03', uniqueScans: 3 },
+        ]);
+        expect(
+            data.districts.map(area => ({
+                name: area.name,
+                scans: area.uniqueScans,
+                locations: area.reportingLocations,
+                position: area.position,
+            })),
+        ).toEqual([
+            { name: 'Esse', scans: 3, locations: 1, position: null },
+            { name: 'Foumbot', scans: 0, locations: 1, position: null },
+            { name: 'Lagdo', scans: 1, locations: 1, position: null },
+            { name: 'Mbandjock', scans: 1, locations: 1, position: null },
+            {
+                name: 'Unmapped',
+                scans: 1,
+                locations: 1,
+                position: null,
+            },
+        ]);
+        expect(
+            data.districts.reduce((total, area) => total + area.uniqueScans, 0),
+        ).toBe(data.uniqueScans);
+        expect(
+            data.districts.reduce(
+                (total, area) => total + (area.reportingLocations ?? 0),
+                0,
+            ),
+        ).toBe(data.reportingLocations);
+        for (const month of data.monthly)
+            expect(
+                data.districts.reduce(
+                    (total, area) =>
+                        total +
+                        (area.monthly.find(row => row.month === month.month)
+                            ?.uniqueScans ?? 0),
+                    0,
+                ),
+            ).toBe(month.uniqueScans);
+    });
+
     it('keeps unlike program units separate rather than adding households to municipalities', () => {
         const data = buildProgress(
             [
@@ -654,7 +785,7 @@ describe('buildProgress', () => {
         expect(data.uniqueScans).toBe(2);
     });
 
-    it('pools valid GPS across contributing programs when a district has no boundary anchor', () => {
+    it('leaves site areas without a boundary anchor unplaced even when session GPS is available', () => {
         const data = buildProgress(
             [
                 program(
@@ -681,8 +812,48 @@ describe('buildProgress', () => {
             programId: 7,
             programIds: [7, 8],
         });
-        expect(data.districts[0].position?.latitude).toBeCloseTo(2.9);
-        expect(data.districts[0].position?.longitude).toBeCloseTo(32.8);
+        expect(data.districts[0].name).toBe('Gulu');
+        expect(data.districts[0].position).toBeNull();
+    });
+
+    it('keeps collection-site attribution, placement and counts identical when session GPS is elsewhere or absent', () => {
+        const source = program({
+            sessions: [
+                session(1, { latitude: 40.7, longitude: -74 }),
+                session(2, { siteId: 2, latitude: 2.77, longitude: 32.3 }),
+            ],
+            specimens: [
+                { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
+                { id: 2, sessionId: 2, images: [{ id: 20 }] },
+            ],
+        });
+        const withoutGps = {
+            ...source,
+            snapshot: {
+                ...source.snapshot,
+                sessions: source.snapshot.sessions.map(row => ({
+                    ...row,
+                    latitude: undefined,
+                    longitude: undefined,
+                })),
+            },
+        };
+        const range = { from: '2026-02', to: '2026-02' };
+        const anchor = { latitude: 2.8, longitude: 32.4 };
+        const anchors = new Map([['uganda:gulu', anchor]]);
+        const result = buildProgress([source], range, anchors);
+
+        expect(result).toEqual(buildProgress([withoutGps], range, anchors));
+        expect(result.uniqueScans).toBe(3);
+        expect(result.reportingLocations).toBe(2);
+        expect(result.districts).toHaveLength(1);
+        expect(result.districts[0]).toMatchObject({
+            key: 'uganda:gulu',
+            name: 'Gulu',
+            position: anchor,
+            reportingLocations: 2,
+            uniqueScans: 3,
+        });
     });
 
     it('keeps unknown district buckets per program without merging them geographically', () => {

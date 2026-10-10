@@ -113,7 +113,7 @@ export default function ProgressCoverageHeadline({
             ) : null}
             <p className={styles.headlineDescription}>
                 {coverage.length > 0 && total === null
-                    ? 'Coverage unavailable for some programs.'
+                    ? 'Coverage unavailable for some programs. Available counts are shown in the breakdown.'
                     : 'Locations reporting during the selected period.'}
             </p>
         </article>

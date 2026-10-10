@@ -87,7 +87,10 @@ export default function ProgressScansHeadline({
                     {singleProgram.country} · {singleProgram.name}
                 </p>
             ) : null}
-            <p className={styles.headlineDescription}>One image is one scan.</p>
+            <p className={styles.headlineDescription}>
+                One image is one scan. A specimen with two images contributes
+                two scans.
+            </p>
         </article>
     );
 }

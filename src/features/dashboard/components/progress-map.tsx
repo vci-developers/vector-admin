@@ -10,7 +10,16 @@ import {
     type ProgressMapNode,
 } from '@/features/dashboard/utils/build-progress-map-nodes';
 import { coverageLabelPoint } from '@/features/dashboard/utils/coverage-label-point';
+import { createProgressPinchZoom } from '@/features/dashboard/utils/create-progress-pinch-zoom';
+import {
+    progressScanFillColor,
+    PROGRESS_SCAN_FILL_OPACITY,
+} from '@/features/dashboard/utils/progress-map-colors';
 import { formatProgressLocations } from '@/features/dashboard/utils/format-progress-locations';
+import {
+    progressBoundaryAttribution,
+    type ProgressBoundarySource,
+} from '@/features/dashboard/utils/progress-boundary-attribution';
 import {
     multiPolygonSchema,
     type MultiPolygon,
@@ -18,9 +27,11 @@ import {
 import {
     matchProgressDistrictBoundaries,
     progressAreaBoundaries,
+    progressMapPlacement,
     type ProgressAreaBoundary,
     type ProgressAreaFeatureCollection,
     type ProgressDistrictFill,
+    type ProgressMapPlacement,
 } from '@/features/dashboard/utils/match-progress-district-boundaries';
 import {
     placeLabels,
@@ -32,7 +43,6 @@ import {
     type CountryCardPlacement,
 } from '@/features/dashboard/utils/place-country-cards';
 import {
-    clampProgressMapZoom,
     progressMapExtent,
     progressMapMinimumZoom,
     PROGRESS_MAP_MAX_ZOOM,
@@ -54,6 +64,26 @@ import styles from './progress-map.module.css';
 
 const number = new Intl.NumberFormat('en');
 const UGANDA_CENTER: L.LatLngTuple = [1.5, 32.3];
+const TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL = 40 / 3;
+
+// Isolate the Leaflet 1.9 continuous-gesture methods used by its TouchZoom
+// handler. Unlike setZoomAround, _move transforms layers without a full reset.
+type ContinuousPinchMap = L.Map & {
+    _stop: () => void;
+    _moveStart: (zoomChanged: boolean, noMoveStart: boolean) => void;
+    _move: (
+        center: L.LatLng,
+        zoom: number,
+        options: { pinch: true; round: false },
+    ) => void;
+    _moveEnd: (zoomChanged: boolean) => void;
+    _limitCenter: (
+        center: L.LatLng,
+        zoom: number,
+        bounds: L.LatLngBounds | undefined,
+    ) => L.LatLng;
+    _animatingZoom?: boolean;
+};
 
 type CountryGeometry = { country: string; geometry: MultiPolygon };
 const COUNTRY_GEOMETRIES: CountryGeometry[] = localGeography.outlines.map(
@@ -74,7 +104,7 @@ const DISTRICT_BOUNDARIES = new Map<string, ProgressAreaBoundary[]>([
 ]);
 
 type ReportingAreaFile = ProgressAreaFeatureCollection & {
-    source: { sourceUrl: string; attribution: string; provider: string };
+    source: ProgressBoundarySource;
 };
 const AREA_LOADERS: Record<string, () => Promise<ReportingAreaFile>> = {
     Ghana: () =>
@@ -116,12 +146,8 @@ function districtStyle(
         color: selected ? '#075341' : '#168367',
         weight: selected ? 2.7 : 1.35,
         opacity: selected ? 1 : 0.9,
-        fillColor: selected ? '#13aa80' : '#2fbe94',
-        fillOpacity: selected
-            ? 0.94
-            : district.uniqueScans === 0
-              ? 0.3
-              : 0.5 + 0.34 * Math.sqrt(district.uniqueScans / maximum),
+        fillColor: progressScanFillColor(district.uniqueScans, maximum),
+        fillOpacity: PROGRESS_SCAN_FILL_OPACITY,
         bubblingMouseEvents: false,
     };
 }
@@ -230,11 +256,6 @@ function ReportingDistrictAreas({
                                                   ...style,
                                                   color: '#146e5e',
                                                   weight: 1.9,
-                                                  fillOpacity: Math.min(
-                                                      0.91,
-                                                      (style.fillOpacity ??
-                                                          0.5) + 0.1,
-                                                  ),
                                               });
                                       },
                                       mouseout: event =>
@@ -1102,59 +1123,83 @@ function ReportingNavigation({
 
     useEffect(() => {
         const container = map.getContainer();
-        let targetZoom: number | null = null;
-        let anchor: L.Point | null = null;
-        let frame: number | null = null;
-        let lastWheelAt = 0;
+        const continuousMap = map as ContinuousPinchMap;
         let applying = false;
+        const apply = (callback: () => void) => {
+            applying = true;
+            try {
+                callback();
+            } finally {
+                applying = false;
+            }
+        };
+        const gesture = createProgressPinchZoom<L.Point>({
+            getZoom: () => map.getZoom(),
+            getMinZoom: () => map.getMinZoom(),
+            getMaxZoom: () => map.getMaxZoom(),
+            start: () =>
+                apply(() => {
+                    continuousMap._stop();
+                    continuousMap._moveStart(true, false);
+                }),
+            move: (zoom, anchor) =>
+                apply(() => {
+                    const half = map.getSize().divideBy(2);
+                    const offset = anchor
+                        .subtract(half)
+                        .multiplyBy(1 - 1 / map.getZoomScale(zoom));
+                    const center = map.containerPointToLatLng(half.add(offset));
+                    const bounded = continuousMap._limitCenter(
+                        center,
+                        zoom,
+                        map.options.maxBounds as L.LatLngBounds | undefined,
+                    );
+                    continuousMap._move(bounded, zoom, {
+                        pinch: true,
+                        round: false,
+                    });
+                }),
+            finish: () =>
+                apply(() => {
+                    // Release deferred tile updates and redraw paths/labels once.
+                    map.fire('zoom');
+                    continuousMap._moveEnd(true);
+                }),
+        });
         const resetGesture = () => {
-            if (applying) return;
-            targetZoom = null;
-            if (frame !== null) cancelAnimationFrame(frame);
-            frame = null;
+            if (!applying) gesture.cancel(true);
+        };
+        const markZooming = () => {
+            container.dataset.mapZooming = 'true';
+        };
+        const markSettled = () => {
+            delete container.dataset.mapZooming;
         };
         const pinchWheel = (event: WheelEvent) => {
             if (!event.ctrlKey) return;
             event.preventDefault();
             event.stopPropagation();
-            const now = performance.now();
-            if (now - lastWheelAt > 200) targetZoom = null;
-            lastWheelAt = now;
-            targetZoom = clampProgressMapZoom(
-                (targetZoom ?? map.getZoom()) +
-                    L.DomEvent.getWheelDelta(event) /
-                        (map.options.wheelPxPerZoomLevel ?? 60),
-                map.getMinZoom(),
-                map.getMaxZoom(),
+            if (continuousMap._animatingZoom) return;
+            gesture.zoomBy(
+                L.DomEvent.getWheelDelta(event) /
+                    (map.options.wheelPxPerZoomLevel ??
+                        TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL),
+                map.mouseEventToContainerPoint(event),
             );
-            anchor = map.mouseEventToContainerPoint(event);
-            if (frame !== null) return;
-            frame = requestAnimationFrame(() => {
-                frame = null;
-                if (targetZoom === null || !anchor) return;
-                const snap = map.options.zoomSnap ?? 0.25;
-                const zoom = clampProgressMapZoom(
-                    snap ? Math.round(targetZoom / snap) * snap : targetZoom,
-                    map.getMinZoom(),
-                    map.getMaxZoom(),
-                );
-                if (map.getZoom() === zoom) return;
-                applying = true;
-                try {
-                    map.setZoomAround(anchor, zoom, { animate: false });
-                } finally {
-                    applying = false;
-                }
-            });
         };
         // Chromium trackpad pinches arrive as ctrl+wheel. Plain scrolling stays
         // with the page; only map-local pinch gestures suppress browser zoom.
         container.addEventListener('wheel', pinchWheel, { passive: false });
         map.on('movestart zoomstart', resetGesture);
+        map.on('zoomstart', markZooming);
+        map.on('zoomend', markSettled);
         return () => {
             container.removeEventListener('wheel', pinchWheel);
             map.off('movestart zoomstart', resetGesture);
-            resetGesture();
+            map.off('zoomstart', markZooming);
+            map.off('zoomend', markSettled);
+            gesture.cancel();
+            markSettled();
         };
     }, [map]);
     return null;
@@ -1296,10 +1341,12 @@ export default function ProgressMap({
     districts,
     selectedKey,
     onSelect,
+    onPlacementChange,
 }: {
     districts: ProgressDistrict[];
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
+    onPlacementChange?: (placement: ProgressMapPlacement) => void;
 }) {
     const countryKey = [...new Set(districts.map(district => district.country))]
         .toSorted()
@@ -1315,11 +1362,9 @@ export default function ProgressMap({
             missing.map(async country => {
                 try {
                     const file = await AREA_LOADERS[country]();
-                    const provider =
-                        country === 'Cameroon' ? 'UNAIDS' : 'geoBoundaries';
                     AREA_CACHE.set(country, {
                         boundaries: progressAreaBoundaries(file),
-                        attribution: `<a href="${escapeHtml(file.source.sourceUrl)}" title="${escapeHtml(file.source.attribution)}">${escapeHtml(country)}: ${provider}</a>`,
+                        attribution: progressBoundaryAttribution(file.source),
                     });
                 } catch {
                     // A failed optional boundary chunk keeps recorded point fallback.
@@ -1367,6 +1412,12 @@ export default function ProgressMap({
         () => matchProgressDistrictBoundaries(districts, boundaries),
         [districts, boundaries],
     );
+    useEffect(() => {
+        // Wait for the selected countries' local boundary chunks before
+        // declaring an area unplaced. The source ties the notice to this DTO.
+        if (!loadingAreas)
+            onPlacementChange?.(progressMapPlacement(districts, fills));
+    }, [districts, fills, loadingAreas, onPlacementChange]);
     const mappedDistricts = useMemo(
         () =>
             districts.map(district => {
@@ -1420,13 +1471,16 @@ export default function ProgressMap({
             maxZoom={PROGRESS_MAP_MAX_ZOOM}
             worldCopyJump={false}
             className={styles.canvas}
-            zoomSnap={0.25}
+            zoomSnap={0}
             zoomDelta={0.5}
+            wheelPxPerZoomLevel={TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL}
         >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                 maxZoom={19}
+                updateWhenIdle
+                updateWhenZooming={false}
                 noWrap
                 opacity={0.58}
                 errorTileUrl={L.Util.emptyImageUrl}
