@@ -113,16 +113,19 @@ async function loadLastGood(): Promise<
  * The team's coverage workbook from SharePoint, re-read every minute or so.
  * When SharePoint fails or the workbook is invalid: the last workbook that
  * loaded (kept in the blob store), else the committed copy. Errors only if
- * all three fail.
+ * all three fail. Read-only consumers can load plans without updating the
+ * stored fallback; the boolean also gives that mode its own cache entry.
  */
-export async function loadCoverage(): Promise<Result<LoadedCoverage, string>> {
+export async function loadCoverage(
+    readOnly = false,
+): Promise<Result<LoadedCoverage, string>> {
     'use cache';
     cacheTag(COVERAGE_TAG);
     cacheLife('minutes');
 
     const live = await loadLive();
     if (live.ok) {
-        await storeLastGoodWorkbook(live.data.file);
+        if (!readOnly) await storeLastGoodWorkbook(live.data.file);
         return ok({
             figures: live.data.figures,
             source: 'live',

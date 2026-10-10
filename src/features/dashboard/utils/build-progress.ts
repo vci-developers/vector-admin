@@ -1,0 +1,388 @@
+import type { ProgressSnapshot } from '@/api/admin/load-progress-snapshot';
+import type { Program } from '@/api/program/validation/program-schema';
+import type {
+    ProgressDistrict,
+    ProgressCoverageUnit,
+    ProgressLocationCoverage,
+    ProgressMonth,
+    ProgressProgramScans,
+} from '@/api/progress/validation/progress-schema';
+import type { Site } from '@/api/site/validation/site-schema';
+import { isInsideCountry } from './country-bounding-boxes';
+import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
+import type { ResolvedRange } from './resolve-reporting-range';
+import { siteLocationPath } from './site-location-path';
+import {
+    mergeLocationCoverage,
+    progressLocationIdentity,
+    progressLocationUnit,
+    totalReportingLocations,
+} from './progress-location-policy';
+
+export type ProgressProgramData = {
+    program: Program;
+    snapshot: ProgressSnapshot;
+};
+type Position = NonNullable<ProgressDistrict['position']>;
+
+const UNKNOWN_DISTRICT = 'District not recorded';
+const UNKNOWN_KEY = 'unknown';
+
+const normalize = (value: string) =>
+    value
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, ' ');
+
+function cleanName(value: string | null | undefined): string | null {
+    const name = value?.trim().replace(/\s+/g, ' ');
+    return name && name.toUpperCase() !== 'N/A' ? name : null;
+}
+
+/** Use the program's reporting area without promoting Region-only parent nodes. */
+export function progressDistrictName(
+    site: Site | undefined,
+    unit?: ProgressCoverageUnit,
+): string | null {
+    if (!site) return null;
+    if (unit === 'municipality') {
+        const department = Object.entries(site.locationHierarchy).find(
+            ([level]) =>
+                ['department', 'departamento'].includes(normalize(level)),
+        )?.[1];
+        if (cleanName(department)) return cleanName(department);
+    }
+    const district = Object.entries(site.locationHierarchy).find(
+        ([level]) => normalize(level) === 'district',
+    )?.[1];
+    const healthDistrict = Object.entries(site.locationHierarchy).find(
+        ([level]) =>
+            normalize(level).replace(/[^a-z]/g, '') === 'healthdistrict',
+    )?.[1];
+    if (unit === 'health-district')
+        return (
+            cleanName(healthDistrict)?.replace(
+                /\s+(?:health\s+)?district$/i,
+                '',
+            ) ?? null
+        );
+    return (
+        (
+            cleanName(district) ??
+            cleanName(site.district) ??
+            cleanName(healthDistrict)
+        )?.replace(/\s+(?:health\s+)?district$/i, '') ?? null
+    );
+}
+
+export function progressDistrictKey(
+    country: string,
+    district: string | null,
+    programId: number,
+): string {
+    return district === null
+        ? `${normalize(country)}:${programId}:${UNKNOWN_KEY}`
+        : `${normalize(country)}:${normalize(district.replace(/\s+district$/i, ''))}`;
+}
+
+function isTestSite(site: Site | undefined): boolean {
+    return (
+        normalize(progressDistrictName(site) ?? '') === 'other' ||
+        normalize(site ? (siteLocationPath(site)[0]?.name ?? '') : '') ===
+            'other'
+    );
+}
+
+const emptyMonths = (months: string[]): ProgressMonth[] =>
+    months.map(month => ({ month, uniqueScans: 0 }));
+
+type CoverageAccumulator = {
+    programId: number;
+    unit: ProgressCoverageUnit;
+    locations: Set<string>;
+    incomplete: boolean;
+};
+
+function coverageOf(group: CoverageAccumulator): ProgressLocationCoverage {
+    return {
+        programId: group.programId,
+        unit: group.unit,
+        count: group.incomplete ? null : group.locations.size,
+    };
+}
+
+type DistrictAccumulator = ProgressDistrict & {
+    coverage: Map<number, CoverageAccumulator>;
+    scans: Map<number, number>;
+    gps: Position[];
+    months: Map<string, ProgressMonth>;
+};
+
+/**
+ * All figures come from surveillance sessions, including zero catches and
+ * sessions without GPS. Scan, location, district and month totals therefore
+ * reconcile regardless of whether a district can be drawn on the map.
+ */
+export function prepareProgressData(
+    programs: ProgressProgramData[],
+    range: ResolvedRange,
+) {
+    const prepared = programs.map(({ program, snapshot }) => {
+        const sites = new Map(snapshot.sites.map(site => [site.siteId, site]));
+        const timeZone = programTimeZone(snapshot.collectionCycles);
+        const sessions = [
+            ...new Map(
+                snapshot.sessions.map(session => [session.sessionId, session]),
+            ).values(),
+        ]
+            // The URL and even a backend filter cannot widen donor scope.
+            .filter(
+                session =>
+                    session.type === 'SURVEILLANCE' &&
+                    !isTestSite(sites.get(session.siteId)),
+            )
+            .map(session => ({
+                ...session,
+                month: monthKeyOf(
+                    session.collectionDate ?? session.submittedAt,
+                    timeZone,
+                ),
+            }));
+        const scansBySession = new Map<number, number>();
+        const seenImages = new Set<number>();
+        const eligibleSessions = new Set(
+            sessions
+                .filter(
+                    session =>
+                        session.month <= range.to &&
+                        (!range.from || session.month >= range.from),
+                )
+                .map(session => session.sessionId),
+        );
+        for (const specimen of new Map(
+            snapshot.specimens.map(specimen => [specimen.id, specimen]),
+        ).values()) {
+            if (!eligibleSessions.has(specimen.sessionId)) continue;
+            let scans = 0;
+            for (const image of specimen.images) {
+                if (seenImages.has(image.id)) continue;
+                seenImages.add(image.id);
+                scans += 1;
+            }
+            scansBySession.set(
+                specimen.sessionId,
+                (scansBySession.get(specimen.sessionId) ?? 0) + scans,
+            );
+        }
+        return { program, snapshot, sites, sessions, scansBySession };
+    });
+
+    const earliest = prepared
+        .flatMap(({ sessions }) => sessions.map(session => session.month))
+        .filter(month => month <= range.to)
+        .reduce<string | undefined>(
+            (first, month) => (!first || month < first ? month : first),
+            undefined,
+        );
+    const from = range.from ?? earliest ?? range.to;
+    return {
+        from,
+        to: range.to,
+        programs: prepared.map(programData => ({
+            ...programData,
+            sessions: programData.sessions.filter(
+                session => session.month >= from && session.month <= range.to,
+            ),
+        })),
+    };
+}
+
+export function buildProgress(
+    programs: ProgressProgramData[],
+    range: ResolvedRange,
+    anchors: Map<string, Position> = new Map(),
+) {
+    const {
+        from,
+        to,
+        programs: prepared,
+    } = prepareProgressData(programs, range);
+    const months = monthsInRange(from, to);
+    const monthly = emptyMonths(months);
+    const monthTotals = new Map(monthly.map(row => [row.month, row]));
+    const districts = new Map<string, DistrictAccumulator>();
+    const coverage: CoverageAccumulator[] = [];
+    const scansByProgram: ProgressProgramScans[] = [];
+    let uniqueScans = 0;
+    let latestReceivedAt: number | null = null;
+
+    for (const {
+        program,
+        snapshot,
+        sites,
+        sessions,
+        scansBySession,
+    } of prepared) {
+        const unit = progressLocationUnit(program, snapshot.sites);
+        const programCoverage: CoverageAccumulator = {
+            programId: program.programId,
+            unit,
+            locations: new Set(),
+            incomplete: false,
+        };
+        coverage.push(programCoverage);
+        const programScans = { programId: program.programId, scans: 0 };
+        scansByProgram.push(programScans);
+        for (const session of sessions) {
+            const site = sites.get(session.siteId);
+            const districtName = progressDistrictName(site, unit);
+            const key = progressDistrictKey(
+                program.country,
+                districtName,
+                program.programId,
+            );
+            let district = districts.get(key);
+            if (!district) {
+                const monthly = emptyMonths(months);
+                district = {
+                    key,
+                    programId: program.programId,
+                    programIds: [program.programId],
+                    country: program.country,
+                    name: districtName ?? UNKNOWN_DISTRICT,
+                    coverageByProgram: [],
+                    scansByProgram: [],
+                    reportingLocations: 0,
+                    uniqueScans: 0,
+                    monthly,
+                    position:
+                        districtName === null
+                            ? null
+                            : (anchors.get(key) ?? null),
+                    latestReceivedAt: null,
+                    coverage: new Map(),
+                    scans: new Map(),
+                    gps: [],
+                    months: new Map(monthly.map(row => [row.month, row])),
+                };
+                districts.set(key, district);
+            }
+            if (!district.programIds.includes(program.programId)) {
+                district.programIds.push(program.programId);
+            }
+
+            const districtCoverage = district.coverage.get(
+                program.programId,
+            ) ?? {
+                programId: program.programId,
+                unit,
+                locations: new Set<string>(),
+                incomplete: false,
+            };
+            district.coverage.set(program.programId, districtCoverage);
+            const location = progressLocationIdentity(program, unit, site);
+            if (location === null) {
+                programCoverage.incomplete = true;
+                districtCoverage.incomplete = true;
+            } else {
+                districtCoverage.locations.add(location);
+                programCoverage.locations.add(location);
+            }
+            const count = scansBySession.get(session.sessionId) ?? 0;
+            programScans.scans += count;
+            district.scans.set(
+                program.programId,
+                (district.scans.get(program.programId) ?? 0) + count,
+            );
+            district.uniqueScans += count;
+            district.months.get(session.month)!.uniqueScans += count;
+            monthTotals.get(session.month)!.uniqueScans += count;
+            uniqueScans += count;
+            district.latestReceivedAt = Math.max(
+                district.latestReceivedAt ?? session.submittedAt,
+                session.submittedAt,
+            );
+            latestReceivedAt = Math.max(
+                latestReceivedAt ?? session.submittedAt,
+                session.submittedAt,
+            );
+            if (
+                districtName !== null &&
+                session.latitude !== null &&
+                session.longitude !== null &&
+                isInsideCountry(
+                    session.latitude,
+                    session.longitude,
+                    program.country,
+                )
+            ) {
+                district.gps.push({
+                    latitude: session.latitude,
+                    longitude: session.longitude,
+                });
+            }
+        }
+    }
+
+    const rows: ProgressDistrict[] = [...districts.values()].map(district => {
+        const coverageByProgram = mergeLocationCoverage(
+            [...district.coverage.values()].map(coverageOf),
+        );
+        return {
+            key: district.key,
+            programId: Math.min(...district.programIds),
+            programIds: district.programIds.sort((a, b) => a - b),
+            country: district.country,
+            name: district.name,
+            uniqueScans: district.uniqueScans,
+            monthly: district.monthly,
+            latestReceivedAt: district.latestReceivedAt,
+            coverageByProgram,
+            scansByProgram: [...district.scans]
+                .map(([programId, scans]) => ({ programId, scans }))
+                .sort((a, b) => a.programId - b.programId),
+            reportingLocations: totalReportingLocations(coverageByProgram),
+            position: district.position ?? meanPosition(district.gps),
+        };
+    });
+    rows.sort(
+        (a, b) =>
+            a.country.localeCompare(b.country) ||
+            a.name.localeCompare(b.name) ||
+            a.programId - b.programId,
+    );
+    const fetchedAt = programs.map(({ snapshot }) => snapshot.fetchedAt);
+    const coverageByProgram = mergeLocationCoverage(coverage.map(coverageOf));
+
+    return {
+        from,
+        to,
+        coverageByProgram,
+        scansByProgram: scansByProgram.sort(
+            (a, b) => a.programId - b.programId,
+        ),
+        reportingLocations: totalReportingLocations(coverageByProgram),
+        uniqueScans: programs.length ? uniqueScans : null,
+        districts: rows,
+        monthly,
+        lastUpdatedAt: fetchedAt.length ? Math.min(...fetchedAt) : null,
+        latestReceivedAt,
+    };
+}
+
+function meanPosition(points: Position[]): Position | null {
+    if (points.length === 0) return null;
+    const total = points.reduce(
+        (sum, point) => ({
+            latitude: sum.latitude + point.latitude,
+            longitude: sum.longitude + point.longitude,
+        }),
+        { latitude: 0, longitude: 0 },
+    );
+    return {
+        latitude: total.latitude / points.length,
+        longitude: total.longitude / points.length,
+    };
+}

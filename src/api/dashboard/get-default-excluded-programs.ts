@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { loadPrograms } from '@/api/admin/load-programs';
+import type { Program } from '@/api/program/validation/program-schema';
 import {
     defaultExcludedPrograms,
     HIDDEN_BY_DEFAULT_PROGRAM_IDS,
@@ -13,19 +14,27 @@ import { ok } from '@/lib/result/result';
  * The Program Filter's starting selection for this viewer, worked out before
  * the page renders so the first load already asks for it.
  */
-export async function getDefaultExcludedPrograms(): Promise<number[]> {
+export async function getDashboardProgramSelection(): Promise<{
+    programs: Program[];
+    exclude: number[];
+}> {
     const result = await withViewer(async viewer => {
         const programs = await loadPrograms();
         if (!programs.ok) return programs;
-        return ok(
-            defaultExcludedPrograms(
-                viewer.role,
-                programs.data.filter(program =>
-                    canSeeProgram(viewer, program.programId),
-                ),
-            ),
+        const visible = programs.data.filter(program =>
+            canSeeProgram(viewer, program.programId),
         );
+        return ok({
+            programs: visible,
+            exclude: defaultExcludedPrograms(viewer.role, visible),
+        });
     });
     // A viewer the routes will refuse anyway; the page shows that error.
-    return result.ok ? result.data : HIDDEN_BY_DEFAULT_PROGRAM_IDS;
+    return result.ok
+        ? result.data
+        : { programs: [], exclude: HIDDEN_BY_DEFAULT_PROGRAM_IDS };
+}
+
+export async function getDefaultExcludedPrograms(): Promise<number[]> {
+    return (await getDashboardProgramSelection()).exclude;
 }

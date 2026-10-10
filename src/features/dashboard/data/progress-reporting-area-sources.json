@@ -1,0 +1,99 @@
+{
+    "schemaVersion": 1,
+    "scope": "Curated polygons for the 18 reporting areas registered in the approved 2026-10-10 metadata. Additional names retain unshaded point fallback; this registry is not reporting activity or targets.",
+    "retrievedDate": "2026-10-10",
+    "modification": "Original coordinates are retained in the source extract. Build script converts Polygon containers to MultiPolygon and simplifies display rings with a maximum 0.003 degree error, preserving rings and polygons.",
+    "sources": [
+        {
+            "country": "Ghana",
+            "boundaryLevel": "ADM2",
+            "boundaryLabel": "District",
+            "provider": "USAID Ghana HPNO / Ghana Statistical Service via geoBoundaries",
+            "yearRepresented": "2019",
+            "version": "geoBoundaries commit 9469f09",
+            "sourceUrl": "https://www.geoboundaries.org/api/current/gbOpen/GHA/ADM2/",
+            "downloadUrl": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/GHA/ADM2/geoBoundaries-GHA-ADM2.geojson",
+            "originalSha256": "242adc67f4e4b04df800da06650af20487dbef99cf2b155702529ffa705dc80f",
+            "originalBytes": 27442126,
+            "sourceFeatureCount": 260,
+            "includedFeatureCount": 4,
+            "license": "CC BY 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+            "attribution": "geoBoundaries / USAID Ghana HPNO / Ghana Statistical Service via geoBoundaries (CC BY 4.0); boundaries simplified for display",
+            "aliases": [
+                {
+                    "sourceName": "Ejura-sekyedumase",
+                    "names": ["Ejura Sekyeredumase"],
+                    "verificationUrl": "https://esma.gov.gh/about-us/",
+                    "note": "Reviewed recorded spelling of Ejura-Sekyedumase; retains the original API label."
+                }
+            ]
+        },
+        {
+            "country": "Kenya",
+            "boundaryLevel": "ADM1",
+            "boundaryLabel": "County",
+            "provider": "RCMRD GeoPortal / Africa GeoPortal via geoBoundaries",
+            "yearRepresented": "2020",
+            "version": "geoBoundaries commit 9469f09",
+            "sourceUrl": "https://www.geoboundaries.org/api/current/gbOpen/KEN/ADM1/",
+            "downloadUrl": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/KEN/ADM1/geoBoundaries-KEN-ADM1.geojson",
+            "originalSha256": "a3e073594494eb740e42fadec63acda982f6a745bb64ee4aa152453ccc46f94e",
+            "originalBytes": 7956137,
+            "sourceFeatureCount": 47,
+            "includedFeatureCount": 1,
+            "license": "Public Domain",
+            "licenseUrl": "https://www.geoboundaries.org/api/current/gbOpen/KEN/ADM1/",
+            "attribution": "geoBoundaries / RCMRD GeoPortal / Africa GeoPortal via geoBoundaries (Public Domain); boundaries simplified for display",
+            "aliases": []
+        },
+        {
+            "country": "Colombia",
+            "boundaryLevel": "ADM1",
+            "boundaryLabel": "Department / Capital District",
+            "provider": "OpenStreetMap / Wambacher via geoBoundaries",
+            "yearRepresented": "2017",
+            "version": "geoBoundaries commit 9469f09",
+            "sourceUrl": "https://www.geoboundaries.org/api/current/gbOpen/COL/ADM1/",
+            "downloadUrl": "https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/COL/ADM1/geoBoundaries-COL-ADM1.geojson",
+            "originalSha256": "5e058b9e44eb4c83e4a33ea507c636029d08ddc6c93797f6963de99bf3f7cef2",
+            "originalBytes": 8898990,
+            "sourceFeatureCount": 33,
+            "includedFeatureCount": 7,
+            "license": "ODbL 1.0",
+            "licenseUrl": "https://www.openstreetmap.org/copyright",
+            "attribution": "geoBoundaries / OpenStreetMap / Wambacher via geoBoundaries (ODbL 1.0); boundaries simplified for display",
+            "aliases": [
+                {
+                    "sourceName": "Bogota Capital District",
+                    "names": [
+                        "Bogotá D.C",
+                        "Bogotá D.C.",
+                        "Bogotá, D.C.",
+                        "Bogotá Distrito Capital"
+                    ],
+                    "verificationUrl": "https://bogota.gov.co/mi-ciudad/administracion-distrital",
+                    "note": "Reviewed abbreviation and official Capital District name; no municipality reassignment."
+                }
+            ]
+        },
+        {
+            "country": "Cameroon",
+            "boundaryLevel": "Health District (UNAIDS level 3)",
+            "boundaryLabel": "Health District",
+            "provider": "Cameroon National HIV estimates team / Ministry of Health / UNAIDS",
+            "yearRepresented": "2023",
+            "version": "2023-10-27 / 345ed583-e08c-4ba1-8dd0-04ceb6df2ec9",
+            "sourceUrl": "https://adr.unaids.org/en/geographic-data-package-3/cameroon-geographic-health-boundaries",
+            "downloadUrl": "https://adr.unaids.org/geographic-data-package-3/c7ee5728-52e1-4ed2-8f5f-f820c19e01bc/resource/345ed583-e08c-4ba1-8dd0-04ceb6df2ec9/download/cameroon-areas.geojson",
+            "originalSha256": "ecb2e2de9970b18d11bc2f694f214aa07522bc7ed768f374948012ea74554eb6",
+            "originalBytes": 2218753,
+            "sourceFeatureCount": 197,
+            "includedFeatureCount": 6,
+            "license": "CC BY 3.0 IGO",
+            "licenseUrl": "https://creativecommons.org/licenses/by/3.0/igo/",
+            "attribution": "Cameroon Ministry of Health / UNAIDS, 2023 (CC BY 3.0 IGO); boundaries simplified for display",
+            "aliases": []
+        }
+    ]
+}

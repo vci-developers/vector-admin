@@ -1,20 +1,12 @@
 import ViewerGate from '@/features/auth/components/viewer-gate';
-import { getTranslations } from 'next-intl/server';
+import DashboardLoading from '@/features/dashboard/components/dashboard-loading';
 import { Suspense } from 'react';
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
-    const t = await getTranslations('Auth');
-
     return (
-        <Suspense
-            fallback={
-                <p role="status" className="p-6 text-neutral-500">
-                    {t('checkingAccess')}
-                </p>
-            }
-        >
+        <Suspense fallback={<DashboardLoading />}>
             <ViewerGate>{children}</ViewerGate>
         </Suspense>
     );

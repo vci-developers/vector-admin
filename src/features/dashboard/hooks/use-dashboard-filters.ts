@@ -1,4 +1,7 @@
-import { DefaultExcludeContext } from '@/features/dashboard/components/dashboard-provider';
+import {
+    DefaultExcludeContext,
+    ViewContext,
+} from '@/features/dashboard/components/dashboard-provider';
 import { RANGE_PRESETS } from '@/features/dashboard/utils/resolve-reporting-range';
 import { MAP_LAYERS } from '@/features/dashboard/components/map-constants';
 import { sessionTypeSchema } from '@/api/session/validation/session-schema';
@@ -37,12 +40,16 @@ const dashboardFilterParsers = {
  */
 export function useDashboardFilters() {
     const defaultExclude = use(DefaultExcludeContext);
+    const view = use(ViewContext);
     const parsers = useMemo(
         () => ({
             ...dashboardFilterParsers,
+            range: dashboardFilterParsers.range.withDefault(
+                view === 'stakeholder' ? '3m' : 'last-month',
+            ),
             exclude: dashboardFilterParsers.exclude.withDefault(defaultExclude),
         }),
-        [defaultExclude],
+        [defaultExclude, view],
     );
     return useQueryStates(parsers);
 }

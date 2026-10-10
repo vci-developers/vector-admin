@@ -1,5 +1,6 @@
 import { PROGRAMS_TAG } from '@/api/admin/load-programs';
 import { programSnapshotTag } from '@/api/admin/load-program-snapshot';
+import { progressSnapshotTag } from '@/api/admin/load-progress-snapshot';
 import { COVERAGE_TAG } from '@/api/coverage/load-coverage';
 import { withDeveloper } from '@/lib/auth-session/with-viewer';
 import { err, ok } from '@/lib/result/result';
@@ -27,9 +28,10 @@ export async function POST(request: NextRequest) {
         // expire: 0 so the next load refetches instead of serving stale data
         revalidateTag(PROGRAMS_TAG, { expire: 0 });
         revalidateTag(COVERAGE_TAG, { expire: 0 });
-        programIds.data.forEach(id =>
-            revalidateTag(programSnapshotTag(id), { expire: 0 }),
-        );
+        programIds.data.forEach(id => {
+            revalidateTag(programSnapshotTag(id), { expire: 0 });
+            revalidateTag(progressSnapshotTag(id), { expire: 0 });
+        });
         return ok(null);
     });
 

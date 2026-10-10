@@ -84,13 +84,24 @@ describe('applyViewAs', () => {
         expect(canSeeProgram(preview, 4)).toBe(true);
     });
 
-    it('leaves a Developer alone otherwise, and never widens a Stakeholder', () => {
+    it('only serves a Developer internally after an explicit choice', () => {
         expect(applyViewAs({ role: 'developer' }, 'developer')).toEqual({
             role: 'developer',
         });
-        expect(applyViewAs({ role: 'developer' }, undefined)).toEqual({
-            role: 'developer',
-        });
+        for (const choice of [undefined, 'stakeholder', 'invalid']) {
+            expect(applyViewAs({ role: 'developer' }, choice)).toEqual({
+                role: 'stakeholder',
+                programIds: null,
+            });
+        }
+    });
+
+    it('never widens a Stakeholder, whatever the cookie', () => {
+        expect(applyViewAs(stakeholder, undefined)).toBe(stakeholder);
+        expect(applyViewAs(stakeholder, 'invalid')).toBe(stakeholder);
+        expect(canSeeProgram(applyViewAs(stakeholder, 'developer'), 4)).toBe(
+            false,
+        );
         expect(applyViewAs(stakeholder, 'stakeholder')).toBe(stakeholder);
         expect(applyViewAs(stakeholder, 'developer')).toBe(stakeholder);
     });

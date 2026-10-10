@@ -15,8 +15,12 @@ const GAP = 4;
  * (most important first): each is kept only if it clears every one kept
  * before it.
  */
-export function placeLabels(boxes: LabelBox[]): Set<string> {
-    const kept: LabelBox[] = [];
+export function placeLabels(
+    boxes: LabelBox[],
+    obstacles: LabelBox[] = [],
+): Set<string> {
+    const kept: LabelBox[] = [...obstacles];
+    const visible = new Set<string>();
     for (const box of boxes) {
         const clear = kept.every(
             other =>
@@ -25,7 +29,10 @@ export function placeLabels(boxes: LabelBox[]): Set<string> {
                 Math.abs(box.y - other.y) * 2 >=
                     box.height + other.height + 2 * GAP,
         );
-        if (clear) kept.push(box);
+        if (clear) {
+            kept.push(box);
+            visible.add(box.key);
+        }
     }
-    return new Set(kept.map(box => box.key));
+    return visible;
 }

@@ -60,14 +60,15 @@ export function canSeeProgram(viewer: Viewer, programId: number): boolean {
 }
 
 /**
- * A Developer who switched to the Stakeholder view is served as one, across
- * every Program. Only a Developer can switch, so it never widens access.
+ * Developers open the progress dashboard by default and explicitly choose
+ * the internal view. Only Developers can switch, so a Stakeholder's Program
+ * permissions are never widened by the cookie.
  */
 export function applyViewAs(
     viewer: Viewer,
     viewAs: string | undefined,
 ): Viewer {
-    return viewer.role === 'developer' && viewAs === 'stakeholder'
+    return viewer.role === 'developer' && viewAs !== 'developer'
         ? { role: 'stakeholder', programIds: null }
         : viewer;
 }
