@@ -20,7 +20,6 @@ import {
 import { cn } from '@/utils/cn';
 import {
     AlertCircle,
-    ArrowUpRight,
     ChevronDown,
     Download,
     Loader2,
@@ -429,13 +428,34 @@ export default function ProgressView() {
                                     </span>
                                     Darker shade = more scans
                                 </p>
-                                <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
-                                    Target rollout view coming next
-                                    <ArrowUpRight
-                                        className="size-3"
-                                        aria-hidden="true"
-                                    />
-                                </span>
+                                <div className="text-muted-foreground inline-flex max-w-full items-center gap-2.5 text-[11px]">
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={false}
+                                        aria-labelledby="progress-target-toggle-label"
+                                        aria-describedby="progress-target-toggle-note"
+                                        disabled
+                                        className="bg-muted relative inline-flex h-5 w-9 shrink-0 cursor-not-allowed rounded-full border opacity-70"
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className="bg-card absolute top-0.5 left-0.5 size-3.5 rounded-full shadow-xs"
+                                        />
+                                    </button>
+                                    <span
+                                        id="progress-target-toggle-label"
+                                        className="min-w-0 leading-snug"
+                                    >
+                                        Show target locations &amp; programs
+                                    </span>
+                                    <span
+                                        id="progress-target-toggle-note"
+                                        className="bg-muted shrink-0 rounded-full px-2 py-0.5 text-[10px]"
+                                    >
+                                        Coming soon
+                                    </span>
+                                </div>
                             </div>
                             <p className="text-muted-foreground border-t px-5 py-3 text-[11px] leading-relaxed sm:px-7">
                                 Select an area to see its reporting locations

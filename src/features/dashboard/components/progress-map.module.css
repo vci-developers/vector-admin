@@ -49,16 +49,44 @@
     outline-offset: -3px;
 }
 
+.canvas :global(.leaflet-bottom.leaflet-right) {
+    max-width: 100%;
+}
+
 .canvas :global(.leaflet-control-attribution) {
-    padding: 4px 8px;
-    border-top-left-radius: 8px;
-    background: rgb(248 251 248 / 87%);
+    max-width: calc(100% - 16px);
+    margin-right: 8px;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgb(26 75 61 / 9%);
+    border-radius: 10px;
+    background: rgb(248 251 248 / 95%);
+    box-shadow: 0 2px 8px rgb(26 75 61 / 5%);
     color: #64796d;
-    font-size: 9px;
+    font-size: 10px;
+    line-height: 1.7;
+    text-align: left;
 }
 
 .canvas :global(.leaflet-control-attribution a) {
     color: #526c5d;
+    text-underline-offset: 2px;
+}
+
+.canvas :global(.progress-map-credit) {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: top;
+}
+
+.canvas :global(.progress-map-credit-source),
+.canvas :global(.progress-map-credit-details) {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.canvas :global(.progress-map-credit-source) {
+    font-weight: 600;
 }
 
 .mark {

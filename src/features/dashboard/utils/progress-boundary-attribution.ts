@@ -27,5 +27,5 @@ export function progressBoundaryAttribution(source: ProgressBoundarySource) {
     const download = source.derivativeDownloadUrl
         ? `; <a href="${escapeHtml(source.derivativeDownloadUrl)}" download>boundary data</a>`
         : '';
-    return `${catalogue}${original} (${license}; simplified${download})`;
+    return `<span class="progress-map-credit"><span class="progress-map-credit-source">${catalogue}${original}</span> <span class="progress-map-credit-details">(${license}; simplified${download})</span></span>`;
 }

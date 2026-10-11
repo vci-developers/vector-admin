@@ -1476,7 +1476,7 @@ export default function ProgressMap({
             wheelPxPerZoomLevel={TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL}
         >
             <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution='<span class="progress-map-credit"><span class="progress-map-credit-source">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></span>'
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                 maxZoom={19}
                 updateWhenIdle
