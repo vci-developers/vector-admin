@@ -31,9 +31,10 @@ import {
     totalReportingLocations,
 } from '@/features/dashboard/utils/progress-location-policy';
 
-type ProgressRange = Pick<GetProgressQuery, 'from' | 'to'>;
+type ProgressRange = Pick<GetProgressQuery, 'from' | 'to' | 'types'>;
 type ProgressSummary = Omit<ProgressDashboard, 'programs'>;
-const SCAN_COUNT_VERSION = 'image-count-v1-locations-v3-site-hierarchy-v1';
+const SCAN_COUNT_VERSION =
+    'image-count-v1-locations-v3-site-hierarchy-v1-types-v1';
 
 export async function getProgress(
     query: GetProgressQuery,
@@ -44,7 +45,7 @@ export async function getProgress(
     // Authorization and the viewer's visible list stay outside shared cache.
     const summary = await loadProgressSummary(
         scoped.data.selected,
-        { from: query.from, to: query.to },
+        { from: query.from, to: query.to, types: query.types },
         SCAN_COUNT_VERSION,
     );
     return ok({ ...summary, programs: scoped.data.visible });
@@ -71,10 +72,11 @@ export async function getProgressReportData(
     );
     return ok({
         progress: { ...summary, programs: scoped.data.visible },
-        internalMetrics: buildProgressDeviceMetrics(loaded, {
-            from: summary.from,
-            to: summary.to,
-        }),
+        internalMetrics: buildProgressDeviceMetrics(
+            loaded,
+            { from: summary.from, to: summary.to },
+            query.types,
+        ),
     });
 }
 
@@ -148,7 +150,7 @@ async function buildSelectedProgress(
         }
     }
 
-    const aggregate = buildProgress(loaded, range, anchors);
+    const aggregate = buildProgress(loaded, range, anchors, range.types);
     const coverageByProgram = mergeLocationCoverage([
         ...aggregate.coverageByProgram,
         ...selected

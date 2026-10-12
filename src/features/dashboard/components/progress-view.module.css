@@ -24,10 +24,12 @@
 
 .filters {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: start;
-    gap: 16px;
-    width: min(100%, 50.875rem);
+    gap: 12px;
+    /* Shares the heading's line when the page is wide enough, else wraps. */
+    flex: 1 1 40rem;
+    max-width: 52rem;
     min-width: 0;
     background: var(--card);
     border: 1px solid var(--progress-line);
@@ -129,6 +131,22 @@
         column-gap: 16px;
         margin-top: 8px;
     }
+}
+
+/* The total and its session-type lines share the card's second row. */
+.headlineTotals {
+    grid-row: 2;
+    min-width: 0;
+}
+
+.scanTypeSplit {
+    display: grid;
+    gap: 2px;
+    max-width: 18rem;
+    margin-top: 10px;
+    color: var(--progress-ink);
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .headlineLabel {
@@ -289,6 +307,10 @@
 }
 
 .headlineFeatured .headlineUnit {
+    color: #e1f2eb;
+}
+
+.headlineFeatured .scanTypeSplit {
     color: #e1f2eb;
 }
 
@@ -519,6 +541,7 @@
     }
 
     .filters {
+        grid-template-columns: minmax(0, 1fr);
         width: 100%;
         border-radius: 12px;
         padding: 10px;

@@ -20,6 +20,7 @@ const progress: ProgressDashboard = {
     reportingLocations: 3,
     coverageByProgram: [{ programId: 7, unit: 'household', count: 3 }],
     uniqueScans: 8,
+    scansByType: [{ type: 'SURVEILLANCE', scans: 8 }],
     scansByProgram: [{ programId: 7, scans: 8 }],
     monthly: [
         { month: '2026-08', uniqueScans: 5 },
@@ -37,6 +38,7 @@ const progress: ProgressDashboard = {
             reportingLocations: 2,
             coverageByProgram: [{ programId: 7, unit: 'household', count: 2 }],
             uniqueScans: 8,
+            scansByType: [],
             scansByProgram: [{ programId: 7, scans: 8 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 5 },
@@ -54,6 +56,7 @@ const progress: ProgressDashboard = {
             reportingLocations: 1,
             coverageByProgram: [{ programId: 7, unit: 'household', count: 1 }],
             uniqueScans: 0,
+            scansByType: [],
             scansByProgram: [{ programId: 7, scans: 0 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 0 },
@@ -284,6 +287,7 @@ describe('buildProgressReport', () => {
                 },
             ],
             selectedProgramIds: [7, 8],
+            scansByType: [],
             scansByProgram: [
                 { programId: 7, scans: 5 },
                 { programId: 8, scans: 3 },
@@ -297,6 +301,7 @@ describe('buildProgressReport', () => {
                     ? {
                           ...district,
                           programIds: [7, 8],
+                          scansByType: [],
                           scansByProgram: [
                               { programId: 7, scans: 5 },
                               { programId: 8, scans: 3 },
@@ -346,6 +351,7 @@ describe('buildProgressReport', () => {
                 { programId: 2, unit: 'municipality', count: 2 },
             ],
             uniqueScans: 12,
+            scansByType: [],
             scansByProgram: [
                 { programId: 7, scans: 8 },
                 { programId: 2, scans: 4 },
@@ -367,6 +373,7 @@ describe('buildProgressReport', () => {
                         { programId: 2, unit: 'municipality', count: 2 },
                     ],
                     uniqueScans: 4,
+                    scansByType: [],
                     scansByProgram: [{ programId: 2, scans: 4 }],
                     monthly: [
                         { month: '2026-08', uniqueScans: 2 },
@@ -523,5 +530,41 @@ describe('buildProgressReport', () => {
         expect(
             JSON.stringify(rows(workbook.getWorksheet('Monthly actuals')!)),
         ).not.toContain('reporting device');
+    });
+
+    it('adds per-type scan rows and District columns when two types are selected', async () => {
+        const typeScans = (surveillance: number, training: number) => [
+            { type: 'SURVEILLANCE' as const, scans: surveillance },
+            { type: 'PRACTICE' as const, scans: training },
+        ];
+        const split: ProgressDashboard = {
+            ...progress,
+            scansByType: typeScans(6, 2),
+            districts: progress.districts.map(district => ({
+                ...district,
+                scansByType:
+                    district.uniqueScans > 0
+                        ? typeScans(6, 2)
+                        : typeScans(0, 0),
+            })),
+        };
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(
+            await buildProgressReport(
+                split,
+                null,
+                GENERATED_AT,
+            ).xlsx.writeBuffer(),
+        );
+        const actuals = rows(workbook.getWorksheet('Monthly actuals')!);
+
+        expect(actuals).toContainEqual([
+            'Source',
+            'VectorCam API · surveillance, training sessions',
+        ]);
+        expect(actuals).toContainEqual(['Scans · Training', 2]);
+        expect(actuals.find(row => row[2] === 'Gulu')?.slice(-2)).toEqual([
+            6, 2,
+        ]);
     });
 });

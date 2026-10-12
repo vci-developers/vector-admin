@@ -119,7 +119,7 @@ describe('loadProgressSnapshot', () => {
         expect(sessionOffsets).toEqual(['0', '100', '200']);
     });
 
-    it('reads only needed endpoints with stable sorting and image-backed surveillance scope', async () => {
+    it('reads only needed endpoints with stable sorting, image-backed specimens and every session type', async () => {
         const fetchMock = stubApi();
         await loadProgressSnapshot(7);
         for (const [input, init] of fetchMock.mock.calls) {
@@ -133,12 +133,10 @@ describe('loadProgressSnapshot', () => {
                 expect(url.searchParams.get('sortBy')).toBe('id');
                 expect(url.searchParams.get('sortOrder')).toBe('asc');
             }
-            if (url.pathname === '/sessions/')
-                expect(url.searchParams.get('type')).toBe('SURVEILLANCE');
+            // Session types are chosen per request in the builder.
+            expect(url.searchParams.has('type')).toBe(false);
+            expect(url.searchParams.has('sessionType')).toBe(false);
             if (url.pathname === '/specimens/') {
-                expect(url.searchParams.get('sessionType')).toBe(
-                    'SURVEILLANCE',
-                );
                 expect(url.searchParams.get('hasImages')).toBe('true');
                 expect(url.searchParams.get('includeAllImages')).toBe('true');
             }

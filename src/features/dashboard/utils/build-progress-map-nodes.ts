@@ -3,6 +3,7 @@ import {
     mergeLocationCoverage,
     totalReportingLocations,
 } from './progress-location-policy';
+import { sumScansByType } from './progress-session-types';
 
 export type ProgressMapPosition = NonNullable<ProgressDistrict['position']>;
 export type ProjectedMapPosition = { x: number; y: number };
@@ -17,6 +18,7 @@ export type ProgressMapNode = {
     position: ProgressMapPosition;
     projected: ProjectedMapPosition;
     uniqueScans: number;
+    scansByType: ProgressDistrict['scansByType'];
     coverageByProgram: ProgressDistrict['coverageByProgram'];
     reportingLocations: number | null;
 };
@@ -125,6 +127,9 @@ export function buildProgressMapNodes({
             position,
             projected: project(position),
             uniqueScans,
+            scansByType: sumScansByType(
+                sourceDistricts.map(district => district.scansByType),
+            ),
             coverageByProgram,
             reportingLocations,
         };

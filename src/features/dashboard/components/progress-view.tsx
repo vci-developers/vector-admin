@@ -1,5 +1,6 @@
 'use client';
 
+import { useGetCoverage } from '@/api/coverage/hooks/use-get-coverage';
 import { useGetProgress } from '@/api/progress/hooks/use-get-progress';
 import type { ProgressDashboard } from '@/api/progress/validation/progress-schema';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,9 @@ import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-fi
 import { AvailableProgramsContext } from './dashboard-provider';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
+import { buildUpcomingAreas } from '@/features/dashboard/utils/build-upcoming-areas';
 import { programTitle } from '@/features/dashboard/utils/program-title';
+import { selectProgressSessionTypes } from '@/features/dashboard/utils/progress-session-types';
 import {
     PROGRESS_SCAN_FILL_OPACITY,
     PROGRESS_SCAN_LEGEND,
@@ -37,6 +40,8 @@ import ProgressLoading from './progress-loading';
 import ProgressMonthlyChart from './progress-monthly-chart';
 import ProgressProgramPicker from './progress-program-picker';
 import ProgressScansHeadline from './progress-scans-headline';
+import ProgressSessionTypePicker from './progress-session-type-picker';
+import ScanTypeBreakdown from './scan-type-breakdown';
 import styles from './progress-view.module.css';
 
 const ProgressMap = dynamic(() => import('./progress-map'), {
@@ -102,9 +107,24 @@ export default function ProgressView() {
             currentMonth: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
         };
     }, [filters.range, filters.from, filters.to]);
-    const query = useGetProgress({ exclude: filters.exclude, ...range });
+    const types = selectProgressSessionTypes(filters.types);
+    const query = useGetProgress({ exclude: filters.exclude, ...range, types });
     const result = query.data;
     const dashboard: ProgressDashboard | null = result?.ok ? result.data : null;
+    const [showUpcoming, setShowUpcoming] = useState(true);
+    const coverage = useGetCoverage(filters.exclude).data;
+    const upcoming = useMemo(
+        () =>
+            coverage?.ok && dashboard
+                ? buildUpcomingAreas(
+                      coverage.data,
+                      new Set(
+                          dashboard.districts.map(district => district.key),
+                      ),
+                  )
+                : [],
+        [coverage, dashboard],
+    );
     const selected = dashboard?.districts.find(
         district => district.key === districtKey,
     );
@@ -168,6 +188,7 @@ export default function ProgressView() {
             const params = new URLSearchParams({
                 exclude: filters.exclude.join(','),
                 to: range.to,
+                types: types.join(','),
                 ...(range.from ? { from: range.from } : {}),
             });
             const response = await fetch(`/api/progress/report?${params}`, {
@@ -199,7 +220,7 @@ export default function ProgressView() {
             )}
         >
             <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
-                <div>
+                <div className="shrink-0">
                     <p className="text-primary mb-2 text-[11px] font-semibold tracking-[0.16em] uppercase">
                         Field surveillance
                     </p>
@@ -213,6 +234,12 @@ export default function ProgressView() {
                             onChange={choosePrograms}
                         />
                     </div>
+                    <ProgressSessionTypePicker
+                        selected={types}
+                        onChange={selectedTypes =>
+                            void setFilters({ types: selectedTypes })
+                        }
+                    />
                     <div className="flex min-w-0 flex-col gap-1.5">
                         <span className="text-muted-foreground text-[11px] font-medium">
                             Reporting period
@@ -348,6 +375,9 @@ export default function ProgressView() {
                                 selected?.scansByProgram ??
                                 result.data.scansByProgram
                             }
+                            scansByType={
+                                selected?.scansByType ?? result.data.scansByType
+                            }
                             programs={result.data.programs}
                         />
                     </div>
@@ -382,6 +412,7 @@ export default function ProgressView() {
                                 {result.data.districts.length > 0 ? (
                                     <ProgressMap
                                         districts={result.data.districts}
+                                        upcoming={showUpcoming ? upcoming : []}
                                         selectedKey={selectedKey}
                                         onSelect={key =>
                                             void setDistrictKey(key)
@@ -432,28 +463,31 @@ export default function ProgressView() {
                                     <button
                                         type="button"
                                         role="switch"
-                                        aria-checked={false}
+                                        aria-checked={showUpcoming}
                                         aria-labelledby="progress-target-toggle-label"
-                                        aria-describedby="progress-target-toggle-note"
-                                        disabled
-                                        className="bg-muted relative inline-flex h-5 w-9 shrink-0 cursor-not-allowed rounded-full border opacity-70"
+                                        onClick={() =>
+                                            setShowUpcoming(shown => !shown)
+                                        }
+                                        className={cn(
+                                            'focus-visible:ring-ring relative inline-flex h-5 w-9 shrink-0 rounded-full border transition-colors outline-none focus-visible:ring-2',
+                                            showUpcoming
+                                                ? 'bg-primary border-primary'
+                                                : 'bg-muted',
+                                        )}
                                     >
                                         <span
                                             aria-hidden="true"
-                                            className="bg-card absolute top-0.5 left-0.5 size-3.5 rounded-full shadow-xs"
+                                            className={cn(
+                                                'bg-card absolute top-0.5 left-0.5 size-3.5 rounded-full shadow-xs transition-transform',
+                                                showUpcoming && 'translate-x-4',
+                                            )}
                                         />
                                     </button>
                                     <span
                                         id="progress-target-toggle-label"
                                         className="min-w-0 leading-snug"
                                     >
-                                        Show target locations &amp; programs
-                                    </span>
-                                    <span
-                                        id="progress-target-toggle-note"
-                                        className="bg-muted shrink-0 rounded-full px-2 py-0.5 text-[10px]"
-                                    >
-                                        Coming soon
+                                        Show upcoming locations
                                     </span>
                                 </div>
                             </div>
@@ -494,6 +528,13 @@ export default function ProgressView() {
                                     <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px]">
                                         By collection month.
                                     </p>
+                                    <ScanTypeBreakdown
+                                        scansByType={
+                                            selected?.scansByType ??
+                                            result.data.scansByType
+                                        }
+                                        className="text-muted-foreground mt-2 grid max-w-xs gap-0.5 text-xs sm:text-[13px]"
+                                    />
                                 </div>
                                 <div className="w-full">
                                     <SelectField label="Reporting area">

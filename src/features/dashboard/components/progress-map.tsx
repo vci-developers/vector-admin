@@ -60,11 +60,24 @@ import {
     useMap,
     useMapEvents,
 } from 'react-leaflet';
+import type { UpcomingArea } from '@/features/dashboard/utils/build-upcoming-areas';
+import ScanTypeBreakdown from './scan-type-breakdown';
 import styles from './progress-map.module.css';
 
 const number = new Intl.NumberFormat('en');
 const UGANDA_CENTER: L.LatLngTuple = [1.5, 32.3];
 const TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL = 40 / 3;
+// At or below this zoom the map groups Districts into countries.
+const OVERVIEW_MAX_ZOOM = 7;
+// Amber keeps planned places apart from the green scan scale.
+const UPCOMING_STYLE: L.PathOptions = {
+    color: '#b36b00',
+    weight: 1.5,
+    opacity: 0.85,
+    dashArray: '4 4',
+    fillColor: '#e8a33d',
+    fillOpacity: 0.1,
+};
 
 // Isolate the Leaflet 1.9 continuous-gesture methods used by its TouchZoom
 // handler. Unlike setZoomAround, _move transforms layers without a full reset.
@@ -190,12 +203,18 @@ function ReportingDistrictAreas({
     detailDistrictKeys,
     selectedKey,
     onSelect,
+    hoveredKey,
+    onHover,
+    areaLayers,
 }: {
     fills: ProgressDistrictFill[];
     attributions: ReadonlyMap<string, string>;
     detailDistrictKeys: ReadonlySet<string>;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
+    hoveredKey: string | null;
+    onHover: (key: string | null) => void;
+    areaLayers: Map<string, L.GeoJSON>;
 }) {
     const maximum = Math.max(
         1,
@@ -207,7 +226,12 @@ function ReportingDistrictAreas({
                 const selected = district.key === selectedKey;
                 const interactive = detailDistrictKeys.has(district.key);
                 const showSelection = selected && interactive;
-                const style = districtStyle(district, maximum, selected);
+                const baseStyle = districtStyle(district, maximum, selected);
+                // The area and its name tag share one hover.
+                const style =
+                    district.key === hoveredKey && !selected
+                        ? { ...baseStyle, color: '#146e5e', weight: 1.9 }
+                        : baseStyle;
                 const activate = () => onSelect(selected ? null : district.key);
                 return (
                     <GeoJSON
@@ -215,14 +239,16 @@ function ReportingDistrictAreas({
                         data={geometry}
                         interactive={interactive}
                         attribution={attributions.get(district.country)}
-                        ref={group =>
+                        ref={group => {
+                            if (group) areaLayers.set(district.key, group);
+                            else areaLayers.delete(district.key);
                             markDistrictAccessibility(
                                 group,
                                 district,
                                 selected,
                                 interactive,
-                            )
-                        }
+                            );
+                        }}
                         style={style}
                         bubblingMouseEvents={false}
                         eventHandlers={
@@ -248,20 +274,8 @@ function ReportingDistrictAreas({
                                           original.stopPropagation();
                                           if (!original.repeat) activate();
                                       },
-                                      mouseover: event => {
-                                          if (!selected)
-                                              (
-                                                  event.target as L.GeoJSON
-                                              ).setStyle({
-                                                  ...style,
-                                                  color: '#146e5e',
-                                                  weight: 1.9,
-                                              });
-                                      },
-                                      mouseout: event =>
-                                          (event.target as L.GeoJSON).setStyle(
-                                              style,
-                                          ),
+                                      mouseover: () => onHover(district.key),
+                                      mouseout: () => onHover(null),
                                   }
                                 : undefined
                         }
@@ -283,6 +297,10 @@ function ReportingDistrictAreas({
                                         {number.format(district.uniqueScans)}{' '}
                                         scans
                                     </span>
+                                    <ScanTypeBreakdown
+                                        scansByType={district.scansByType}
+                                        className={styles.tooltipLocations}
+                                    />
                                     <span className={styles.tooltipLocations}>
                                         {formatProgressLocations(
                                             district.coverageByProgram,
@@ -453,6 +471,54 @@ function GeographicContext({ countries }: { countries: CountryGeometry[] }) {
     );
 }
 
+/** Workbook places Targeted for VectorCam; ReportingActivity places their tags. */
+function UpcomingAreas({
+    areas,
+    areaLayers,
+}: {
+    areas: UpcomingArea[];
+    areaLayers: Map<string, L.GeoJSON>;
+}) {
+    return (
+        <>
+            {/* Above the reporting areas (430), which an upcoming place never
+                overlaps, so their layer cannot catch its hover. */}
+            <Pane name="progressUpcomingAreas" style={{ zIndex: 435 }}>
+                {areas.map(area => (
+                    <GeoJSON
+                        key={area.key}
+                        data={area.geometry}
+                        style={UPCOMING_STYLE}
+                        ref={group => {
+                            if (group) areaLayers.set(area.key, group);
+                            else areaLayers.delete(area.key);
+                        }}
+                    >
+                        {/* Overlays inherit their parent's pane otherwise. */}
+                        <Tooltip
+                            pane="tooltipPane"
+                            direction="top"
+                            // Clears the area's name tag, centred on the same point.
+                            offset={[0, -16]}
+                            className={`${styles.tooltip} ${styles.upcomingTooltip}`}
+                            opacity={1}
+                        >
+                            <div className={styles.tooltipContent}>
+                                <span className={styles.tooltipName}>
+                                    {area.name}
+                                </span>
+                                <span className={styles.upcomingStatus}>
+                                    Targeted for future VectorCam usage
+                                </span>
+                            </div>
+                        </Tooltip>
+                    </GeoJSON>
+                ))}
+            </Pane>
+        </>
+    );
+}
+
 /** Group at overview scale, then reveal districts without colliding markers. */
 function ReportingActivity({
     districts,
@@ -461,6 +527,8 @@ function ReportingActivity({
     attributions,
     selectedKey,
     onSelect,
+    upcoming,
+    upcomingLayers,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
@@ -468,9 +536,16 @@ function ReportingActivity({
     attributions: ReadonlyMap<string, string>;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
+    upcoming: UpcomingArea[];
+    upcomingLayers: Map<string, L.GeoJSON>;
 }) {
     const map = useMap();
     const viewport = useViewport();
+    // Re-read on each viewport update (moveend, zoomend, resize).
+    const leaderOrigin = map.containerPointToLayerPoint([0, 0]);
+    const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+    // Filled by the area refs; read only in event handlers.
+    const [areaLayers] = useState(() => new Map<string, L.GeoJSON>());
     const allNodes = useMemo(
         () =>
             buildProgressMapNodes({
@@ -482,7 +557,7 @@ function ReportingActivity({
                         position.longitude,
                     ]),
                 overviewZoom: 6,
-                overviewMaxZoom: 7,
+                overviewMaxZoom: OVERVIEW_MAX_ZOOM,
                 overviewFootprint: viewport.width < 520 ? 135 : 190,
                 clusterDistance: 44,
             }),
@@ -818,20 +893,49 @@ function ReportingActivity({
             viewport,
             obstacles,
         );
+        // Upcoming tags move around the reporting names, never the reverse.
+        const upcomingOrdered =
+            viewport.zoom > OVERVIEW_MAX_ZOOM
+                ? upcoming.flatMap(area => {
+                      const at = coverageLabelPoint(area.geometry)?.at;
+                      return at && visibleBounds.contains(at)
+                          ? [
+                                {
+                                    area,
+                                    projected: map.latLngToContainerPoint(at),
+                                },
+                            ]
+                          : [];
+                  })
+                : [];
+        const upcomingPlacements = placeDistrictNames(
+            upcomingOrdered.map(label => ({
+                key: label.area.key,
+                x: label.projected.x,
+                y: label.projected.y,
+                // Name plus the UPCOMING pill, padding and border.
+                width:
+                    Math.ceil(
+                        textContext?.measureText(label.area.name).width ??
+                            label.area.name.length * fontSize * 0.75,
+                    ) + 94,
+                height: 26,
+            })),
+            viewport,
+            [...obstacles, ...placements.values()],
+        );
         return {
             countries: countryLabels,
+            upcoming: upcomingOrdered.map(label => {
+                const box = upcomingPlacements.get(label.area.key)!;
+                return {
+                    ...label,
+                    position: map.containerPointToLatLng([box.x, box.y]),
+                    leader: leaderEnd(box, label.projected),
+                };
+            }),
             districts: ordered.map(label => {
                 const box = placements.get(label.district.key)!;
-                const end = {
-                    x: Math.max(
-                        box.x - box.width / 2,
-                        Math.min(box.x + box.width / 2, label.projected.x),
-                    ),
-                    y: Math.max(
-                        box.y - box.height / 2,
-                        Math.min(box.y + box.height / 2, label.projected.y),
-                    ),
-                };
                 return {
                     ...label,
                     box,
@@ -847,13 +951,7 @@ function ReportingActivity({
                                 ),
                         ),
                     position: map.containerPointToLatLng([box.x, box.y]),
-                    leader:
-                        Math.hypot(
-                            label.projected.x - end.x,
-                            label.projected.y - end.y,
-                        ) > 10
-                            ? end
-                            : null,
+                    leader: leaderEnd(box, label.projected),
                 };
             }),
         };
@@ -870,6 +968,7 @@ function ReportingActivity({
         viewport,
         cards,
         map,
+        upcoming,
     ]);
 
     return (
@@ -880,6 +979,9 @@ function ReportingActivity({
                 detailDistrictKeys={detailDistrictKeys}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
+                hoveredKey={hoveredKey}
+                onHover={setHoveredKey}
+                areaLayers={areaLayers}
             />
             {nodes.map(node => {
                 const selected = node.districtKeys.includes(selectedKey ?? '');
@@ -975,6 +1077,10 @@ function ReportingActivity({
                                 <span className={styles.tooltipScans}>
                                     {number.format(shown.uniqueScans)} scans
                                 </span>
+                                <ScanTypeBreakdown
+                                    scansByType={shown.scansByType}
+                                    className={styles.tooltipLocations}
+                                />
                                 <span className={styles.tooltipLocations}>
                                     {formatProgressLocations(
                                         shown.coverageByProgram,
@@ -1011,26 +1117,63 @@ function ReportingActivity({
                     />
                 ))}
             </Pane>
-            <svg
-                className={styles.labelLeaders}
-                width={viewport.width}
-                height={viewport.height}
-                viewBox={`0 0 ${viewport.width} ${viewport.height}`}
-                aria-hidden="true"
-                focusable="false"
+            {/* Inside the map pane, so tooltips (650) stay above the lines. */}
+            <Pane
+                name="progressLabelLeaders"
+                style={{ zIndex: 625, pointerEvents: 'none' }}
             >
-                {labels.districts.map(label =>
-                    label.leader ? (
-                        <line
-                            key={label.district.key}
-                            x1={label.projected.x}
-                            y1={label.projected.y}
-                            x2={label.leader.x}
-                            y2={label.leader.y}
-                        />
-                    ) : null,
-                )}
-            </svg>
+                <svg
+                    className={styles.labelLeaders}
+                    // Leader points are container points; offset to layer space.
+                    style={{
+                        transform: `translate(${leaderOrigin.x}px, ${leaderOrigin.y}px)`,
+                    }}
+                    width={viewport.width}
+                    height={viewport.height}
+                    viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+                    aria-hidden="true"
+                    focusable="false"
+                >
+                    {labels.districts.map(label =>
+                        label.leader ? (
+                            <g
+                                key={label.district.key}
+                                data-hovered={label.district.key === hoveredKey}
+                            >
+                                <line
+                                    x1={label.projected.x}
+                                    y1={label.projected.y}
+                                    x2={label.leader.x}
+                                    y2={label.leader.y}
+                                />
+                                {/* The dot marks the area; the name sits at the other end. */}
+                                <circle
+                                    cx={label.projected.x}
+                                    cy={label.projected.y}
+                                    r={2.5}
+                                />
+                            </g>
+                        ) : null,
+                    )}
+                    {labels.upcoming.map(label =>
+                        label.leader ? (
+                            <g key={label.area.key} data-upcoming="true">
+                                <line
+                                    x1={label.projected.x}
+                                    y1={label.projected.y}
+                                    x2={label.leader.x}
+                                    y2={label.leader.y}
+                                />
+                                <circle
+                                    cx={label.projected.x}
+                                    cy={label.projected.y}
+                                    r={2.5}
+                                />
+                            </g>
+                        ) : null,
+                    )}
+                </svg>
+            </Pane>
             <Pane
                 name="progressDistrictLabels"
                 style={{ zIndex: 630, pointerEvents: 'none' }}
@@ -1042,10 +1185,61 @@ function ReportingActivity({
                         icon={L.divIcon({
                             className: styles.districtLabel,
                             iconSize: [0, 0],
-                            html: `<span data-map-label="district" data-district-key="${escapeHtml(label.district.key)}" data-filled="${label.filled}" data-displaced="${Boolean(label.leader)}" data-selected="${label.district.key === selectedKey}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.district.name)}</span>`,
+                            html: `<span data-map-label="district" data-district-key="${escapeHtml(label.district.key)}" data-filled="${label.filled}" data-displaced="${Boolean(label.leader)}" data-selected="${label.district.key === selectedKey}" data-hovered="${label.district.key === hoveredKey}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.district.name)}</span>`,
                         })}
-                        interactive={false}
+                        // Same toggle as the area; the area keeps keyboard focus.
                         keyboard={false}
+                        bubblingMouseEvents={false}
+                        eventHandlers={{
+                            click: () =>
+                                onSelect(
+                                    label.district.key === selectedKey
+                                        ? null
+                                        : label.district.key,
+                                ),
+                            mouseover: () => {
+                                setHoveredKey(label.district.key);
+                                areaLayers
+                                    .get(label.district.key)
+                                    ?.openTooltip();
+                            },
+                            mouseout: () => {
+                                setHoveredKey(null);
+                                // A selected area's tooltip is permanent.
+                                if (label.district.key !== selectedKey)
+                                    areaLayers
+                                        .get(label.district.key)
+                                        ?.closeTooltip();
+                            },
+                        }}
+                    />
+                ))}
+            </Pane>
+            <Pane
+                name="progressUpcomingTags"
+                style={{ zIndex: 628, pointerEvents: 'none' }}
+            >
+                {labels.upcoming.map(label => (
+                    <Marker
+                        key={label.area.key}
+                        position={label.position}
+                        icon={L.divIcon({
+                            className: styles.upcomingTag,
+                            iconSize: [0, 0],
+                            html: `<span>${escapeHtml(label.area.name)}<b>Upcoming</b></span>`,
+                        })}
+                        // The tag opens its area's tooltip; it selects nothing.
+                        keyboard={false}
+                        eventHandlers={{
+                            mouseover: () =>
+                                upcomingLayers
+                                    .get(label.area.key)
+                                    ?.openTooltip(),
+                            mouseout: () =>
+                                upcomingLayers
+                                    .get(label.area.key)
+                                    ?.closeTooltip(),
+                        }}
                     />
                 ))}
             </Pane>
@@ -1337,13 +1531,57 @@ function ClearSelection({
     return null;
 }
 
+/** Where a moved name's leader meets its box; null when it barely moved. */
+function leaderEnd(box: LabelBox, from: { x: number; y: number }) {
+    const end = {
+        x: Math.max(
+            box.x - box.width / 2,
+            Math.min(box.x + box.width / 2, from.x),
+        ),
+        y: Math.max(
+            box.y - box.height / 2,
+            Math.min(box.y + box.height / 2, from.y),
+        ),
+    };
+    return Math.hypot(from.x - end.x, from.y - end.y) > 10 ? end : null;
+}
+
+const flippedTooltips = new WeakSet<L.Tooltip>();
+
+/** A top tooltip that would leave the map's top edge opens below instead. */
+function FlipClippedTooltips() {
+    const map = useMap();
+    useMapEvents({
+        tooltipopen: ({ tooltip }) => {
+            if (tooltip.options.direction !== 'top') return;
+            const top = tooltip.getElement()?.getBoundingClientRect().top;
+            if (top === undefined) return;
+            if (top >= map.getContainer().getBoundingClientRect().top) return;
+            const offset = L.point(tooltip.options.offset ?? [0, 0]);
+            tooltip.options.direction = 'bottom';
+            tooltip.options.offset = [offset.x, -offset.y];
+            flippedTooltips.add(tooltip);
+            tooltip.update();
+        },
+        tooltipclose: ({ tooltip }) => {
+            if (!flippedTooltips.delete(tooltip)) return;
+            const offset = L.point(tooltip.options.offset ?? [0, 0]);
+            tooltip.options.direction = 'top';
+            tooltip.options.offset = [offset.x, -offset.y];
+        },
+    });
+    return null;
+}
+
 export default function ProgressMap({
     districts,
+    upcoming = [],
     selectedKey,
     onSelect,
     onPlacementChange,
 }: {
     districts: ProgressDistrict[];
+    upcoming?: UpcomingArea[];
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
     onPlacementChange?: (placement: ProgressMapPlacement) => void;
@@ -1352,6 +1590,8 @@ export default function ProgressMap({
         .toSorted()
         .join('|');
     const [loadedAreas, setLoadedAreas] = useState(() => new Map(AREA_CACHE));
+    // Upcoming outlines fill it; their tags read it in hover handlers.
+    const [upcomingLayers] = useState(() => new Map<string, L.GeoJSON>());
     useEffect(() => {
         let current = true;
         const countries = countryKey
@@ -1496,7 +1736,9 @@ export default function ProgressMap({
                 fills={fills}
                 selectedKey={selectedKey}
             />
+            <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
             <ClearSelection onSelect={onSelect} />
+            <FlipClippedTooltips />
             <ReportingActivity
                 districts={mappedDistricts}
                 countries={countries}
@@ -1504,6 +1746,8 @@ export default function ProgressMap({
                 attributions={attributions}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
+                upcoming={upcoming}
+                upcomingLayers={upcomingLayers}
             />
         </MapContainer>
     );

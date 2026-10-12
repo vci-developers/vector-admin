@@ -8,6 +8,7 @@ import { getProgress, getProgressReportData } from './get-progress';
 import {
     getProgressQuerySchema,
     progressDashboardSchema,
+    type GetProgressQuery,
 } from './validation/progress-schema';
 
 vi.mock('@/api/admin/load-programs', () => ({
@@ -24,7 +25,12 @@ const programs = [
     { programId: 7, name: 'Uganda reporting', country: 'Uganda' },
     { programId: 8, name: 'Kenya reporting', country: 'Kenya' },
 ];
-const query = { exclude: [], from: '2026-02', to: '2026-02' };
+const query: GetProgressQuery = {
+    exclude: [],
+    from: '2026-02',
+    to: '2026-02',
+    types: ['SURVEILLANCE'],
+};
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -62,7 +68,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-types-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(
@@ -207,18 +213,28 @@ describe('getProgress', () => {
         expect(cacheLife).toHaveBeenCalledWith('seconds');
     });
 
-    it('ignores URL parameters that could widen surveillance or test-site scope', () => {
+    it('defaults to surveillance and ignores the test-site parameter', () => {
         expect(
-            getProgressQuerySchema.parse({
-                to: '2026-02',
-                types: 'PRACTICE',
-                testSites: 'true',
-            }),
-        ).toEqual({ exclude: [], to: '2026-02' });
+            getProgressQuerySchema.parse({ to: '2026-02', testSites: 'true' }),
+        ).toEqual({ exclude: [], to: '2026-02', types: ['SURVEILLANCE'] });
         expect(
             getProgressQuerySchema.safeParse({ from: '2026-03', to: '2026-02' })
                 .success,
         ).toBe(false);
+    });
+
+    it('accepts calibration and training but not CALIBRATION or an empty selection', () => {
+        expect(
+            getProgressQuerySchema.parse({
+                to: '2026-02',
+                types: 'PRACTICE,DATA_COLLECTION',
+            }).types,
+        ).toEqual(['PRACTICE', 'DATA_COLLECTION']);
+        for (const types of ['CALIBRATION', 'SURVEILLANCE,CALIBRATION', ''])
+            expect(
+                getProgressQuerySchema.safeParse({ to: '2026-02', types })
+                    .success,
+            ).toBe(false);
     });
 
     it('keeps operating metrics in the export service and out of the dashboard DTO', async () => {

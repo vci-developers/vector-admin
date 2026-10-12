@@ -54,6 +54,7 @@ function district(
         programId: 7,
         programIds: [7],
         uniqueScans: 5,
+        scansByType: [],
         scansByProgram: [
             {
                 programId: overrides.programId ?? 7,

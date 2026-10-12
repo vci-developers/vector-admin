@@ -150,6 +150,7 @@ describe('progress coverage headline', () => {
                     }),
                     createElement(ProgressScansHeadline, {
                         total: 926,
+                        scansByType: [{ type: 'SURVEILLANCE', scans: 926 }],
                         scansByProgram: coverage.map(row => ({
                             programId: row.programId,
                             scans:
@@ -244,5 +245,30 @@ describe('progress coverage headline', () => {
         expect(empty).toContain('>—</span>');
         expect(empty).toContain('Choose a program');
         expect(empty).not.toContain('active reporting locations');
+    });
+
+    it('splits the scans total by session type when two types have scans', () => {
+        const markup = renderToStaticMarkup(
+            jsx(NextIntlClientProvider, {
+                locale: 'en',
+                timeZone: 'UTC',
+                messages: {},
+                children: createElement(ProgressScansHeadline, {
+                    total: 1926,
+                    scansByProgram: [{ programId: 1, scans: 1926 }],
+                    scansByType: [
+                        { type: 'SURVEILLANCE', scans: 1900 },
+                        { type: 'DATA_COLLECTION', scans: 0 },
+                        { type: 'PRACTICE', scans: 26 },
+                    ],
+                    programs,
+                }),
+            }),
+        );
+
+        const lines = [
+            ...markup.matchAll(/<li[^>]*><span>([^<]+)<\/span><span>([^<]+)</g),
+        ].map(match => `${match[1]} ${match[2]}`);
+        expect(lines).toEqual(['Surveillance 1,900', 'Training 26']);
     });
 });

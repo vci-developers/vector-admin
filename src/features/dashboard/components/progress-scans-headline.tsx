@@ -1,16 +1,22 @@
 import type { Program } from '@/api/program/validation/program-schema';
-import type { ProgressProgramScans } from '@/api/progress/validation/progress-schema';
+import type {
+    ProgressProgramScans,
+    ProgressTypeScans,
+} from '@/api/progress/validation/progress-schema';
 import { ScanLine } from 'lucide-react';
 import { useFormatter } from 'next-intl';
+import ScanTypeBreakdown from './scan-type-breakdown';
 import styles from './progress-view.module.css';
 
 export default function ProgressScansHeadline({
     total,
     scansByProgram,
+    scansByType,
     programs,
 }: {
     total: number | null;
     scansByProgram: readonly ProgressProgramScans[];
+    scansByType: ProgressTypeScans[];
     programs: readonly Program[];
 }) {
     const formatter = useFormatter();
@@ -29,18 +35,24 @@ export default function ProgressScansHeadline({
                     <ScanLine className="size-[18px]" aria-hidden="true" />
                 </span>
             </div>
-            <p className={styles.headlineSummary}>
-                <span className={styles.headlineValue}>
-                    {total === null ? '—' : formatter.number(total)}
-                </span>
-                <span className={styles.headlineUnit}>
-                    {hasBreakdown
-                        ? incomplete
-                            ? 'total from available programs'
-                            : 'total scans'
-                        : 'images captured with VectorCam'}
-                </span>
-            </p>
+            <div className={styles.headlineTotals}>
+                <p className={styles.headlineSummary}>
+                    <span className={styles.headlineValue}>
+                        {total === null ? '—' : formatter.number(total)}
+                    </span>
+                    <span className={styles.headlineUnit}>
+                        {hasBreakdown
+                            ? incomplete
+                                ? 'total from available programs'
+                                : 'total scans'
+                            : 'images captured with VectorCam'}
+                    </span>
+                </p>
+                <ScanTypeBreakdown
+                    scansByType={scansByType}
+                    className={styles.scanTypeSplit}
+                />
+            </div>
             {hasBreakdown ? (
                 <ul
                     className={styles.scanBreakdown}

@@ -12,7 +12,8 @@
 
 /* Re-place detailed labels after zoom so they do not collide mid-gesture. */
 .canvas[data-map-zooming='true'] .labelLeaders,
-.canvas[data-map-zooming='true'] .districtLabel {
+.canvas[data-map-zooming='true'] .districtLabel,
+.canvas[data-map-zooming='true'] .upcomingTag {
     visibility: hidden;
 }
 
@@ -277,19 +278,76 @@
 
 .labelLeaders {
     position: absolute;
-    z-index: 620;
     top: 0;
     left: 0;
     overflow: hidden;
     pointer-events: none;
 }
 
+/* Darker than District borders so a leader never reads as one. */
 .labelLeaders line {
-    stroke: #537d6d;
-    stroke-width: 1;
-    stroke-opacity: 0.58;
+    stroke: #2f5c4c;
+    stroke-width: 1.2;
+    stroke-opacity: 0.85;
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
+}
+
+.labelLeaders circle {
+    fill: #2f5c4c;
+}
+
+.labelLeaders [data-upcoming='true'] line {
+    stroke: #b36b00;
+    stroke-dasharray: 3 3;
+}
+
+.labelLeaders [data-upcoming='true'] circle {
+    fill: #b36b00;
+}
+
+.labelLeaders [data-hovered='true'] line {
+    stroke: #146e5e;
+    stroke-opacity: 1;
+}
+
+.labelLeaders [data-hovered='true'] circle {
+    fill: #146e5e;
+}
+
+.upcomingTag span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 8px;
+    transform: translate(-50%, -50%);
+    border: 1px dashed rgb(179 107 0 / 55%);
+    border-radius: 6px;
+    background: rgb(255 251 243 / 95%);
+    color: #5c3d0a;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+/* Hover target only; Leaflet's interactive cursor would suggest a click. */
+.canvas .upcomingTag {
+    cursor: default;
+}
+
+.upcomingTag b {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #8a5200;
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 .districtLabel span {
@@ -327,6 +385,11 @@
     text-shadow: none;
 }
 
+.districtLabel span[data-hovered='true'] {
+    color: #053c2b;
+    border-color: rgb(20 110 94 / 45%);
+}
+
 .districtLabel span[data-selected='true'] {
     color: #053c2b;
     font-weight: 800;
@@ -342,6 +405,16 @@
     min-width: 180px;
     max-width: 240px;
     white-space: normal;
+}
+
+/* Upcoming places: the tag's dashed amber, on the usual white body. */
+.canvas .upcomingTooltip {
+    border: 1px dashed rgb(179 107 0 / 55%);
+}
+
+.upcomingStatus {
+    color: #8a5200;
+    font-size: 10px;
 }
 
 .tooltipContent {

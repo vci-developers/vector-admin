@@ -6,11 +6,25 @@ import { z } from 'zod';
 const monthKeySchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const countSchema = z.number().int().nonnegative();
 
+// CALIBRATION sessions are not part of the Stakeholder figures.
+export const progressSessionTypeSchema = z.enum([
+    'SURVEILLANCE',
+    'DATA_COLLECTION',
+    'PRACTICE',
+]);
+
+export type ProgressSessionType = z.infer<typeof progressSessionTypeSchema>;
+
 export const getProgressQuerySchema = z
     .object({
         exclude: programIdListSchema.default([]),
         from: monthKeySchema.optional(),
         to: monthKeySchema,
+        types: z
+            .string()
+            .transform(value => value.split(','))
+            .pipe(z.array(progressSessionTypeSchema))
+            .default(['SURVEILLANCE']),
     })
     .refine(({ from, to }) => !from || from <= to, 'from must not be after to');
 
@@ -46,6 +60,14 @@ export const progressProgramScansSchema = z.object({
 
 export type ProgressProgramScans = z.infer<typeof progressProgramScansSchema>;
 
+/** One row per selected session type, zero included, in schema order. */
+export const progressTypeScansSchema = z.object({
+    type: progressSessionTypeSchema,
+    scans: countSchema,
+});
+
+export type ProgressTypeScans = z.infer<typeof progressTypeScansSchema>;
+
 export const progressDistrictSchema = z.object({
     key: z.string(),
     /** First contributing program for compatibility; use programIds for attribution. */
@@ -55,6 +77,7 @@ export const progressDistrictSchema = z.object({
     name: z.string(),
     coverageByProgram: z.array(progressLocationCoverageSchema),
     scansByProgram: z.array(progressProgramScansSchema),
+    scansByType: z.array(progressTypeScansSchema),
     reportingLocations: countSchema.nullable(),
     uniqueScans: countSchema,
     monthly: z.array(progressMonthSchema),
@@ -72,6 +95,7 @@ export const progressDashboardSchema = z.object({
     to: monthKeySchema,
     coverageByProgram: z.array(progressLocationCoverageSchema),
     scansByProgram: z.array(progressProgramScansSchema),
+    scansByType: z.array(progressTypeScansSchema),
     /** Null for mixed units, incomplete metadata, or no selected programs. */
     reportingLocations: countSchema.nullable(),
     uniqueScans: countSchema.nullable(),

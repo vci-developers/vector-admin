@@ -17,6 +17,7 @@ async function fetchProgress(
     const searchParams = new URLSearchParams({
         exclude: params.exclude.join(','),
         to: params.to,
+        types: params.types.join(','),
         ...(params.from ? { from: params.from } : {}),
     });
     const response = await fetch(`/api/progress?${searchParams}`, {

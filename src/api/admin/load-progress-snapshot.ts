@@ -32,7 +32,8 @@ export type ProgressSnapshot = {
 type SnapshotResult = Result<ProgressSnapshot, NetworkError>;
 const inFlight = new Map<number, Promise<SnapshotResult>>();
 const STABLE_SORT = { sortBy: 'id', sortOrder: 'asc' };
-const SNAPSHOT_VERSION = 'image-count-v1';
+// The API filters one session type at a time; types are chosen in the builder.
+const SNAPSHOT_VERSION = 'image-count-v1-all-types';
 
 function failBriefly(error: NetworkError) {
     cacheLife('seconds');
@@ -68,7 +69,7 @@ async function loadCachedProgressSnapshot(
     const [sessions, specimens, sites, cycles] = await Promise.all([
         loadProgressPages(
             '/sessions/',
-            { programId, type: 'SURVEILLANCE', ...STABLE_SORT },
+            { programId, ...STABLE_SORT },
             progressSessionsPageSchema,
             session => session.sessionId,
         ),
@@ -76,7 +77,6 @@ async function loadCachedProgressSnapshot(
             '/specimens/',
             {
                 programId,
-                sessionType: 'SURVEILLANCE',
                 hasImages: true,
                 includeAllImages: true,
                 ...STABLE_SORT,

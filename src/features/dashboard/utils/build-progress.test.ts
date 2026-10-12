@@ -110,6 +110,37 @@ describe('buildProgress', () => {
         expect(data.districts[0].uniqueScans).toBe(3);
     });
 
+    it('counts the selected session types and splits scans by type, leaving CALIBRATION out', () => {
+        const data = buildProgress(
+            [
+                program({
+                    sessions: [
+                        session(1),
+                        session(2, { type: 'PRACTICE', siteId: 2 }),
+                        session(3, { type: 'CALIBRATION' }),
+                        session(4, { type: 'DATA_COLLECTION' }),
+                    ],
+                    specimens: [1, 2, 3, 4].map(id => ({
+                        id,
+                        sessionId: id,
+                        images: [{ id: id * 10 }, { id: id * 10 + 1 }],
+                    })),
+                }),
+            ],
+            { from: '2026-02', to: '2026-02' },
+            new Map(),
+            ['SURVEILLANCE', 'PRACTICE'],
+        );
+        const split = [
+            { type: 'SURVEILLANCE', scans: 2 },
+            { type: 'PRACTICE', scans: 2 },
+        ];
+        expect(data.uniqueScans).toBe(4);
+        expect(data.reportingLocations).toBe(2);
+        expect(data.scansByType).toEqual(split);
+        expect(data.districts[0].scansByType).toEqual(split);
+    });
+
     it('does not let excluded or out-of-period records consume eligible image IDs', () => {
         const data = buildProgress(
             [
