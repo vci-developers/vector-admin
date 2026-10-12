@@ -10,6 +10,23 @@ const box = (key: string, x: number, y: number, width = 40) => ({
 });
 
 describe('placeLabels', () => {
+    it('keeps labels clear of markers without returning obstacle keys', () => {
+        expect(
+            placeLabels(
+                [box('near', 0, 10), box('far', 100, 0)],
+                [box('marker', 0, 0, 30)],
+            ),
+        ).toEqual(new Set(['far']));
+    });
+
+    it('reserves the selected tooltip before placing ordinary names', () => {
+        expect(
+            placeLabels(
+                [box('under-tooltip', 40, 0), box('clear', 0, 90)],
+                [box('tooltip', 0, 0, 140)],
+            ),
+        ).toEqual(new Set(['clear']));
+    });
     it('keeps labels that are apart', () => {
         expect(placeLabels([box('a', 0, 0), box('b', 100, 0)])).toEqual(
             new Set(['a', 'b']),

@@ -35,6 +35,7 @@ const unit = (
     unit: name,
     status: 'Active',
     boundary: null,
+    region: null,
     ...overrides,
 });
 
@@ -50,12 +51,14 @@ describe('matchCoverageBoundaries', () => {
             {
                 programId: 1,
                 unit: 'GULU',
+                area: 'Gulu',
                 status: 'Active',
                 geometry: square(1),
             },
             {
                 programId: 1,
                 unit: 'Madi-Okollo',
+                area: 'Madi Okollo',
                 status: 'Targeted',
                 geometry: square(2),
             },
@@ -71,6 +74,18 @@ describe('matchCoverageBoundaries', () => {
         expect(fills.map(f => [f.unit, f.geometry])).toEqual([
             ['Arua-periurban', square(3)],
         ]);
+    });
+
+    it('draws a site with no shape as its region', () => {
+        const { fills, unmatched } = matchCoverageBoundaries(
+            [unit('Barpello', { status: 'Targeted', region: 'Arua' })],
+            new Map([[1, uganda]]),
+        );
+
+        expect(fills.map(f => [f.unit, f.area, f.geometry])).toEqual([
+            ['Barpello', 'Arua', square(3)],
+        ]);
+        expect(unmatched).toEqual([]);
     });
 
     it('lists a unit with no shape, naming what was looked up', () => {

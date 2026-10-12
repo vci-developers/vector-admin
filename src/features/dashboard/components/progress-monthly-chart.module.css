@@ -1,0 +1,29 @@
+.chart {
+    width: 100%;
+    min-width: 0;
+    overflow: clip;
+    border-radius: 8px;
+}
+
+.chart:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+
+.canvas {
+    width: 100%;
+    min-width: 0;
+    height: 220px;
+}
+
+@media (min-width: 640px) {
+    .canvas {
+        height: 260px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .canvas {
+        height: 280px;
+    }
+}

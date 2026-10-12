@@ -11,9 +11,10 @@ _As of 2026-10-09. Definitions live in `.claude/CONTEXT.md`; data sources in
   signed up on prod 2026-10-09 (`POST /auth/signup`, Program 1, a random
   password each) and whitelisted with no privilege or Sites. VectorAdmin needs
   the whitelist: `/users/permissions` refuses un-whitelisted users.
-- Left: set `STAKEHOLDER_EMAILS` in the Vercel environment and redeploy, Uganda
-  only for now:
-  `aysu.uygur@gatesfoundation.org:1,himanshu.nagpal@gatesfoundation.org:1,prashanth.selvaraj@gatesfoundation.org:1`.
+- Left: set `STAKEHOLDER_EMAILS` in the Vercel environment (Production and
+  Preview) and redeploy. Every listed email sees every Program the Stakeholder
+  page shows (all but Hidden-by-Default):
+  `aysu.uygur@gatesfoundation.org,himanshu.nagpal@gatesfoundation.org,prashanth.selvaraj@gatesfoundation.org`.
   Then confirm each signs in to the Stakeholder view.
 
 ### Connect the Blob store for the coverage fallback

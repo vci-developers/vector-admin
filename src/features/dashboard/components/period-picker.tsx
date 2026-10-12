@@ -54,9 +54,11 @@ const monthOf = (year: number, monthIndex: number): MonthKey =>
 export default function PeriodPicker({
     range,
     currentMonth,
+    className,
 }: {
     range: ResolvedRange;
     currentMonth: MonthKey;
+    className?: string;
 }) {
     const t = useTranslations('Filters');
     const formatter = useFormatter();
@@ -122,7 +124,7 @@ export default function PeriodPicker({
         );
 
     return (
-        <div className="flex items-center gap-1">
+        <div className={cn('flex items-center gap-1', className)}>
             {stepButton(previous, 'previous')}
             <Popover open={open} onOpenChange={handleOpenChange}>
                 <PopoverTrigger asChild>
@@ -133,9 +135,11 @@ export default function PeriodPicker({
                         className="gap-2"
                     >
                         <CalendarIcon />
-                        {span
-                            ? periodLabel(span.from, span.to)
-                            : t('presets.all')}
+                        <span className="truncate">
+                            {span
+                                ? periodLabel(span.from, span.to)
+                                : t('presets.all')}
+                        </span>
                         <ChevronDown className="opacity-60" />
                     </Button>
                 </PopoverTrigger>

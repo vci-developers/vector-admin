@@ -1,6 +1,7 @@
 import { coverageKeys } from '@/api/coverage/coverage-keys';
 import { dashboardKeys } from '@/api/dashboard/dashboard-keys';
 import { programSessionsKeys } from '@/api/program-sessions/program-sessions-keys';
+import { progressKeys } from '@/api/progress/progress-keys';
 import type { NetworkError } from '@/lib/network/network-error';
 import { err, type Result } from '@/lib/result/result';
 import { resultSchema } from '@/lib/result/result-schema';
@@ -34,6 +35,7 @@ export function usePostRefresh() {
         onSuccess: result => {
             if (result.ok) {
                 queryClient.invalidateQueries({ queryKey: dashboardKeys.root });
+                queryClient.invalidateQueries({ queryKey: progressKeys.root });
                 queryClient.invalidateQueries({ queryKey: coverageKeys.root });
                 queryClient.invalidateQueries({
                     queryKey: programSessionsKeys.root,

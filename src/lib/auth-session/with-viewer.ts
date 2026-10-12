@@ -75,8 +75,9 @@ export async function withDeveloper<T>(
 }
 
 /**
- * For the header switch: null unless the user is a Developer, else the view
- * they chose. Their own role, not the previewed one, so they can switch back.
+ * For the header switch: null unless the user is a Developer. Progress is the
+ * default; the internal view requires an explicit choice. Check their own
+ * role so they can switch back from the progress dashboard.
  */
 export async function getViewAs(): Promise<ViewAs | null> {
     const result = await withAuthSession(async accessToken => {
@@ -85,9 +86,9 @@ export async function getViewAs(): Promise<ViewAs | null> {
         const viewAs = (await cookies()).get(VIEW_AS_COOKIE)?.value;
         return ok(
             permissions.data.permissions.devMode
-                ? viewAs === 'stakeholder'
-                    ? ('stakeholder' as const)
-                    : ('developer' as const)
+                ? viewAs === 'developer'
+                    ? ('developer' as const)
+                    : ('stakeholder' as const)
                 : null,
         );
     });

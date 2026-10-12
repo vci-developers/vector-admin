@@ -32,12 +32,14 @@ describe('parseCoverageSheets', () => {
                         unit: 'Gulu',
                         status: 'Active',
                         boundary: null,
+                        region: null,
                     },
                     {
                         programId: 1,
                         unit: 'Amuru',
                         status: 'Targeted',
                         boundary: null,
+                        region: null,
                     },
                 ],
                 expectedUsers: [],
@@ -55,7 +57,13 @@ describe('parseCoverageSheets', () => {
         });
 
         expect(result.ok && result.data.units).toEqual([
-            { programId: 1, unit: 'Gulu', status: 'Active', boundary: null },
+            {
+                programId: 1,
+                unit: 'Gulu',
+                status: 'Active',
+                boundary: null,
+                region: null,
+            },
         ]);
     });
 

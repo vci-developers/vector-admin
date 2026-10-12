@@ -1,8 +1,8 @@
 {
     "App": {
-        "title": "VectorAdmin",
-        "description": "Cross-program adoption and data-quality metrics for VectorCam",
-        "tagline": "Program metrics",
+        "title": "VectorCam",
+        "description": "VectorCam surveillance progress, reporting locations, and monthly scans",
+        "tagline": "Surveillance progress",
         "signOut": "Sign out",
         "theme": {
             "label": "Theme",
@@ -11,13 +11,13 @@
             "dark": "Dark theme"
         },
         "viewAs": {
-            "label": "View the dashboard as",
-            "developer": "Developer",
-            "stakeholder": "Stakeholder"
+            "label": "Dashboard view",
+            "developer": "Internal",
+            "stakeholder": "Progress"
         }
     },
     "Auth": {
-        "title": "Sign in to VectorAdmin",
+        "title": "Sign in to VectorCam",
         "subtitle": "Use your VectorCam account.",
         "email": "Email",
         "password": "Password",
@@ -37,8 +37,8 @@
         "switchAccount": "Sign in with a different account"
     },
     "Dashboard": {
-        "heading": "Program metrics",
-        "loading": "Loading program data…",
+        "heading": "Surveillance progress",
+        "loading": "Loading surveillance data…",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
         "noProgramsSelected": "No programs selected. Choose at least one program.",
