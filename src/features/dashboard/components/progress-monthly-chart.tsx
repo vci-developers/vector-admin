@@ -15,14 +15,16 @@ import {
 } from 'recharts';
 import styles from './progress-monthly-chart.module.css';
 
-function MonthlyScanLabels({ months }: { months: ProgressMonth[] }) {
+function MonthlyScanLabels() {
     const formatter = useFormatter();
-    const values = months.map(month => formatter.number(month.uniqueScans));
 
     return (
         <LabelList
-            valueAccessor={(entry, index) => {
-                const value = values[index];
+            // Read the bar's own value: after the range shrinks, Recharts
+            // still passes the previous bars for one render.
+            valueAccessor={entry => {
+                if (typeof entry.value !== 'number') return undefined;
+                const value = formatter.number(entry.value);
                 return 'width' in entry &&
                     monthlyChartLabelFits(value, entry.width)
                     ? value
@@ -132,7 +134,7 @@ export default function ProgressMonthlyChart({
                         maxBarSize={72}
                         isAnimationActive={false}
                     >
-                        <MonthlyScanLabels months={months} />
+                        <MonthlyScanLabels />
                     </Bar>
                 </BarChart>
             </div>
