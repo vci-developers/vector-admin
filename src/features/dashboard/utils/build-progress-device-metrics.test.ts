@@ -168,7 +168,7 @@ describe('buildProgressDeviceMetrics', () => {
                 7,
                 [
                     session(1),
-                    session(2, { type: 'PRACTICE', deviceId: 22 }),
+                    session(2, { type: 'CALIBRATION', deviceId: 22 }),
                     session(3, { siteId: 11, deviceId: 23 }),
                     session(4, { collectionDate: JAN, deviceId: 24 }),
                     session(5, { type: '', deviceId: 25 }),

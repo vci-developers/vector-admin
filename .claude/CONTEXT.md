@@ -45,10 +45,10 @@ collection, Practice, Calibration; **default Surveillance only** (so Colombia,
 mostly Data collection, shows little by default). It also leaves out the **Test
 Site** unless "Include the test Site" is ticked.
 
-The Stakeholder view shares `types` but offers only Surveillance, Calibration
-(Data collection) and Training (Practice), never the API's CALIBRATION type or
-the Test Site; default Surveillance only. With two or more types holding scans,
-the scans tile, chart panel, map popups and Excel split scans by type.
+The Stakeholder view has no Session filter: its figures always add up
+Surveillance, Data collection (shown to stakeholders as calibration) and
+Practice (training) Sessions, never the API's CALIBRATION type or the Test Site,
+with no per-type split.
 
 **Test Site**: A Site whose top-level place is "Other": Uganda's Site 11, the
 catch-all for testing and training (Kampala/Entebbe, Cameroon and Nairobi GPS,

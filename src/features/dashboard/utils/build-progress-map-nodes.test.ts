@@ -24,11 +24,13 @@ function district(
         programId: 7,
         programIds: [7],
         uniqueScans: 1,
-        scansByType: [],
+        uniqueSpecimens: 0,
+        species: [],
         scansByProgram: [
             {
                 programId: overrides.programId ?? 7,
                 scans: overrides.uniqueScans ?? 1,
+                specimens: 0,
             },
         ],
         reportingLocations: 1,

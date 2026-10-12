@@ -20,8 +20,9 @@ const progress: ProgressDashboard = {
     reportingLocations: 3,
     coverageByProgram: [{ programId: 7, unit: 'household', count: 3 }],
     uniqueScans: 8,
-    scansByType: [{ type: 'SURVEILLANCE', scans: 8 }],
-    scansByProgram: [{ programId: 7, scans: 8 }],
+    uniqueSpecimens: 0,
+    species: [],
+    scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
     monthly: [
         { month: '2026-08', uniqueScans: 5 },
         { month: '2026-09', uniqueScans: 3 },
@@ -38,8 +39,9 @@ const progress: ProgressDashboard = {
             reportingLocations: 2,
             coverageByProgram: [{ programId: 7, unit: 'household', count: 2 }],
             uniqueScans: 8,
-            scansByType: [],
-            scansByProgram: [{ programId: 7, scans: 8 }],
+            uniqueSpecimens: 0,
+            species: [],
+            scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 5 },
                 { month: '2026-09', uniqueScans: 3 },
@@ -56,8 +58,9 @@ const progress: ProgressDashboard = {
             reportingLocations: 1,
             coverageByProgram: [{ programId: 7, unit: 'household', count: 1 }],
             uniqueScans: 0,
-            scansByType: [],
-            scansByProgram: [{ programId: 7, scans: 0 }],
+            uniqueSpecimens: 0,
+            species: [],
+            scansByProgram: [{ programId: 7, scans: 0, specimens: 0 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 0 },
                 { month: '2026-09', uniqueScans: 0 },
@@ -74,18 +77,26 @@ const planning: LoadedCoverage = {
     liveProblem: 'Live planning workbook unavailable',
     figures: {
         units: [
-            { programId: 7, unit: 'Gulu', status: 'Active', boundary: null },
+            {
+                programId: 7,
+                unit: 'Gulu',
+                status: 'Active',
+                boundary: null,
+                region: null,
+            },
             {
                 programId: 7,
                 unit: 'Future district',
                 status: 'Targeted',
                 boundary: null,
+                region: null,
             },
             {
                 programId: 9,
                 unit: 'Private district',
                 status: 'Active',
                 boundary: null,
+                region: null,
             },
         ],
         expectedUsers: [
@@ -287,10 +298,9 @@ describe('buildProgressReport', () => {
                 },
             ],
             selectedProgramIds: [7, 8],
-            scansByType: [],
             scansByProgram: [
-                { programId: 7, scans: 5 },
-                { programId: 8, scans: 3 },
+                { programId: 7, scans: 5, specimens: 0 },
+                { programId: 8, scans: 3, specimens: 0 },
             ],
             coverageByProgram: [
                 { programId: 7, unit: 'household', count: 2 },
@@ -301,10 +311,9 @@ describe('buildProgressReport', () => {
                     ? {
                           ...district,
                           programIds: [7, 8],
-                          scansByType: [],
                           scansByProgram: [
-                              { programId: 7, scans: 5 },
-                              { programId: 8, scans: 3 },
+                              { programId: 7, scans: 5, specimens: 0 },
+                              { programId: 8, scans: 3, specimens: 0 },
                           ],
                           coverageByProgram: [
                               { programId: 7, unit: 'household', count: 1 },
@@ -351,10 +360,11 @@ describe('buildProgressReport', () => {
                 { programId: 2, unit: 'municipality', count: 2 },
             ],
             uniqueScans: 12,
-            scansByType: [],
+            uniqueSpecimens: 0,
+            species: [],
             scansByProgram: [
-                { programId: 7, scans: 8 },
-                { programId: 2, scans: 4 },
+                { programId: 7, scans: 8, specimens: 0 },
+                { programId: 2, scans: 4, specimens: 0 },
             ],
             monthly: [
                 { month: '2026-08', uniqueScans: 7 },
@@ -373,8 +383,9 @@ describe('buildProgressReport', () => {
                         { programId: 2, unit: 'municipality', count: 2 },
                     ],
                     uniqueScans: 4,
-                    scansByType: [],
-                    scansByProgram: [{ programId: 2, scans: 4 }],
+                    uniqueSpecimens: 0,
+                    species: [],
+                    scansByProgram: [{ programId: 2, scans: 4, specimens: 0 }],
                     monthly: [
                         { month: '2026-08', uniqueScans: 2 },
                         { month: '2026-09', uniqueScans: 2 },
@@ -530,41 +541,5 @@ describe('buildProgressReport', () => {
         expect(
             JSON.stringify(rows(workbook.getWorksheet('Monthly actuals')!)),
         ).not.toContain('reporting device');
-    });
-
-    it('adds per-type scan rows and District columns when two types are selected', async () => {
-        const typeScans = (surveillance: number, training: number) => [
-            { type: 'SURVEILLANCE' as const, scans: surveillance },
-            { type: 'PRACTICE' as const, scans: training },
-        ];
-        const split: ProgressDashboard = {
-            ...progress,
-            scansByType: typeScans(6, 2),
-            districts: progress.districts.map(district => ({
-                ...district,
-                scansByType:
-                    district.uniqueScans > 0
-                        ? typeScans(6, 2)
-                        : typeScans(0, 0),
-            })),
-        };
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(
-            await buildProgressReport(
-                split,
-                null,
-                GENERATED_AT,
-            ).xlsx.writeBuffer(),
-        );
-        const actuals = rows(workbook.getWorksheet('Monthly actuals')!);
-
-        expect(actuals).toContainEqual([
-            'Source',
-            'VectorCam API · surveillance, training sessions',
-        ]);
-        expect(actuals).toContainEqual(['Scans · Training', 2]);
-        expect(actuals.find(row => row[2] === 'Gulu')?.slice(-2)).toEqual([
-            6, 2,
-        ]);
     });
 });

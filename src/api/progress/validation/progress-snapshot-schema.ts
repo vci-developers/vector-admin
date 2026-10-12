@@ -25,12 +25,17 @@ export const progressSessionsPageSchema = z
     .transform(page => ({ items: page.sessions, total: page.total }));
 
 // Each image is one scan. Require the complete image list so a missing API
-// field cannot silently turn a scanned specimen into zero scans. Image URLs,
-// predictions and other metadata are not needed for the donor figures.
+// field cannot silently turn a scanned specimen into zero scans. Image URLs
+// and other metadata are not needed for the donor figures.
 export const progressSpecimenSchema = z.object({
     id: z.number(),
     sessionId: z.number(),
     images: z.array(z.object({ id: z.number().int().nonnegative() })),
+    // The current species: the app's prediction, or a reviewer's correction.
+    thumbnailImage: z
+        .object({ species: z.string().nullish() })
+        .nullish()
+        .catch(null),
 });
 
 export const progressSpecimensPageSchema = z

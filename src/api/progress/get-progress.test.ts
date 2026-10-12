@@ -29,7 +29,6 @@ const query: GetProgressQuery = {
     exclude: [],
     from: '2026-02',
     to: '2026-02',
-    types: ['SURVEILLANCE'],
 };
 
 beforeEach(() => {
@@ -60,7 +59,7 @@ describe('getProgress', () => {
         expect(result.ok && result.data.programs).toEqual([programs[0]]);
         expect(result.ok && result.data.selectedProgramIds).toEqual([7]);
         expect(result.ok && result.data.scansByProgram).toEqual([
-            { programId: 7, scans: 0 },
+            { programId: 7, scans: 0, specimens: 0 },
         ]);
         expect(result.ok && result.data.coverageByProgram).toEqual([
             { programId: 7, unit: 'collection-site', count: 0 },
@@ -68,7 +67,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-types-v1',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(
@@ -213,28 +212,18 @@ describe('getProgress', () => {
         expect(cacheLife).toHaveBeenCalledWith('seconds');
     });
 
-    it('defaults to surveillance and ignores the test-site parameter', () => {
+    it('ignores session-type and test-site parameters', () => {
         expect(
-            getProgressQuerySchema.parse({ to: '2026-02', testSites: 'true' }),
-        ).toEqual({ exclude: [], to: '2026-02', types: ['SURVEILLANCE'] });
+            getProgressQuerySchema.parse({
+                to: '2026-02',
+                types: 'PRACTICE',
+                testSites: 'true',
+            }),
+        ).toEqual({ exclude: [], to: '2026-02' });
         expect(
             getProgressQuerySchema.safeParse({ from: '2026-03', to: '2026-02' })
                 .success,
         ).toBe(false);
-    });
-
-    it('accepts calibration and training but not CALIBRATION or an empty selection', () => {
-        expect(
-            getProgressQuerySchema.parse({
-                to: '2026-02',
-                types: 'PRACTICE,DATA_COLLECTION',
-            }).types,
-        ).toEqual(['PRACTICE', 'DATA_COLLECTION']);
-        for (const types of ['CALIBRATION', 'SURVEILLANCE,CALIBRATION', ''])
-            expect(
-                getProgressQuerySchema.safeParse({ to: '2026-02', types })
-                    .success,
-            ).toBe(false);
     });
 
     it('keeps operating metrics in the export service and out of the dashboard DTO', async () => {
@@ -309,7 +298,7 @@ describe('getProgress', () => {
         );
         expect(donor.ok && donor.data.uniqueScans).toBe(2);
         expect(donor.ok && donor.data.scansByProgram).toEqual([
-            { programId: 7, scans: 2 },
+            { programId: 7, scans: 2, specimens: 1 },
         ]);
         expect(operatingMetrics).toHaveBeenCalledTimes(1);
         expect(report.ok && report.data.internalMetrics[0]).toMatchObject({

@@ -1,14 +1,12 @@
 import type { ProgressSnapshot } from '@/api/admin/load-progress-snapshot';
 import type { Program } from '@/api/program/validation/program-schema';
-import {
-    progressSessionTypeSchema,
-    type ProgressDistrict,
-    type ProgressCoverageUnit,
-    type ProgressLocationCoverage,
-    type ProgressMonth,
-    type ProgressProgramScans,
-    type ProgressSessionType,
-    type ProgressTypeScans,
+import type {
+    ProgressDistrict,
+    ProgressCoverageUnit,
+    ProgressLocationCoverage,
+    ProgressMonth,
+    ProgressProgramScans,
+    ProgressSpecies,
 } from '@/api/progress/validation/progress-schema';
 import type { Site } from '@/api/site/validation/site-schema';
 import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
@@ -115,30 +113,48 @@ function coverageOf(group: CoverageAccumulator): ProgressLocationCoverage {
     };
 }
 
-const typeScansOf = (
-    types: readonly ProgressSessionType[],
-    scans: Map<ProgressSessionType, number>,
-): ProgressTypeScans[] =>
-    progressSessionTypeSchema.options
-        .filter(type => types.includes(type))
-        .map(type => ({ type, scans: scans.get(type) ?? 0 }));
+// Surveillance, calibration and training; the API's CALIBRATION type is not.
+const COUNTED_SESSION_TYPES = new Set([
+    'SURVEILLANCE',
+    'DATA_COLLECTION',
+    'PRACTICE',
+]);
+
+type SpeciesCounts = Map<string | null, number>;
+
+function addSpecies(into: SpeciesCounts, from: SpeciesCounts | undefined) {
+    for (const [name, count] of from ?? [])
+        into.set(name, (into.get(name) ?? 0) + count);
+}
+
+/** Most specimens first; specimens without a species last. */
+function speciesListOf(counts: SpeciesCounts): ProgressSpecies[] {
+    return [...counts]
+        .map(([name, specimens]) => ({ name, specimens }))
+        .sort(
+            (a, b) =>
+                Number(a.name === null) - Number(b.name === null) ||
+                b.specimens - a.specimens ||
+                (a.name ?? '').localeCompare(b.name ?? ''),
+        );
+}
 
 type DistrictAccumulator = ProgressDistrict & {
+    speciesCounts: SpeciesCounts;
     coverage: Map<number, CoverageAccumulator>;
     scans: Map<number, number>;
-    typeScans: Map<ProgressSessionType, number>;
+    specimens: Map<number, number>;
     months: Map<string, ProgressMonth>;
 };
 
 /**
- * All figures come from sessions of the selected types, including zero catches
- * and sessions without GPS. Scan, location, district and month totals therefore
+ * All figures come from surveillance, calibration and training sessions,
+ * including zero catches and sessions without GPS. Scan, location, district and month totals therefore
  * reconcile regardless of whether a district can be drawn on the map.
  */
 export function prepareProgressData(
     programs: ProgressProgramData[],
     range: ResolvedRange,
-    types: readonly ProgressSessionType[] = ['SURVEILLANCE'],
 ) {
     const prepared = programs.map(({ program, snapshot }) => {
         const sites = new Map(snapshot.sites.map(site => [site.siteId, site]));
@@ -148,22 +164,21 @@ export function prepareProgressData(
                 snapshot.sessions.map(session => [session.sessionId, session]),
             ).values(),
         ]
-            // Only the validated types reach here; the snapshot holds them all.
-            .flatMap(session => {
-                const type = types.find(type => type === session.type);
-                if (!type || isTestSite(sites.get(session.siteId))) return [];
-                return [
-                    {
-                        ...session,
-                        type,
-                        month: monthKeyOf(
-                            session.collectionDate ?? session.submittedAt,
-                            timeZone,
-                        ),
-                    },
-                ];
-            });
+            .filter(
+                session =>
+                    COUNTED_SESSION_TYPES.has(session.type) &&
+                    !isTestSite(sites.get(session.siteId)),
+            )
+            .map(session => ({
+                ...session,
+                month: monthKeyOf(
+                    session.collectionDate ?? session.submittedAt,
+                    timeZone,
+                ),
+            }));
         const scansBySession = new Map<number, number>();
+        const specimensBySession = new Map<number, number>();
+        const speciesBySession = new Map<number, SpeciesCounts>();
         const seenImages = new Set<number>();
         const eligibleSessions = new Set(
             sessions
@@ -188,8 +203,25 @@ export function prepareProgressData(
                 specimen.sessionId,
                 (scansBySession.get(specimen.sessionId) ?? 0) + scans,
             );
+            specimensBySession.set(
+                specimen.sessionId,
+                (specimensBySession.get(specimen.sessionId) ?? 0) + 1,
+            );
+            const species = specimen.thumbnailImage?.species?.trim() || null;
+            const sessionSpecies =
+                speciesBySession.get(specimen.sessionId) ?? new Map();
+            sessionSpecies.set(species, (sessionSpecies.get(species) ?? 0) + 1);
+            speciesBySession.set(specimen.sessionId, sessionSpecies);
         }
-        return { program, snapshot, sites, sessions, scansBySession };
+        return {
+            program,
+            snapshot,
+            sites,
+            sessions,
+            scansBySession,
+            specimensBySession,
+            speciesBySession,
+        };
     });
 
     const earliest = prepared
@@ -216,21 +248,21 @@ export function buildProgress(
     programs: ProgressProgramData[],
     range: ResolvedRange,
     anchors: Map<string, Position> = new Map(),
-    types: readonly ProgressSessionType[] = ['SURVEILLANCE'],
 ) {
     const {
         from,
         to,
         programs: prepared,
-    } = prepareProgressData(programs, range, types);
+    } = prepareProgressData(programs, range);
     const months = monthsInRange(from, to);
     const monthly = emptyMonths(months);
     const monthTotals = new Map(monthly.map(row => [row.month, row]));
     const districts = new Map<string, DistrictAccumulator>();
     const coverage: CoverageAccumulator[] = [];
     const scansByProgram: ProgressProgramScans[] = [];
-    const typeScans = new Map<ProgressSessionType, number>();
     let uniqueScans = 0;
+    let uniqueSpecimens = 0;
+    const speciesCounts: SpeciesCounts = new Map();
     let latestReceivedAt: number | null = null;
 
     for (const {
@@ -239,6 +271,8 @@ export function buildProgress(
         sites,
         sessions,
         scansBySession,
+        specimensBySession,
+        speciesBySession,
     } of prepared) {
         const unit = progressLocationUnit(program, snapshot.sites);
         const programCoverage: CoverageAccumulator = {
@@ -248,7 +282,11 @@ export function buildProgress(
             incomplete: false,
         };
         coverage.push(programCoverage);
-        const programScans = { programId: program.programId, scans: 0 };
+        const programScans = {
+            programId: program.programId,
+            scans: 0,
+            specimens: 0,
+        };
         scansByProgram.push(programScans);
         for (const session of sessions) {
             const site = sites.get(session.siteId);
@@ -269,9 +307,11 @@ export function buildProgress(
                     name: districtName ?? UNKNOWN_DISTRICT,
                     coverageByProgram: [],
                     scansByProgram: [],
-                    scansByType: [],
                     reportingLocations: 0,
                     uniqueScans: 0,
+                    uniqueSpecimens: 0,
+                    species: [],
+                    speciesCounts: new Map(),
                     monthly,
                     position:
                         districtName === null
@@ -280,7 +320,7 @@ export function buildProgress(
                     latestReceivedAt: null,
                     coverage: new Map(),
                     scans: new Map(),
-                    typeScans: new Map(),
+                    specimens: new Map(),
                     months: new Map(monthly.map(row => [row.month, row])),
                 };
                 districts.set(key, district);
@@ -313,17 +353,22 @@ export function buildProgress(
                 (district.scans.get(program.programId) ?? 0) + count,
             );
             district.uniqueScans += count;
-            district.typeScans.set(
-                session.type,
-                (district.typeScans.get(session.type) ?? 0) + count,
-            );
-            typeScans.set(
-                session.type,
-                (typeScans.get(session.type) ?? 0) + count,
-            );
             district.months.get(session.month)!.uniqueScans += count;
             monthTotals.get(session.month)!.uniqueScans += count;
             uniqueScans += count;
+            const specimens = specimensBySession.get(session.sessionId) ?? 0;
+            programScans.specimens += specimens;
+            district.specimens.set(
+                program.programId,
+                (district.specimens.get(program.programId) ?? 0) + specimens,
+            );
+            district.uniqueSpecimens += specimens;
+            uniqueSpecimens += specimens;
+            addSpecies(
+                district.speciesCounts,
+                speciesBySession.get(session.sessionId),
+            );
+            addSpecies(speciesCounts, speciesBySession.get(session.sessionId));
             district.latestReceivedAt = Math.max(
                 district.latestReceivedAt ?? session.submittedAt,
                 session.submittedAt,
@@ -346,13 +391,18 @@ export function buildProgress(
             country: district.country,
             name: district.name,
             uniqueScans: district.uniqueScans,
+            uniqueSpecimens: district.uniqueSpecimens,
+            species: speciesListOf(district.speciesCounts),
             monthly: district.monthly,
             latestReceivedAt: district.latestReceivedAt,
             coverageByProgram,
             scansByProgram: [...district.scans]
-                .map(([programId, scans]) => ({ programId, scans }))
+                .map(([programId, scans]) => ({
+                    programId,
+                    scans,
+                    specimens: district.specimens.get(programId) ?? 0,
+                }))
                 .sort((a, b) => a.programId - b.programId),
-            scansByType: typeScansOf(types, district.typeScans),
             reportingLocations: totalReportingLocations(coverageByProgram),
             // Anchors resolve the collection site's named reporting area.
             // Session GPS describes where the session was conducted.
@@ -375,9 +425,10 @@ export function buildProgress(
         scansByProgram: scansByProgram.sort(
             (a, b) => a.programId - b.programId,
         ),
-        scansByType: typeScansOf(types, typeScans),
         reportingLocations: totalReportingLocations(coverageByProgram),
         uniqueScans: programs.length ? uniqueScans : null,
+        uniqueSpecimens: programs.length ? uniqueSpecimens : null,
+        species: speciesListOf(speciesCounts),
         districts: rows,
         monthly,
         lastUpdatedAt: fetchedAt.length ? Math.min(...fetchedAt) : null,

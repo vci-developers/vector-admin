@@ -76,7 +76,10 @@ describe('buildProgress', () => {
             { from: '2026-02', to: '2026-02' },
         );
         expect(data.uniqueScans).toBe(200);
-        expect(data.scansByProgram).toEqual([{ programId: 7, scans: 200 }]);
+        expect(data.scansByProgram).toEqual([
+            { programId: 7, scans: 200, specimens: 100 },
+        ]);
+        expect(data.uniqueSpecimens).toBe(100);
         expect(data.monthly).toEqual([{ month: '2026-02', uniqueScans: 200 }]);
         expect(data.districts[0].uniqueScans).toBe(200);
         expect(data.districts[0].scansByProgram).toEqual(data.scansByProgram);
@@ -110,7 +113,55 @@ describe('buildProgress', () => {
         expect(data.districts[0].uniqueScans).toBe(3);
     });
 
-    it('counts the selected session types and splits scans by type, leaving CALIBRATION out', () => {
+    it('lists specimens per species, most first, with blank species last', () => {
+        const specimen = (id: number, sessionId: number, species?: string) => ({
+            id,
+            sessionId,
+            images: [{ id: id * 10 }],
+            thumbnailImage: species === undefined ? null : { species },
+        });
+        const data = buildProgress(
+            [
+                program({
+                    sessions: [session(1), session(2, { siteId: 2 })],
+                    sites: [house(1), { ...house(2), district: 'Lira' }],
+                    specimens: [
+                        specimen(1, 1, 'Anopheles funestus'),
+                        specimen(2, 1, 'Anopheles gambiae'),
+                        specimen(3, 2, 'Anopheles gambiae'),
+                        specimen(4, 2, '  '),
+                        specimen(5, 2),
+                    ],
+                }),
+            ],
+            { from: '2026-02', to: '2026-02' },
+        );
+        expect(data.species).toEqual([
+            { name: 'Anopheles gambiae', specimens: 2 },
+            { name: 'Anopheles funestus', specimens: 1 },
+            { name: null, specimens: 2 },
+        ]);
+        expect(
+            data.districts.map(({ name, species }) => ({ name, species })),
+        ).toEqual([
+            {
+                name: 'Gulu',
+                species: [
+                    { name: 'Anopheles funestus', specimens: 1 },
+                    { name: 'Anopheles gambiae', specimens: 1 },
+                ],
+            },
+            {
+                name: 'Lira',
+                species: [
+                    { name: 'Anopheles gambiae', specimens: 1 },
+                    { name: null, specimens: 2 },
+                ],
+            },
+        ]);
+    });
+
+    it('counts surveillance, calibration and training sessions but not CALIBRATION', () => {
         const data = buildProgress(
             [
                 program({
@@ -128,17 +179,9 @@ describe('buildProgress', () => {
                 }),
             ],
             { from: '2026-02', to: '2026-02' },
-            new Map(),
-            ['SURVEILLANCE', 'PRACTICE'],
         );
-        const split = [
-            { type: 'SURVEILLANCE', scans: 2 },
-            { type: 'PRACTICE', scans: 2 },
-        ];
-        expect(data.uniqueScans).toBe(4);
+        expect(data.uniqueScans).toBe(6);
         expect(data.reportingLocations).toBe(2);
-        expect(data.scansByType).toEqual(split);
-        expect(data.districts[0].scansByType).toEqual(split);
     });
 
     it('does not let excluded or out-of-period records consume eligible image IDs', () => {
@@ -147,7 +190,7 @@ describe('buildProgress', () => {
                 program({
                     sessions: [
                         session(1, { collectionDate: MAR }),
-                        session(2, { type: 'PRACTICE' }),
+                        session(2, { type: 'CALIBRATION' }),
                         session(3),
                     ],
                     specimens: [
@@ -164,7 +207,9 @@ describe('buildProgress', () => {
             { from: '2026-02', to: '2026-02' },
         );
         expect(data.uniqueScans).toBe(2);
-        expect(data.scansByProgram).toEqual([{ programId: 7, scans: 2 }]);
+        expect(data.scansByProgram).toEqual([
+            { programId: 7, scans: 2, specimens: 1 },
+        ]);
         expect(data.monthly[0].uniqueScans).toBe(2);
     });
 
@@ -178,7 +223,7 @@ describe('buildProgress', () => {
                             session(1),
                             session(2, { siteId: 2 }),
                             session(3, { collectionDate: MAR }),
-                            session(4, { type: 'PRACTICE' }),
+                            session(4, { type: '' }),
                             session(5, { type: 'CALIBRATION' }),
                         ],
                         sites: [house(1), { ...house(2), district: 'Lira' }],
@@ -226,9 +271,9 @@ describe('buildProgress', () => {
         );
 
         expect(data.scansByProgram).toEqual([
-            { programId: 7, scans: 5 },
-            { programId: 8, scans: 1 },
-            { programId: 9, scans: 0 },
+            { programId: 7, scans: 5, specimens: 3 },
+            { programId: 8, scans: 1, specimens: 2 },
+            { programId: 9, scans: 0, specimens: 0 },
         ]);
         expect(
             data.districts.map(({ name, scansByProgram }) => ({
@@ -239,15 +284,15 @@ describe('buildProgress', () => {
             {
                 name: 'Gulu',
                 scansByProgram: [
-                    { programId: 7, scans: 2 },
-                    { programId: 8, scans: 1 },
+                    { programId: 7, scans: 2, specimens: 2 },
+                    { programId: 8, scans: 1, specimens: 1 },
                 ],
             },
             {
                 name: 'Lira',
                 scansByProgram: [
-                    { programId: 7, scans: 3 },
-                    { programId: 8, scans: 0 },
+                    { programId: 7, scans: 3, specimens: 1 },
+                    { programId: 8, scans: 0, specimens: 1 },
                 ],
             },
         ]);
@@ -293,7 +338,7 @@ describe('buildProgress', () => {
                             collectionDate: null,
                             submittedAt: MAR + 1,
                         }),
-                        session(5, { type: 'PRACTICE' }),
+                        session(5, { type: 'CALIBRATION' }),
                         session(6, { siteId: 11 }),
                     ],
                     sites: [
@@ -359,7 +404,9 @@ describe('buildProgress', () => {
         });
         expect(data.reportingLocations).toBe(1);
         expect(data.uniqueScans).toBe(0);
-        expect(data.scansByProgram).toEqual([{ programId: 7, scans: 0 }]);
+        expect(data.scansByProgram).toEqual([
+            { programId: 7, scans: 0, specimens: 0 },
+        ]);
         expect(data.monthly.map(row => row.uniqueScans)).toEqual([0, 0, 0]);
         expect(data.districts[0].reportingLocations).toBe(1);
         expect(data.districts[0].scansByProgram).toEqual(data.scansByProgram);
@@ -637,7 +684,9 @@ describe('buildProgress', () => {
         );
 
         expect(data.uniqueScans).toBe(6);
-        expect(data.scansByProgram).toEqual([{ programId: 6, scans: 6 }]);
+        expect(data.scansByProgram).toEqual([
+            { programId: 6, scans: 6, specimens: 5 },
+        ]);
         expect(data.coverageByProgram).toEqual([
             { programId: 6, unit: 'health-district', count: 5 },
         ]);
@@ -906,7 +955,7 @@ describe('buildProgress', () => {
                 program({
                     sessions: [
                         session(1, {
-                            type: 'PRACTICE',
+                            type: 'CALIBRATION',
                             collectionDate: Date.UTC(2020, 0, 1),
                         }),
                         session(2, { collectionDate: Date.UTC(2025, 11, 1) }),

@@ -54,11 +54,13 @@ function district(
         programId: 7,
         programIds: [7],
         uniqueScans: 5,
-        scansByType: [],
+        uniqueSpecimens: 0,
+        species: [],
         scansByProgram: [
             {
                 programId: overrides.programId ?? 7,
                 scans: overrides.uniqueScans ?? 5,
+                specimens: 0,
             },
         ],
         reportingLocations: 3,
@@ -385,6 +387,8 @@ describe('matchProgressDistrictBoundaries', () => {
         const row = district('Gulu', {
             position: null,
             uniqueScans: 0,
+            uniqueSpecimens: 0,
+            species: [],
             monthly: [{ month: '2026-09', uniqueScans: 0 }],
         });
         const result = matchProgressDistrictBoundaries(
@@ -396,6 +400,8 @@ describe('matchProgressDistrictBoundaries', () => {
         expect(result.fills[0].district).toBe(row);
         expect(result.fills[0].district).toMatchObject({
             uniqueScans: 0,
+            uniqueSpecimens: 0,
+            species: [],
             reportingLocations: 3,
             position: null,
         });

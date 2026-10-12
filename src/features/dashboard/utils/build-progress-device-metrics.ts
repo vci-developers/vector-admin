@@ -1,4 +1,3 @@
-import type { ProgressSessionType } from '@/api/progress/validation/progress-schema';
 import { monthsInRange } from './month-key';
 import {
     prepareProgressData,
@@ -23,13 +22,12 @@ export type ProgressDeviceMonth = {
 export function buildProgressDeviceMetrics(
     programs: ProgressProgramData[],
     range: ResolvedRange,
-    types: readonly ProgressSessionType[] = ['SURVEILLANCE'],
 ): ProgressDeviceMonth[] {
     const {
         from,
         to,
         programs: prepared,
-    } = prepareProgressData(programs, range, types);
+    } = prepareProgressData(programs, range);
     const months = monthsInRange(from, to);
     return prepared.flatMap(({ program, sessions, scansBySession }) => {
         const monthly = new Map(

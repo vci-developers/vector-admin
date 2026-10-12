@@ -69,7 +69,7 @@ const data: ProgressProgramData[] = [
             collection(1, 1, AUGUST),
             collection(2, 1, SEPTEMBER),
             collection(3, 2, SEPTEMBER),
-            collection(4, 1, AUGUST, 'PRACTICE'),
+            collection(4, 1, AUGUST, 'CALIBRATION'),
             collection(5, 11, AUGUST),
             collection(6, 1, JULY),
         ],

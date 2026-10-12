@@ -1,7 +1,6 @@
 import type { LoadedCoverage } from '@/api/coverage/load-coverage';
 import type { ProgressDashboard } from '@/api/progress/validation/progress-schema';
 import type { ProgressDeviceMonth } from './build-progress-device-metrics';
-import { PROGRESS_SESSION_TYPE_LABELS } from './progress-session-types';
 import {
     formatProgressLocations,
     progressLocationUnitLabel,
@@ -64,17 +63,13 @@ export function buildProgressReport(
             )
             .join('; ');
 
-    // Per-type figures appear only when more than one type was selected.
-    const splitTypes =
-        progress.scansByType.length > 1 ? progress.scansByType : [];
-    const typeLabels = progress.scansByType
-        .map(row => PROGRESS_SESSION_TYPE_LABELS[row.type].toLowerCase())
-        .join(', ');
-
     const actuals = workbook.addWorksheet('Monthly actuals');
     actuals.addRows([
         ['VectorCam · Monthly actuals'],
-        ['Source', `VectorCam API · ${typeLabels} sessions`],
+        [
+            'Source',
+            'VectorCam API · surveillance, calibration and training sessions',
+        ],
         ['Reporting period', `${progress.from} to ${progress.to}`],
         [
             'Monthly reporting tab',
@@ -86,10 +81,6 @@ export function buildProgressReport(
         ],
         ['Export generated (UTC)', timestamp(generatedAt)],
         ['Scans', progress.uniqueScans],
-        ...splitTypes.map(row => [
-            `Scans · ${PROGRESS_SESSION_TYPE_LABELS[row.type]}`,
-            row.scans,
-        ]),
         [
             'Active reporting locations',
             totalProgressLocations(progress.coverageByProgram) ?? 'Unavailable',
@@ -124,14 +115,8 @@ export function buildProgressReport(
         'Scans',
         'Active reporting coverage',
         'Latest data received (UTC)',
-        ...splitTypes.map(
-            row => `Scans · ${PROGRESS_SESSION_TYPE_LABELS[row.type]}`,
-        ),
     ]);
     for (const district of progress.districts) {
-        const districtTypes = new Map(
-            district.scansByType.map(row => [row.type, row.scans]),
-        );
         actuals.addRow([
             district.country,
             programNames(district.programIds),
@@ -139,7 +124,6 @@ export function buildProgressReport(
             district.uniqueScans,
             formatProgressLocations(district.coverageByProgram, String),
             timestamp(district.latestReceivedAt),
-            ...splitTypes.map(row => districtTypes.get(row.type) ?? 0),
         ]);
     }
     actuals.addRow([]);
