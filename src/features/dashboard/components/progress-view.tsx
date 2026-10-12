@@ -111,7 +111,7 @@ export default function ProgressView() {
     const query = useGetProgress({ exclude: filters.exclude, ...range, types });
     const result = query.data;
     const dashboard: ProgressDashboard | null = result?.ok ? result.data : null;
-    const [showUpcoming, setShowUpcoming] = useState(true);
+    const [showUpcoming, setShowUpcoming] = useState(false);
     const coverage = useGetCoverage(filters.exclude).data;
     const upcoming = useMemo(
         () =>

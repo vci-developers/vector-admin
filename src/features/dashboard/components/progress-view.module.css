@@ -24,12 +24,13 @@
 
 .filters {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* Programs, session types, period: the period needs room for a month range. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.2fr);
     align-items: start;
     gap: 12px;
     /* Shares the heading's line when the page is wide enough, else wraps. */
-    flex: 1 1 40rem;
-    max-width: 52rem;
+    flex: 1 1 44rem;
+    max-width: 56rem;
     min-width: 0;
     background: var(--card);
     border: 1px solid var(--progress-line);
