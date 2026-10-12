@@ -1,9 +1,11 @@
+import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import { err, ok, type Result } from '@/lib/result/result';
 
 /**
- * Who is looking: a Developer sees everything, a Stakeholder their Programs.
- * `programIds: null` is a Developer previewing the Stakeholder view: every
- * Program, everything else as a Stakeholder.
+ * Who is looking: a Developer sees everything. A Stakeholder, or a Developer
+ * previewing the Stakeholder view, has `programIds: null`: every Program the
+ * Stakeholder page shows, that is all but the Hidden-by-Default ones. A list
+ * of ids would narrow that; nothing assigns one today.
  */
 export type Viewer =
     | { role: 'developer' }
@@ -12,19 +14,20 @@ export type Viewer =
 /** The header switch's choice, kept in a cookie. */
 export type ViewAs = 'developer' | 'stakeholder';
 
-export type StakeholderList = Map<string, number[]>;
+export type StakeholderList = Set<string>;
 
-const ENTRY = /^([^\s:@]+@[^\s:@]+):(\d+(?:\|\d+)*)$/;
+// The old `:programId|programId` suffix is still accepted and ignored.
+const ENTRY = /^([^\s:@]+@[^\s:@]+)(?::\d+(?:\|\d+)*)?$/;
 
 /**
- * Reads `STAKEHOLDER_EMAILS`: comma-separated `email:programId|programId`,
- * e.g. `a@who.int:1,b@jhu.edu:1|4`. One malformed entry rejects the whole
- * list, so a typo never admits anyone.
+ * Reads `STAKEHOLDER_EMAILS`: comma-separated emails, e.g.
+ * `a@who.int,b@jhu.edu`. One malformed entry rejects the whole list, so a
+ * typo never admits anyone.
  */
 export function parseStakeholderList(
     value: string | undefined,
 ): Result<StakeholderList, string> {
-    const list: StakeholderList = new Map();
+    const list: StakeholderList = new Set();
     const entries = (value ?? '')
         .split(',')
         .map(entry => entry.trim())
@@ -34,7 +37,7 @@ export function parseStakeholderList(
         if (!match) return err(`Malformed stakeholder entry "${entry}"`);
         const email = match[1].toLowerCase();
         if (list.has(email)) return err(`${email} is listed twice`);
-        list.set(email, match[2].split('|').map(Number));
+        list.add(email);
     }
     return ok(list);
 }
@@ -47,15 +50,17 @@ export function resolveViewer(
 ): Viewer | null {
     if (devMode) return { role: 'developer' };
     if (!email || !list.ok) return null;
-    const programIds = list.data.get(email.trim().toLowerCase());
-    return programIds ? { role: 'stakeholder', programIds } : null;
+    return list.data.has(email.trim().toLowerCase())
+        ? { role: 'stakeholder', programIds: null }
+        : null;
 }
 
 export function canSeeProgram(viewer: Viewer, programId: number): boolean {
     return (
         viewer.role === 'developer' ||
-        viewer.programIds === null ||
-        viewer.programIds.includes(programId)
+        (viewer.programIds === null
+            ? !HIDDEN_BY_DEFAULT_PROGRAM_IDS.includes(programId)
+            : viewer.programIds.includes(programId))
     );
 }
 

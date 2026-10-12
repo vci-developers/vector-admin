@@ -92,7 +92,7 @@ describe('withViewer', () => {
         expect(callback).toHaveBeenCalledWith({ role: 'developer' });
     });
 
-    it('runs the callback for a listed Stakeholder with their Programs', async () => {
+    it('runs the callback for a listed Stakeholder over every shown Program', async () => {
         accessToken = 'stakeholder-token';
         viewAs = 'developer';
         vi.stubEnv('STAKEHOLDER_EMAILS', 'partner@who.int:1|4');
@@ -105,7 +105,7 @@ describe('withViewer', () => {
         await withViewer(callback);
         expect(callback).toHaveBeenCalledWith({
             role: 'stakeholder',
-            programIds: [1, 4],
+            programIds: null,
         });
     });
 
