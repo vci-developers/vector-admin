@@ -12,8 +12,7 @@
 
 /* Re-place detailed labels after zoom so they do not collide mid-gesture. */
 .canvas[data-map-zooming='true'] .labelLeaders,
-.canvas[data-map-zooming='true'] .districtLabel,
-.canvas[data-map-zooming='true'] .upcomingTag {
+.canvas[data-map-zooming='true'] .districtLabel {
     visibility: hidden;
 }
 
@@ -93,6 +92,17 @@
 .mark {
     border-radius: 12px;
     outline: none;
+}
+
+/* The icon box spans the dot, leader and card; only the dot and card take
+   the pointer, so its empty corners cannot cover a neighbouring card. */
+.canvas :global(.leaflet-interactive).mark {
+    pointer-events: none;
+}
+
+.mark .activitySpot,
+.mark .countryCard {
+    pointer-events: auto;
 }
 
 .districtArea {
@@ -315,39 +325,9 @@
     fill: #146e5e;
 }
 
-.upcomingTag span {
-    position: absolute;
-    top: 0;
-    left: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 4px 3px 8px;
-    transform: translate(-50%, -50%);
-    border: 1px dashed rgb(179 107 0 / 55%);
-    border-radius: 6px;
-    background: rgb(255 251 243 / 95%);
-    color: #5c3d0a;
-    font-size: 12px;
-    font-weight: 650;
-    line-height: 16px;
-    white-space: nowrap;
-}
-
-/* Hover target only; Leaflet's interactive cursor would suggest a click. */
+/* Upcoming names are hover targets only; a pointer would suggest a click. */
 .canvas .upcomingTag {
     cursor: default;
-}
-
-.upcomingTag b {
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: #8a5200;
-    color: #fff;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .districtLabel span {

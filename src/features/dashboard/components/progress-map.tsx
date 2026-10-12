@@ -61,7 +61,6 @@ import {
     useMapEvents,
 } from 'react-leaflet';
 import type { UpcomingArea } from '@/features/dashboard/utils/build-upcoming-areas';
-import ScanTypeBreakdown from './scan-type-breakdown';
 import styles from './progress-map.module.css';
 
 const number = new Intl.NumberFormat('en');
@@ -297,10 +296,6 @@ function ReportingDistrictAreas({
                                         {number.format(district.uniqueScans)}{' '}
                                         scans
                                     </span>
-                                    <ScanTypeBreakdown
-                                        scansByType={district.scansByType}
-                                        className={styles.tooltipLocations}
-                                    />
                                     <span className={styles.tooltipLocations}>
                                         {formatProgressLocations(
                                             district.coverageByProgram,
@@ -913,13 +908,13 @@ function ReportingActivity({
                 key: label.area.key,
                 x: label.projected.x,
                 y: label.projected.y,
-                // Name plus the UPCOMING pill, padding and border.
+                // Sized like a District name: bold text plus padding and border.
                 width:
                     Math.ceil(
                         textContext?.measureText(label.area.name).width ??
                             label.area.name.length * fontSize * 0.75,
-                    ) + 94,
-                height: 26,
+                    ) + 22,
+                height: 24,
             })),
             viewport,
             [...obstacles, ...placements.values()],
@@ -930,6 +925,8 @@ function ReportingActivity({
                 const box = upcomingPlacements.get(label.area.key)!;
                 return {
                     ...label,
+                    box,
+                    fontSize,
                     position: map.containerPointToLatLng([box.x, box.y]),
                     leader: leaderEnd(box, label.projected),
                 };
@@ -1077,10 +1074,6 @@ function ReportingActivity({
                                 <span className={styles.tooltipScans}>
                                     {number.format(shown.uniqueScans)} scans
                                 </span>
-                                <ScanTypeBreakdown
-                                    scansByType={shown.scansByType}
-                                    className={styles.tooltipLocations}
-                                />
                                 <span className={styles.tooltipLocations}>
                                     {formatProgressLocations(
                                         shown.coverageByProgram,
@@ -1224,9 +1217,9 @@ function ReportingActivity({
                         key={label.area.key}
                         position={label.position}
                         icon={L.divIcon({
-                            className: styles.upcomingTag,
+                            className: `${styles.districtLabel} ${styles.upcomingTag}`,
                             iconSize: [0, 0],
-                            html: `<span>${escapeHtml(label.area.name)}<b>Upcoming</b></span>`,
+                            html: `<span data-displaced="${Boolean(label.leader)}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.area.name)}</span>`,
                         })}
                         // The tag opens its area's tooltip; it selects nothing.
                         keyboard={false}
@@ -1546,28 +1539,109 @@ function leaderEnd(box: LabelBox, from: { x: number; y: number }) {
     return Math.hypot(from.x - end.x, from.y - end.y) > 10 ? end : null;
 }
 
-const flippedTooltips = new WeakSet<L.Tooltip>();
+type TooltipSide = 'top' | 'bottom' | 'right' | 'left';
+const TOOLTIP_SIDES: TooltipSide[] = ['top', 'bottom', 'right', 'left'];
+const tooltipDefaults = new WeakMap<
+    L.Tooltip,
+    { direction: TooltipSide; offset: L.Point }
+>();
 
-/** A top tooltip that would leave the map's top edge opens below instead. */
-function FlipClippedTooltips() {
+/** Pixels outside the map plus the square root of any zoom-control overlap. */
+function tooltipClash(box: DOMRect, frame: DOMRect, control?: DOMRect) {
+    const outside =
+        Math.max(0, frame.left - box.left) +
+        Math.max(0, box.right - frame.right) +
+        Math.max(0, frame.top - box.top) +
+        Math.max(0, box.bottom - frame.bottom);
+    const overlap = control
+        ? Math.max(
+              0,
+              Math.min(box.right, control.right) -
+                  Math.max(box.left, control.left),
+          ) *
+          Math.max(
+              0,
+              Math.min(box.bottom, control.bottom) -
+                  Math.max(box.top, control.top),
+          )
+        : 0;
+    return outside + Math.sqrt(overlap);
+}
+
+/**
+ * Opens each tooltip on the first side that keeps it inside the map and off
+ * the zoom control, else on the side that clips least; closing restores it.
+ */
+function FitTooltipsInMap() {
     const map = useMap();
     useMapEvents({
         tooltipopen: ({ tooltip }) => {
-            if (tooltip.options.direction !== 'top') return;
-            const top = tooltip.getElement()?.getBoundingClientRect().top;
-            if (top === undefined) return;
-            if (top >= map.getContainer().getBoundingClientRect().top) return;
-            const offset = L.point(tooltip.options.offset ?? [0, 0]);
-            tooltip.options.direction = 'bottom';
-            tooltip.options.offset = [offset.x, -offset.y];
-            flippedTooltips.add(tooltip);
-            tooltip.update();
+            const element = tooltip.getElement();
+            const preferred = tooltip.options.direction;
+            if (!element || !TOOLTIP_SIDES.includes(preferred as TooltipSide))
+                return;
+            const defaults = tooltipDefaults.get(tooltip) ?? {
+                direction: preferred as TooltipSide,
+                offset: L.point(tooltip.options.offset ?? [0, 0]),
+            };
+            tooltipDefaults.set(tooltip, defaults);
+            const gap = Math.max(
+                Math.abs(defaults.offset.x),
+                Math.abs(defaults.offset.y),
+            );
+            const offsets: Record<TooltipSide, L.PointTuple> = {
+                top: [0, -gap],
+                bottom: [0, gap],
+                right: [gap, 0],
+                left: [-gap, 0],
+            };
+            const frame = map.getContainer().getBoundingClientRect();
+            const control = map
+                .getContainer()
+                .querySelector('.leaflet-control-zoom')
+                ?.getBoundingClientRect();
+            const sides = [
+                defaults.direction,
+                ...TOOLTIP_SIDES.filter(side => side !== defaults.direction),
+            ];
+            let best: { side: TooltipSide; clash: number } | null = null;
+            for (const side of sides) {
+                tooltip.options.direction = side;
+                tooltip.options.offset = offsets[side];
+                tooltip.update();
+                const clash = tooltipClash(
+                    element.getBoundingClientRect(),
+                    frame,
+                    control,
+                );
+                if (!best || clash < best.clash) best = { side, clash };
+                if (clash === 0) break;
+            }
+            if (best && tooltip.options.direction !== best.side) {
+                tooltip.options.direction = best.side;
+                tooltip.options.offset = offsets[best.side];
+                tooltip.update();
+            }
+            // No side fits a tall tooltip near an edge: slide it inside.
+            const box = element.getBoundingClientRect();
+            const margin = 8;
+            const dx =
+                Math.max(0, frame.left + margin - box.left) -
+                Math.max(0, box.right - (frame.right - margin));
+            const dy =
+                Math.max(0, frame.top + margin - box.top) -
+                Math.max(0, box.bottom - (frame.bottom - margin));
+            if (dx !== 0 || dy !== 0)
+                L.DomUtil.setPosition(
+                    element,
+                    L.DomUtil.getPosition(element).add([dx, dy]),
+                );
         },
         tooltipclose: ({ tooltip }) => {
-            if (!flippedTooltips.delete(tooltip)) return;
-            const offset = L.point(tooltip.options.offset ?? [0, 0]);
-            tooltip.options.direction = 'top';
-            tooltip.options.offset = [offset.x, -offset.y];
+            const defaults = tooltipDefaults.get(tooltip);
+            if (!defaults) return;
+            tooltip.options.direction = defaults.direction;
+            tooltip.options.offset = defaults.offset;
         },
     });
     return null;
@@ -1738,7 +1812,7 @@ export default function ProgressMap({
             />
             <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
             <ClearSelection onSelect={onSelect} />
-            <FlipClippedTooltips />
+            <FitTooltipsInMap />
             <ReportingActivity
                 districts={mappedDistricts}
                 countries={countries}
