@@ -422,9 +422,7 @@
 }
 
 .contributionList li + li {
-    margin-top: 2px;
-    padding-top: 2px;
-    border-top: 1px solid var(--progress-line);
+    margin-top: 4px;
 }
 
 .areaContribution {
@@ -436,9 +434,15 @@
     transition: background 150ms;
 }
 
-.areaContribution:hover,
-.areaContributionSelected {
+.areaContribution:hover {
     background: var(--progress-soft);
+}
+
+/* Stronger than hover, with an edge bar, so the selection stays readable. */
+.areaContributionSelected,
+.areaContributionSelected:hover {
+    background: color-mix(in srgb, var(--primary) 12%, var(--card));
+    box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .areaContribution:focus-visible {
