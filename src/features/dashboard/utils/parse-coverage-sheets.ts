@@ -40,6 +40,12 @@ export const coverageUnitRowSchema = z.object({
         .trim()
         .optional()
         .transform(name => name || null),
+    /** The area a site-level unit sits in; drawn when the unit has no shape. */
+    region: z
+        .string()
+        .trim()
+        .optional()
+        .transform(name => name || null),
 });
 
 /** "2026-09", or a date cell in that month. */

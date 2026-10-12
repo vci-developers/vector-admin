@@ -17,7 +17,15 @@ vi.mock('./read-coverage-workbook', () => ({ readCoverageWorkbook: vi.fn() }));
 
 const file = Uint8Array.from([1, 2, 3]).buffer;
 const figures: CoverageFigures = {
-    units: [{ programId: 7, unit: 'Gulu', status: 'Active', boundary: null }],
+    units: [
+        {
+            programId: 7,
+            unit: 'Gulu',
+            status: 'Active',
+            boundary: null,
+            region: null,
+        },
+    ],
     expectedUsers: [],
     programPotential: [],
     projectedDevices: [],

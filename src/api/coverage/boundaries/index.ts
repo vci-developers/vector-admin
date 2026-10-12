@@ -7,6 +7,7 @@ import {
 } from '@/features/dashboard/utils/match-coverage-boundaries';
 import { z } from 'zod';
 import countries from './countries.json';
+import kenya from './kenya.json';
 import uganda from './uganda.json';
 
 // Written by scripts/fetch-boundaries.mjs; one file per Program Country.
@@ -25,7 +26,7 @@ let byCountry: Map<string, Boundary[]> | undefined;
 /** The committed boundaries for a Program Country; empty when there are none. */
 export function boundariesForCountry(country: string): Boundary[] {
     byCountry ??= new Map(
-        [uganda].map(file => {
+        [uganda, kenya].map(file => {
             const { country, features } = boundaryFileSchema.parse(file);
             return [
                 country,

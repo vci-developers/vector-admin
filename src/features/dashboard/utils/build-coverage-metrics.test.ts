@@ -19,6 +19,7 @@ function units(
             unit: `${status} ${i}`,
             status: status as CoverageStatus,
             boundary: null,
+            region: null,
         })),
     );
 }

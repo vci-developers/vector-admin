@@ -23,6 +23,7 @@ export const programCoverageSchema = z.object({
 const coverageFillSchema = z.object({
     programId: z.number(),
     unit: z.string(),
+    area: z.string(),
     status: z.enum(COVERAGE_STATUSES),
     geometry: multiPolygonSchema,
 });

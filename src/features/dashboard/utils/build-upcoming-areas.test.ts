@@ -29,12 +29,31 @@ const coverage: CoverageResponse = {
             programs: [],
             unmatched: [],
             fills: [
-                { programId: 1, unit: 'Gulu', status: 'Active', geometry },
-                { programId: 1, unit: 'Kaliro', status: 'Targeted', geometry },
-                { programId: 1, unit: 'Kotido', status: 'Targeted', geometry },
+                {
+                    programId: 1,
+                    unit: 'Gulu',
+                    area: 'Gulu',
+                    status: 'Active',
+                    geometry,
+                },
+                {
+                    programId: 1,
+                    unit: 'Kaliro',
+                    area: 'Kaliro',
+                    status: 'Targeted',
+                    geometry,
+                },
+                {
+                    programId: 1,
+                    unit: 'Kotido',
+                    area: 'Kotido',
+                    status: 'Targeted',
+                    geometry,
+                },
                 {
                     programId: 1,
                     unit: 'Moyo',
+                    area: 'Moyo',
                     status: 'Surveillance only',
                     geometry,
                 },
@@ -50,6 +69,33 @@ describe('buildUpcomingAreas', () => {
                 area => area.key,
             ),
         ).toEqual(['uganda:kaliro']);
+    });
+
+    it('draws two Targeted sites in one area once, under the area name', () => {
+        const site = (unit: string) => ({
+            programId: 1,
+            unit,
+            area: 'Baringo',
+            status: 'Targeted' as const,
+            geometry,
+        });
+        const sites: CoverageResponse = {
+            ...coverage,
+            coverage: {
+                ok: true,
+                data: {
+                    source: 'live',
+                    savedAt: null,
+                    liveProblem: null,
+                    programs: [],
+                    unmatched: [],
+                    fills: [site('Barpello'), site('Kollowa')],
+                },
+            },
+        };
+        expect(
+            buildUpcomingAreas(sites, new Set()).map(area => area.name),
+        ).toEqual(['Baringo']);
     });
 
     it('is empty when the workbook could not be read', () => {
