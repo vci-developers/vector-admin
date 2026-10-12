@@ -24,13 +24,13 @@
 
 .filters {
     display: grid;
-    /* Programs, session types, period: the period needs room for a month range. */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.2fr);
+    /* Programs, period: the period needs room for a month range. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
     align-items: start;
     gap: 12px;
     /* Shares the heading's line when the page is wide enough, else wraps. */
-    flex: 1 1 44rem;
-    max-width: 56rem;
+    flex: 1 1 32rem;
+    max-width: 42rem;
     min-width: 0;
     background: var(--card);
     border: 1px solid var(--progress-line);
@@ -86,8 +86,8 @@
 
 .headlineCards {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
 }
 
 .headline {
@@ -124,7 +124,16 @@
     .headlineCards {
         column-gap: 20px;
     }
+}
 
+/* Three tiles side by side once each has room for its Program lines. */
+@media (min-width: 768px) {
+    .headlineCards {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 640px) {
     .headlineSummary {
         flex-direction: row;
         flex-wrap: wrap;
@@ -134,25 +143,33 @@
     }
 }
 
-/* The total and its session-type lines share the card's second row. */
-.headlineTotals {
-    grid-row: 2;
-    min-width: 0;
+/* Clicking a tile opens or closes them all; room below for the chevron. */
+.headlineToggle {
+    padding-bottom: 34px;
+    cursor: pointer;
+    transition:
+        transform 150ms,
+        box-shadow 150ms,
+        border-color 150ms;
 }
 
-.scanTypeSplit {
-    display: grid;
-    gap: 2px;
-    max-width: 18rem;
-    margin-top: 10px;
-    color: var(--progress-ink);
-    font-size: 13px;
-    font-weight: 500;
+.headlineToggle:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--primary) 30%, var(--progress-line));
+    box-shadow:
+        0 4px 10px rgb(20 55 43 / 6%),
+        0 18px 40px rgb(20 55 43 / 10%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .headlineToggle:hover {
+        transform: none;
+    }
 }
 
 .headlineLabel {
     color: var(--progress-ink);
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 600;
 }
 
@@ -302,16 +319,23 @@
     );
 }
 
+/* White, mid, dark left to right; mid keeps the dark card's light text. */
+.headlineMid {
+    border-color: #23735c;
+    background: #2a7a63;
+    background-image: radial-gradient(
+        ellipse at 100% 0%,
+        rgb(140 220 190 / 22%),
+        transparent 65%
+    );
+}
+
 .headlineFeatured .headlineLabel,
 .headlineFeatured .headlineValue {
     color: #fff;
 }
 
 .headlineFeatured .headlineUnit {
-    color: #e1f2eb;
-}
-
-.headlineFeatured .scanTypeSplit {
     color: #e1f2eb;
 }
 
@@ -325,33 +349,48 @@
     color: #c0d8ce;
 }
 
-.scanBreakdown {
+.headlineFeatured .scanBreakdown {
     border-color: rgb(203 235 220 / 15%);
 }
 
-.scanRow + .scanRow {
+.headlineFeatured .scanRow + .scanRow {
     border-color: rgb(203 235 220 / 12%);
 }
 
-.scanCountry {
+.headlineFeatured .scanCountry {
     color: #f3fcf8;
 }
 
-.scanProgram {
+.headlineFeatured .scanProgram,
+.headlineFeatured .scanSingleProgram,
+.headlineFeatured .scanUnavailable {
     color: #c0d8ce;
+}
+
+.headlineFeatured .scanCount {
+    color: #fff;
+}
+
+/* The dark card's #c0d8ce is too faint on mid green for small text. */
+.headlineMid .headlineDescription,
+.headlineMid .headlineUnit,
+.headlineMid .scanProgram,
+.headlineMid .scanSingleProgram,
+.headlineMid .scanUnavailable {
+    color: #eef8f4;
 }
 
 .scanSingleProgram {
     grid-row: 3;
     align-self: start;
     margin-top: 12px;
-    color: #c0d8ce;
+    color: var(--muted-foreground);
     font-size: 10.5px;
     line-height: 1.5;
 }
 
 .scanCount {
-    color: #fff;
+    color: var(--progress-ink);
     font-size: 22px;
     line-height: 1.15;
     font-weight: 600;
@@ -360,7 +399,7 @@
 }
 
 .scanUnavailable {
-    color: #c0d8ce;
+    color: var(--muted-foreground);
     font-size: 11px;
 }
 
@@ -415,39 +454,18 @@
 .contributionList {
     min-height: 0;
     max-height: 440px;
-    margin-top: 14px;
+    margin-top: 10px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--progress-line) transparent;
 }
 
+.speciesRow {
+    padding: 5px 8px;
+}
+
 .contributionList li + li {
-    margin-top: 4px;
-}
-
-.areaContribution {
-    display: block;
-    width: 100%;
-    padding: 10px 8px;
-    border-radius: 8px;
-    text-align: left;
-    transition: background 150ms;
-}
-
-.areaContribution:hover {
-    background: var(--progress-soft);
-}
-
-/* Stronger than hover, with an edge bar, so the selection stays readable. */
-.areaContributionSelected,
-.areaContributionSelected:hover {
-    background: color-mix(in srgb, var(--primary) 12%, var(--card));
-    box-shadow: inset 3px 0 0 var(--primary);
-}
-
-.areaContribution:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
+    margin-top: 0;
 }
 
 .contributionArea {
@@ -471,23 +489,6 @@
     line-height: 1.4;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
-}
-
-.contributionTrack {
-    display: block;
-    height: 4px;
-    margin-top: 8px;
-    overflow: hidden;
-    border-radius: 99px;
-    background: var(--progress-soft);
-}
-
-.contributionTrack > span {
-    display: block;
-    height: 100%;
-    min-width: 2px;
-    border-radius: inherit;
-    background: var(--primary);
 }
 
 @media (min-width: 1280px) {
@@ -553,13 +554,13 @@
     }
 
     .headline {
-        padding: 14px;
+        padding: 14px 14px 34px;
         border-radius: 14px;
     }
 
     .headlineLabel {
         min-height: 34px;
-        font-size: 12px;
+        font-size: 14px;
         line-height: 1.4;
     }
 

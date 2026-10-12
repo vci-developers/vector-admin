@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { jsx } from 'react/jsx-runtime';
 import { describe, expect, it } from 'vitest';
 import ProgressCoverageHeadline from './progress-coverage-headline';
-import ProgressScansHeadline from './progress-scans-headline';
+import { ScanLine } from 'lucide-react';
+import ProgressCountHeadline from './progress-count-headline';
 
 const programs: Program[] = [
     { programId: 1, name: 'Uganda reporting', country: 'Uganda' },
@@ -26,6 +27,8 @@ function renderCoverage(coverage: readonly ProgressLocationCoverage[]) {
             children: createElement(ProgressCoverageHeadline, {
                 coverage,
                 programs,
+                expanded: true,
+                onToggle: () => {},
             }),
         }),
     ).replace(/<!--.*?-->/g, '');
@@ -147,19 +150,28 @@ describe('progress coverage headline', () => {
                     createElement(ProgressCoverageHeadline, {
                         coverage,
                         programs,
+                        expanded: true,
+                        onToggle: () => {},
                     }),
-                    createElement(ProgressScansHeadline, {
+                    createElement(ProgressCountHeadline, {
+                        title: 'Total scans',
+                        expanded: true,
+                        onToggle: () => {},
+                        icon: ScanLine,
+                        tone: 'mid',
                         total: 926,
-                        scansByType: [{ type: 'SURVEILLANCE', scans: 926 }],
-                        scansByProgram: coverage.map(row => ({
+                        byProgram: coverage.map(row => ({
                             programId: row.programId,
-                            scans:
+                            count:
                                 row.programId === 1
                                     ? 909
                                     : row.programId === 6
                                       ? 17
                                       : 0,
                         })),
+                        totalUnit: 'total scans',
+                        singleUnit: 'images captured with VectorCam',
+                        description: 'One image is one scan.',
                         programs,
                     }),
                 ),
@@ -247,28 +259,27 @@ describe('progress coverage headline', () => {
         expect(empty).not.toContain('active reporting locations');
     });
 
-    it('splits the scans total by session type when two types have scans', () => {
+    it('shows only the total until the tiles are opened', () => {
         const markup = renderToStaticMarkup(
             jsx(NextIntlClientProvider, {
                 locale: 'en',
                 timeZone: 'UTC',
                 messages: {},
-                children: createElement(ProgressScansHeadline, {
-                    total: 1926,
-                    scansByProgram: [{ programId: 1, scans: 1926 }],
-                    scansByType: [
-                        { type: 'SURVEILLANCE', scans: 1900 },
-                        { type: 'DATA_COLLECTION', scans: 0 },
-                        { type: 'PRACTICE', scans: 26 },
+                children: createElement(ProgressCoverageHeadline, {
+                    coverage: [
+                        { programId: 1, unit: 'household', count: 206 },
+                        { programId: 3, unit: 'household', count: 4 },
                     ],
                     programs,
+                    expanded: false,
+                    onToggle: () => {},
                 }),
             }),
         );
 
-        const lines = [
-            ...markup.matchAll(/<li[^>]*><span>([^<]+)<\/span><span>([^<]+)</g),
-        ].map(match => `${match[1]} ${match[2]}`);
-        expect(lines).toEqual(['Surveillance 1,900', 'Training 26']);
+        expect(markup).toContain('>210</span>');
+        expect(markup).toContain('aria-expanded="false"');
+        expect(markup).not.toContain('<li');
+        expect(markup).not.toContain('Locations reporting');
     });
 });

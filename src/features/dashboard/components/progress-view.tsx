@@ -10,7 +10,6 @@ import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import { buildUpcomingAreas } from '@/features/dashboard/utils/build-upcoming-areas';
 import { programTitle } from '@/features/dashboard/utils/program-title';
-import { selectProgressSessionTypes } from '@/features/dashboard/utils/progress-session-types';
 import {
     PROGRESS_SCAN_FILL_OPACITY,
     PROGRESS_SCAN_LEGEND,
@@ -23,10 +22,11 @@ import {
 import { cn } from '@/utils/cn';
 import {
     AlertCircle,
-    ChevronDown,
+    Bug,
     Download,
     Loader2,
     MapPin,
+    ScanLine,
     X,
 } from 'lucide-react';
 import { useFormatter } from 'next-intl';
@@ -34,14 +34,13 @@ import dynamic from 'next/dynamic';
 import { parseAsString, useQueryState } from 'nuqs';
 import { use, useEffect, useMemo, useState } from 'react';
 import PeriodPicker from './period-picker';
-import ProgressAreaContributions from './progress-area-contributions';
+import ProgressAreaPicker from './progress-area-picker';
 import ProgressCoverageHeadline from './progress-coverage-headline';
 import ProgressLoading from './progress-loading';
 import ProgressMonthlyChart from './progress-monthly-chart';
 import ProgressProgramPicker from './progress-program-picker';
-import ProgressScansHeadline from './progress-scans-headline';
-import ProgressSessionTypePicker from './progress-session-type-picker';
-import ScanTypeBreakdown from './scan-type-breakdown';
+import ProgressSpeciesBreakdown from './progress-species-breakdown';
+import ProgressCountHeadline from './progress-count-headline';
 import styles from './progress-view.module.css';
 
 const ProgressMap = dynamic(() => import('./progress-map'), {
@@ -56,32 +55,6 @@ const ProgressMap = dynamic(() => import('./progress-map'), {
         </div>
     ),
 });
-
-const selectClass =
-    'bg-card text-foreground focus-visible:ring-ring h-10 w-full appearance-none rounded-lg border py-2 pr-9 pl-3 text-sm font-medium outline-none transition-colors hover:border-primary/40 focus-visible:ring-2';
-
-function SelectField({
-    label,
-    children,
-}: {
-    label: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <label className="flex flex-col gap-1.5">
-            <span className="text-muted-foreground text-[11px] font-medium">
-                {label}
-            </span>
-            <span className="relative">
-                {children}
-                <ChevronDown
-                    className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2"
-                    aria-hidden="true"
-                />
-            </span>
-        </label>
-    );
-}
 
 export default function ProgressView() {
     const formatter = useFormatter();
@@ -107,11 +80,13 @@ export default function ProgressView() {
             currentMonth: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
         };
     }, [filters.range, filters.from, filters.to]);
-    const types = selectProgressSessionTypes(filters.types);
-    const query = useGetProgress({ exclude: filters.exclude, ...range, types });
+    const query = useGetProgress({ exclude: filters.exclude, ...range });
     const result = query.data;
     const dashboard: ProgressDashboard | null = result?.ok ? result.data : null;
     const [showUpcoming, setShowUpcoming] = useState(false);
+    // The tiles share rows, so they open and close together.
+    const [tilesExpanded, setTilesExpanded] = useState(false);
+    const toggleTiles = () => setTilesExpanded(open => !open);
     const coverage = useGetCoverage(filters.exclude).data;
     const upcoming = useMemo(
         () =>
@@ -150,6 +125,8 @@ export default function ProgressView() {
         : range.from
           ? periodLabel(range.from, range.to)
           : 'All time';
+    const byProgram =
+        selected?.scansByProgram ?? dashboard?.scansByProgram ?? [];
     const partial = (dashboard?.failedProgramIds.length ?? 0) > 0;
     const unavailable = dashboard !== null && dashboard.uniqueScans === null;
     const noSelection = dashboard?.selectedProgramIds.length === 0;
@@ -188,7 +165,6 @@ export default function ProgressView() {
             const params = new URLSearchParams({
                 exclude: filters.exclude.join(','),
                 to: range.to,
-                types: types.join(','),
                 ...(range.from ? { from: range.from } : {}),
             });
             const response = await fetch(`/api/progress/report?${params}`, {
@@ -234,12 +210,6 @@ export default function ProgressView() {
                             onChange={choosePrograms}
                         />
                     </div>
-                    <ProgressSessionTypePicker
-                        selected={types}
-                        onChange={selectedTypes =>
-                            void setFilters({ types: selectedTypes })
-                        }
-                    />
                     <div className="flex min-w-0 flex-col gap-1.5">
                         <span className="text-muted-foreground text-[11px] font-medium">
                             Reporting period
@@ -366,19 +336,45 @@ export default function ProgressView() {
                                     : result.data.coverageByProgram
                             }
                             programs={result.data.programs}
+                            expanded={tilesExpanded}
+                            onToggle={toggleTiles}
                         />
-                        <ProgressScansHeadline
+                        <ProgressCountHeadline
+                            title="Total Scans"
+                            icon={ScanLine}
+                            tone="mid"
                             total={
                                 selected?.uniqueScans ?? result.data.uniqueScans
                             }
-                            scansByProgram={
-                                selected?.scansByProgram ??
-                                result.data.scansByProgram
-                            }
-                            scansByType={
-                                selected?.scansByType ?? result.data.scansByType
-                            }
+                            byProgram={byProgram.map(row => ({
+                                programId: row.programId,
+                                count: row.scans,
+                            }))}
+                            totalUnit="total scans"
+                            singleUnit="images captured with VectorCam"
+                            description="One image is one scan. A specimen with two images contributes two scans."
                             programs={result.data.programs}
+                            expanded={tilesExpanded}
+                            onToggle={toggleTiles}
+                        />
+                        <ProgressCountHeadline
+                            title="Unique Specimens"
+                            icon={Bug}
+                            tone="dark"
+                            total={
+                                selected?.uniqueSpecimens ??
+                                result.data.uniqueSpecimens
+                            }
+                            byProgram={byProgram.map(row => ({
+                                programId: row.programId,
+                                count: row.specimens,
+                            }))}
+                            totalUnit="total specimens"
+                            singleUnit="specimens photographed"
+                            description="Each specimen counts once. A specimen with two images counts a single time."
+                            programs={result.data.programs}
+                            expanded={tilesExpanded}
+                            onToggle={toggleTiles}
                         />
                     </div>
 
@@ -528,50 +524,21 @@ export default function ProgressView() {
                                     <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px]">
                                         By collection month.
                                     </p>
-                                    <ScanTypeBreakdown
-                                        scansByType={
-                                            selected?.scansByType ??
-                                            result.data.scansByType
-                                        }
-                                        className="text-muted-foreground mt-2 grid max-w-xs gap-0.5 text-xs sm:text-[13px]"
-                                    />
                                 </div>
                                 <div className="w-full">
-                                    <SelectField label="Reporting area">
-                                        <select
-                                            aria-label="Reporting area"
-                                            className={selectClass}
-                                            value={selectedKey ?? ''}
-                                            onChange={event =>
-                                                void setDistrictKey(
-                                                    event.target.value || null,
-                                                )
-                                            }
-                                            disabled={
-                                                unavailable ||
-                                                noSelection ||
-                                                updating
-                                            }
-                                        >
-                                            <option value="">
-                                                All reporting areas
-                                            </option>
-                                            {result.data.districts.map(
-                                                district => (
-                                                    <option
-                                                        key={district.key}
-                                                        value={district.key}
-                                                    >
-                                                        {district.name}
-                                                        {chosenCountries.length >
-                                                        1
-                                                            ? ` · ${district.country}`
-                                                            : ''}
-                                                    </option>
-                                                ),
-                                            )}
-                                        </select>
-                                    </SelectField>
+                                    <ProgressAreaPicker
+                                        areas={result.data.districts}
+                                        showCountry={chosenCountries.length > 1}
+                                        selectedKey={selectedKey}
+                                        onChange={key =>
+                                            void setDistrictKey(key)
+                                        }
+                                        disabled={
+                                            unavailable ||
+                                            noSelection ||
+                                            updating
+                                        }
+                                    />
                                 </div>
                             </div>
                             {unavailable || noSelection ? (
@@ -589,11 +556,11 @@ export default function ProgressView() {
                                 </div>
                             )}
                             {!unavailable && !noSelection && (
-                                <ProgressAreaContributions
-                                    districts={result.data.districts}
-                                    selectedKey={selectedKey}
-                                    onSelect={key => void setDistrictKey(key)}
-                                    disabled={updating}
+                                <ProgressSpeciesBreakdown
+                                    species={
+                                        selected?.species ?? result.data.species
+                                    }
+                                    areaName={selected?.name ?? null}
                                 />
                             )}
                         </section>

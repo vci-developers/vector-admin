@@ -34,12 +34,16 @@ export default function ProgressProgramPicker({
     const countries = Array.from(
         new Set(selected.map(program => program.country)),
     ).sort();
+    const allSelected =
+        programs.length > 1 && selected.length === programs.length;
     const title =
         countries.length === 0
             ? 'Choose programs'
-            : countries.length <= 2
-              ? countries.join(' + ')
-              : 'Multiple countries';
+            : allSelected
+              ? 'All programs'
+              : countries.length <= 2
+                ? countries.join(' + ')
+                : 'Multiple countries';
     const subtitle =
         selected.map(program => program.name).join(' · ') ||
         'Select the programs to display';
@@ -105,6 +109,47 @@ export default function ProgressProgramPicker({
                 >
                     <fieldset className="grid min-w-0 gap-1">
                         <legend className="sr-only">Reporting programs</legend>
+                        {programs.length > 1 && (
+                            <label
+                                className={cn(
+                                    'hover:bg-muted focus-within:bg-muted flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors',
+                                    disabled && 'cursor-not-allowed opacity-60',
+                                )}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    // Partly ticked when only some are selected.
+                                    ref={input => {
+                                        if (input)
+                                            input.indeterminate =
+                                                selected.length > 0 &&
+                                                !allSelected;
+                                    }}
+                                    disabled={disabled}
+                                    onChange={event =>
+                                        onChange(
+                                            event.target.checked
+                                                ? programs.map(
+                                                      program =>
+                                                          program.programId,
+                                                  )
+                                                : [],
+                                        )
+                                    }
+                                    className="accent-primary focus-visible:ring-ring size-[18px] shrink-0 rounded outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                />
+                                <span className="text-foreground flex-1 text-sm font-semibold">
+                                    All programs
+                                </span>
+                                <span className="text-muted-foreground text-xs tabular-nums">
+                                    {selected.length} of {programs.length}
+                                </span>
+                            </label>
+                        )}
+                        {programs.length > 1 && (
+                            <hr className="mx-3 my-1 border-t" />
+                        )}
                         {offered.map(program => {
                             const checked = selectedIds.has(program.programId);
                             return (
