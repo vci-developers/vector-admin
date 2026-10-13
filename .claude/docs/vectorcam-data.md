@@ -84,6 +84,9 @@ Complete; they drive every live metric. Paged per Program, cached ~1 h.
   `siteId`, `deviceId`, GPS (recorded at upload, often wrong), collector fields.
 - `/specimens/` with `includeAllImages`: species, sex, abdomen status per image
   (app prediction, replaced on review), image `capturedAt`.
+- `/specimens/count/sessions` (`programId`, `hasImages`): one row per Session
+  with `specimenCount`, `imageCount` and species/sex/abdomen `groups`; one
+  unpaged call. The Stakeholder view uses it instead of `/specimens/`.
 - `/devices/`: every registered device, including never used; `ssaid`, no IMEI.
   A Device is an app registration: a factory reset makes a new one.
 - `/programs/{id}/collection-cycles`: cycles and the Program's timezone.

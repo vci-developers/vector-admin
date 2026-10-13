@@ -145,8 +145,13 @@ describe('buildProgressReport', () => {
                         longitude: null,
                     },
                 ],
-                specimens: [
-                    { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
+                specimenCounts: [
+                    {
+                        sessionId: 1,
+                        specimenCount: 1,
+                        imageCount: 2,
+                        groups: [],
+                    },
                 ],
                 sites: [
                     {

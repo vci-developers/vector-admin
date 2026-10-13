@@ -177,7 +177,6 @@ export function prepareProgressData(
         const scansBySession = new Map<number, number>();
         const specimensBySession = new Map<number, number>();
         const speciesBySession = new Map<number, SpeciesCounts>();
-        const seenImages = new Set<number>();
         const eligibleSessions = new Set(
             sessions
                 .filter(
@@ -187,29 +186,17 @@ export function prepareProgressData(
                 )
                 .map(session => session.sessionId),
         );
-        for (const specimen of new Map(
-            snapshot.specimens.map(specimen => [specimen.id, specimen]),
-        ).values()) {
-            if (!eligibleSessions.has(specimen.sessionId)) continue;
-            let scans = 0;
-            for (const image of specimen.images) {
-                if (seenImages.has(image.id)) continue;
-                seenImages.add(image.id);
-                scans += 1;
+        for (const counts of snapshot.specimenCounts) {
+            if (!eligibleSessions.has(counts.sessionId)) continue;
+            scansBySession.set(counts.sessionId, counts.imageCount);
+            specimensBySession.set(counts.sessionId, counts.specimenCount);
+            // Groups split by sex and abdomen too; only species is reported.
+            const species: SpeciesCounts = new Map();
+            for (const group of counts.groups) {
+                const name = group.species?.trim() || null;
+                species.set(name, (species.get(name) ?? 0) + group.count);
             }
-            scansBySession.set(
-                specimen.sessionId,
-                (scansBySession.get(specimen.sessionId) ?? 0) + scans,
-            );
-            specimensBySession.set(
-                specimen.sessionId,
-                (specimensBySession.get(specimen.sessionId) ?? 0) + 1,
-            );
-            const species = specimen.thumbnailImage?.species?.trim() || null;
-            const sessionSpecies =
-                speciesBySession.get(specimen.sessionId) ?? new Map();
-            sessionSpecies.set(species, (sessionSpecies.get(species) ?? 0) + 1);
-            speciesBySession.set(specimen.sessionId, sessionSpecies);
+            speciesBySession.set(counts.sessionId, species);
         }
         return {
             program,

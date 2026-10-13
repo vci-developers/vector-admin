@@ -1,6 +1,6 @@
 import type {
     ProgressSession,
-    ProgressSpecimen,
+    ProgressSessionCount,
 } from '@/api/progress/validation/progress-snapshot-schema';
 import { describe, expect, it } from 'vitest';
 import { buildProgress, type ProgressProgramData } from './build-progress';
@@ -24,17 +24,28 @@ const session = (
     ...fields,
 });
 
+const counts = (
+    sessionId: number,
+    imageCount: number,
+    specimenCount = imageCount,
+): ProgressSessionCount => ({
+    sessionId,
+    specimenCount,
+    imageCount,
+    groups: [],
+});
+
 function program(
     programId: number,
     sessions: ProgressSession[],
-    specimens: ProgressSpecimen[] = [],
+    specimenCounts: ProgressSessionCount[] = [],
 ): ProgressProgramData {
     return {
         program: { programId, country: 'Uganda', name: `Program ${programId}` },
         snapshot: {
             programId,
             sessions,
-            specimens,
+            specimenCounts,
             sites: [
                 {
                     siteId: 1,
@@ -56,18 +67,8 @@ function program(
 }
 
 describe('buildProgressDeviceMetrics', () => {
-    it('uses distinct images rather than specimen rows in the device ratio', () => {
-        const data = program(
-            7,
-            [session(1)],
-            [
-                {
-                    id: 1,
-                    sessionId: 1,
-                    images: [{ id: 10 }, { id: 11 }, { id: 10 }],
-                },
-            ],
-        );
+    it('uses images rather than specimens in the device ratio', () => {
+        const data = program(7, [session(1)], [counts(1, 2, 1)]);
         const period = { from: '2025-12', to: '2025-12' };
         const metrics = buildProgressDeviceMetrics([data], period);
 
@@ -95,19 +96,10 @@ describe('buildProgressDeviceMetrics', () => {
                     session(3, { submittedAt: JAN }),
                     session(4, { deviceId: 21, submittedAt: JAN }), // Zero catch still active.
                 ],
-                [
-                    { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                    { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                    { id: 2, sessionId: 2, images: [{ id: 20 }] },
-                    { id: 3, sessionId: 3, images: [{ id: 30 }] },
-                ],
+                [counts(1, 1), counts(2, 1), counts(3, 1)],
             ),
             // Numeric ids can match in independent program snapshots.
-            program(
-                8,
-                [session(1)],
-                [{ id: 1, sessionId: 1, images: [{ id: 10 }] }],
-            ),
+            program(8, [session(1)], [counts(1, 1)]),
         ];
         const period = { from: '2025-12', to: '2026-01' };
         const rows = buildProgressDeviceMetrics(programs, period);
@@ -174,12 +166,12 @@ describe('buildProgressDeviceMetrics', () => {
                     session(5, { type: '', deviceId: 25 }),
                 ],
                 [
-                    { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                    { id: 2, sessionId: 2, images: [{ id: 20 }] },
-                    { id: 3, sessionId: 3, images: [{ id: 30 }] },
-                    { id: 4, sessionId: 4, images: [{ id: 40 }] },
-                    { id: 5, sessionId: 5, images: [{ id: 50 }] },
-                    { id: 6, sessionId: 99, images: [{ id: 60 }] },
+                    counts(1, 1),
+                    counts(2, 1),
+                    counts(3, 1),
+                    counts(4, 1),
+                    counts(5, 1),
+                    counts(99, 1),
                 ],
             ),
         ];
@@ -203,10 +195,7 @@ describe('buildProgressDeviceMetrics', () => {
                 program(
                     7,
                     [session(1), session(2, { deviceId: null })],
-                    [
-                        { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                        { id: 2, sessionId: 2, images: [{ id: 20 }] },
-                    ],
+                    [counts(1, 1), counts(2, 1)],
                 ),
             ],
             {
@@ -247,10 +236,7 @@ describe('buildProgressDeviceMetrics', () => {
                     deviceId: 21,
                 }),
             ],
-            [
-                { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                { id: 2, sessionId: 2, images: [{ id: 20 }] },
-            ],
+            [counts(1, 1), counts(2, 1)],
         );
         data.snapshot.collectionCycles = [
             {

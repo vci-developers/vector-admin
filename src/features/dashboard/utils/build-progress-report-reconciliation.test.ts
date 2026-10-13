@@ -1,6 +1,9 @@
 import type { ProgressSnapshot } from '@/api/admin/load-progress-snapshot';
 import type { ProgressDashboard } from '@/api/progress/validation/progress-schema';
-import type { ProgressSession } from '@/api/progress/validation/progress-snapshot-schema';
+import type {
+    ProgressSession,
+    ProgressSessionCount,
+} from '@/api/progress/validation/progress-snapshot-schema';
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { buildProgress, type ProgressProgramData } from './build-progress';
@@ -11,6 +14,17 @@ const JULY = Date.UTC(2026, 6, 15, 12);
 const AUGUST = Date.UTC(2026, 7, 15, 12);
 const SEPTEMBER = Date.UTC(2026, 8, 15, 12);
 const GENERATED_AT = Date.UTC(2026, 9, 10, 12);
+
+const counts = (
+    sessionId: number,
+    imageCount: number,
+    specimenCount = imageCount,
+): ProgressSessionCount => ({
+    sessionId,
+    specimenCount,
+    imageCount,
+    groups: [],
+});
 
 function collection(
     sessionId: number,
@@ -41,7 +55,7 @@ function program(
             programId,
             sites: [],
             sessions: [],
-            specimens: [],
+            specimenCounts: [],
             collectionCycles: [],
             fetchedAt: GENERATED_AT - 60_000,
             ...snapshot,
@@ -73,18 +87,13 @@ const data: ProgressProgramData[] = [
             collection(5, 11, AUGUST),
             collection(6, 1, JULY),
         ],
-        specimens: [
-            {
-                id: 1,
-                sessionId: 1,
-                images: [{ id: 10 }, { id: 11 }, { id: 10 }],
-            },
-            { id: 2, sessionId: 1, images: [{ id: 11 }] },
-            { id: 3, sessionId: 2, images: [{ id: 12 }, { id: 13 }] },
-            { id: 4, sessionId: 3, images: [] },
-            { id: 5, sessionId: 4, images: [{ id: 1000 }] },
-            { id: 6, sessionId: 5, images: [{ id: 2000 }] },
-            { id: 7, sessionId: 6, images: [{ id: 14 }] },
+        specimenCounts: [
+            counts(1, 2, 2),
+            counts(2, 2, 1),
+            counts(3, 0, 1),
+            counts(4, 1),
+            counts(5, 1),
+            counts(6, 1),
         ],
     }),
     program(2, 'Colombia', {
@@ -96,18 +105,12 @@ const data: ProgressProgramData[] = [
             locationHierarchy: {},
         })),
         sessions: [collection(1, 1, AUGUST), collection(2, 2, SEPTEMBER)],
-        specimens: [
-            { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
-            { id: 2, sessionId: 2, images: [{ id: 12 }] },
-        ],
+        specimenCounts: [counts(1, 2, 1), counts(2, 1)],
     }),
     program(3, 'Ghana', {
         sites: [household(1, 'Ada East')],
         sessions: [collection(1, 1, AUGUST), collection(2, 1, SEPTEMBER)],
-        specimens: [
-            { id: 1, sessionId: 1, images: [] },
-            { id: 2, sessionId: 2, images: [{ id: 10 }, { id: 11 }] },
-        ],
+        specimenCounts: [counts(1, 0, 1), counts(2, 2, 1)],
     }),
     program(4, 'Kenya', {
         sites: [household(1, 'Turkana')],
@@ -125,7 +128,7 @@ const data: ProgressProgramData[] = [
             },
         })),
         sessions: [collection(1, 1, AUGUST), collection(2, 2, SEPTEMBER)],
-        specimens: [{ id: 1, sessionId: 1, images: [{ id: 10 }] }],
+        specimenCounts: [counts(1, 1)],
     }),
 ];
 

@@ -7,10 +7,10 @@ import {
     type CollectionCycle,
 } from '@/api/collection-cycle/validation/collection-cycle-schema';
 import {
+    progressSessionCountsSchema,
     progressSessionsPageSchema,
-    progressSpecimensPageSchema,
     type ProgressSession,
-    type ProgressSpecimen,
+    type ProgressSessionCount,
 } from '@/api/progress/validation/progress-snapshot-schema';
 import {
     getSitesPageSchema,
@@ -23,7 +23,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 export type ProgressSnapshot = {
     programId: number;
     sessions: ProgressSession[];
-    specimens: ProgressSpecimen[];
+    specimenCounts: ProgressSessionCount[];
     sites: Site[];
     collectionCycles: CollectionCycle[];
     fetchedAt: number;
@@ -33,7 +33,7 @@ type SnapshotResult = Result<ProgressSnapshot, NetworkError>;
 const inFlight = new Map<number, Promise<SnapshotResult>>();
 const STABLE_SORT = { sortBy: 'id', sortOrder: 'asc' };
 // The API filters one session type at a time; types are chosen in the builder.
-const SNAPSHOT_VERSION = 'image-count-v1-all-types-species';
+const SNAPSHOT_VERSION = 'session-counts-v1-all-types-species';
 
 function failBriefly(error: NetworkError) {
     cacheLife('seconds');
@@ -61,28 +61,22 @@ async function loadCachedProgressSnapshot(
     snapshotVersion: typeof SNAPSHOT_VERSION,
 ): Promise<SnapshotResult> {
     'use cache';
-    // The version is an explicit cache-key argument: older specimen-count
-    // snapshots cannot be reused when complete image lists are required.
+    // The version is an explicit cache-key argument: snapshots of an older
+    // shape are never reused.
     const programTag = progressSnapshotTag(programId);
     cacheTag(programTag, `${programTag}:${snapshotVersion}`);
 
-    const [sessions, specimens, sites, cycles] = await Promise.all([
+    const [sessions, specimenCounts, sites, cycles] = await Promise.all([
         loadProgressPages(
             '/sessions/',
             { programId, ...STABLE_SORT },
             progressSessionsPageSchema,
             session => session.sessionId,
         ),
-        loadProgressPages(
-            '/specimens/',
-            {
-                programId,
-                hasImages: true,
-                includeAllImages: true,
-                ...STABLE_SORT,
-            },
-            progressSpecimensPageSchema,
-            specimen => specimen.id,
+        adminGet(
+            '/specimens/count/sessions',
+            { programId, hasImages: true },
+            progressSessionCountsSchema,
         ),
         loadProgressPages(
             '/sites/',
@@ -98,7 +92,7 @@ async function loadCachedProgressSnapshot(
     ]);
 
     if (!sessions.ok) return failBriefly(sessions.error);
-    if (!specimens.ok) return failBriefly(specimens.error);
+    if (!specimenCounts.ok) return failBriefly(specimenCounts.error);
     if (!sites.ok) return failBriefly(sites.error);
     if (!cycles.ok) return failBriefly(cycles.error);
 
@@ -106,7 +100,7 @@ async function loadCachedProgressSnapshot(
     return ok({
         programId,
         sessions: sessions.data,
-        specimens: specimens.data,
+        specimenCounts: specimenCounts.data,
         sites: sites.data,
         collectionCycles: cycles.data.collectionCycles,
         fetchedAt: Date.now(),

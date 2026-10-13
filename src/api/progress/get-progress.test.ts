@@ -38,7 +38,7 @@ beforeEach(() => {
         ok({
             programId,
             sessions: [],
-            specimens: [],
+            specimenCounts: [],
             sites: [],
             collectionCycles: [],
             fetchedAt: 100,
@@ -67,7 +67,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(
@@ -146,7 +146,7 @@ describe('getProgress', () => {
                 : ok({
                       programId,
                       sessions: [],
-                      specimens: [],
+                      specimenCounts: [],
                       sites: [],
                       collectionCycles: [],
                       fetchedAt: 100,
@@ -183,8 +183,13 @@ describe('getProgress', () => {
                         longitude: null,
                     },
                 ],
-                specimens: [
-                    { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
+                specimenCounts: [
+                    {
+                        sessionId: 1,
+                        specimenCount: 1,
+                        imageCount: 2,
+                        groups: [],
+                    },
                 ],
                 sites: [
                     {
@@ -275,8 +280,13 @@ describe('getProgress', () => {
                         longitude: null,
                     },
                 ],
-                specimens: [
-                    { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
+                specimenCounts: [
+                    {
+                        sessionId: 1,
+                        specimenCount: 1,
+                        imageCount: 2,
+                        groups: [],
+                    },
                 ],
                 sites: [
                     {
