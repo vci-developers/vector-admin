@@ -29,12 +29,12 @@ beforeEach(() => {
 });
 
 describe('getDashboardProgramSelection', () => {
-    it('only exposes authorized program metadata and excludes visible non-Uganda programs by default', async () => {
+    it('only exposes authorized program metadata', async () => {
         const selection = await getDashboardProgramSelection();
 
         expect(selection).toEqual({
             programs: [programs[0], programs[2]],
-            exclude: [9],
+            exclude: [],
         });
         expect(loadPrograms).toHaveBeenCalledTimes(1);
         expect(
@@ -43,20 +43,11 @@ describe('getDashboardProgramSelection', () => {
         expect(selection.exclude).not.toContain(8);
     });
 
-    it('offers every authorized program in the progress preview while opening on Uganda', async () => {
+    it('opens a Stakeholder on every authorized program', async () => {
         viewer = { role: 'stakeholder', programIds: null };
 
         expect(await getDashboardProgramSelection()).toEqual({
             programs,
-            exclude: [8, 9],
-        });
-    });
-
-    it('keeps an authorized country selected when the viewer has no Uganda grant', async () => {
-        viewer = { role: 'stakeholder', programIds: [8] };
-
-        expect(await getDashboardProgramSelection()).toEqual({
-            programs: [programs[1]],
             exclude: [],
         });
     });

@@ -26,7 +26,7 @@ export async function getDashboardProgramSelection(): Promise<{
         );
         return ok({
             programs: visible,
-            exclude: defaultExcludedPrograms(viewer.role, visible),
+            exclude: defaultExcludedPrograms(viewer.role),
         });
     });
     // A viewer the routes will refuse anyway; the page shows that error.

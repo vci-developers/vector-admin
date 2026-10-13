@@ -25,8 +25,7 @@ privilege never grants entry: prod has privilege-1 users in several Programs.
 _Avoid_: admin (collides with the admin token)
 
 **Program Filter**: A multi-select over every Program from `GET /programs`. A
-Stakeholder's page opens on Uganda only (all their Programs when they have no
-Uganda Program); they can tick their others. For a Developer it defaults to all
+Stakeholder's page opens on all their Programs. For a Developer it defaults to all
 Programs except a **Hidden-by-Default** list (currently prod program 5, Johns
 Hopkins University, whose nature is unconfirmed); a hidden Program can still be
 selected. New Programs appear selected automatically. _Avoid_: all programs
@@ -67,7 +66,8 @@ Cameroon, Colombia and the United States of America (contiguous states only).
 Reporting Months chosen from presets (This month, Last month, Last 3 / 6 / 12
 months, Year to date, All time), a single chosen Month (picked from a grid or
 stepped with arrows) or a custom from/to month pair (picking either end past the
-other moves both). Defaults to Last month, the unit the team sheet uses. Presets
+other moves both). Defaults to Last month for a Developer, the unit the team
+sheet uses, and Year to date for a Stakeholder. Presets
 are relative, so a bookmarked preset tracks the calendar. Rolling presets and
 Year to date end at the last complete month (Year to date in January is January
 alone). A period that includes the current month is **In Progress**: labelled as

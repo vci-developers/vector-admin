@@ -35,8 +35,8 @@ const dashboardFilterParsers = {
 
 /**
  * The page's filters, kept in the URL. A missing `exclude` means the viewer's
- * default selection (DashboardProvider): Uganda only for a
- * Stakeholder, everything but the Hidden-by-Default list for a Developer.
+ * default selection (DashboardProvider): every Program for a Stakeholder,
+ * everything but the Hidden-by-Default list for a Developer.
  */
 export function useDashboardFilters() {
     const defaultExclude = use(DefaultExcludeContext);
@@ -45,7 +45,7 @@ export function useDashboardFilters() {
         () => ({
             ...dashboardFilterParsers,
             range: dashboardFilterParsers.range.withDefault(
-                view === 'stakeholder' ? '3m' : 'last-month',
+                view === 'stakeholder' ? 'ytd' : 'last-month',
             ),
             exclude: dashboardFilterParsers.exclude.withDefault(defaultExclude),
         }),
