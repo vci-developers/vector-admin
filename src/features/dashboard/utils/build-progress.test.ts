@@ -1,5 +1,8 @@
 import type { ProgressSnapshot } from '@/api/admin/load-progress-snapshot';
-import type { ProgressSession } from '@/api/progress/validation/progress-snapshot-schema';
+import type {
+    ProgressSession,
+    ProgressSessionCount,
+} from '@/api/progress/validation/progress-snapshot-schema';
 import type { Site } from '@/api/site/validation/site-schema';
 import { describe, expect, it } from 'vitest';
 import {
@@ -18,12 +21,19 @@ const session = (
     sessionId,
     siteId: 1,
     type: 'SURVEILLANCE',
-    collectionDate: FEB,
-    submittedAt: MAR,
+    submittedAt: FEB,
+    collectionDate: MAR,
     latitude: 2.77,
     longitude: 32.3,
     ...fields,
 });
+
+const counts = (
+    sessionId: number,
+    imageCount: number,
+    specimenCount = imageCount,
+    groups: ProgressSessionCount['groups'] = [],
+): ProgressSessionCount => ({ sessionId, specimenCount, imageCount, groups });
 
 const house = (siteId: number, villageName = 'Aleu'): Site => ({
     siteId,
@@ -44,7 +54,7 @@ const program = (
     snapshot: {
         programId,
         sessions: [],
-        specimens: [],
+        specimenCounts: [],
         sites: [house(1), house(2), house(3, 'Awach')],
         collectionCycles: [
             {
@@ -66,11 +76,7 @@ describe('buildProgress', () => {
             [
                 program({
                     sessions: [session(1)],
-                    specimens: Array.from({ length: 100 }, (_, index) => ({
-                        id: index + 1,
-                        sessionId: 1,
-                        images: [{ id: index * 2 + 1 }, { id: index * 2 + 2 }],
-                    })),
+                    specimenCounts: [counts(1, 200, 100)],
                 }),
             ],
             { from: '2026-02', to: '2026-02' },
@@ -86,24 +92,12 @@ describe('buildProgress', () => {
         expect(data.reportingLocations).toBe(1);
     });
 
-    it('counts each image once and retains locations with no images', () => {
+    it('retains locations with no images', () => {
         const data = buildProgress(
             [
                 program({
                     sessions: [session(1), session(2, { siteId: 3 })],
-                    specimens: [
-                        {
-                            id: 1,
-                            sessionId: 1,
-                            images: [{ id: 10 }, { id: 11 }, { id: 10 }],
-                        },
-                        {
-                            id: 2,
-                            sessionId: 1,
-                            images: [{ id: 11 }, { id: 12 }],
-                        },
-                        { id: 3, sessionId: 2, images: [] },
-                    ],
+                    specimenCounts: [counts(1, 3, 2), counts(2, 0, 1)],
                 }),
             ],
             { from: '2026-02', to: '2026-02' },
@@ -114,23 +108,22 @@ describe('buildProgress', () => {
     });
 
     it('lists specimens per species, most first, with blank species last', () => {
-        const specimen = (id: number, sessionId: number, species?: string) => ({
-            id,
-            sessionId,
-            images: [{ id: id * 10 }],
-            thumbnailImage: species === undefined ? null : { species },
-        });
         const data = buildProgress(
             [
                 program({
                     sessions: [session(1), session(2, { siteId: 2 })],
                     sites: [house(1), { ...house(2), district: 'Lira' }],
-                    specimens: [
-                        specimen(1, 1, 'Anopheles funestus'),
-                        specimen(2, 1, 'Anopheles gambiae'),
-                        specimen(3, 2, 'Anopheles gambiae'),
-                        specimen(4, 2, '  '),
-                        specimen(5, 2),
+                    specimenCounts: [
+                        counts(1, 2, 2, [
+                            { species: 'Anopheles funestus', count: 1 },
+                            { species: 'Anopheles gambiae', count: 1 },
+                        ]),
+                        // Groups also split by sex and abdomen; blank is none.
+                        counts(2, 3, 3, [
+                            { species: 'Anopheles gambiae', count: 1 },
+                            { species: '  ', count: 1 },
+                            { species: null, count: 1 },
+                        ]),
                     ],
                 }),
             ],
@@ -171,11 +164,7 @@ describe('buildProgress', () => {
                         session(3, { type: 'CALIBRATION' }),
                         session(4, { type: 'DATA_COLLECTION' }),
                     ],
-                    specimens: [1, 2, 3, 4].map(id => ({
-                        id,
-                        sessionId: id,
-                        images: [{ id: id * 10 }, { id: id * 10 + 1 }],
-                    })),
+                    specimenCounts: [1, 2, 3, 4].map(id => counts(id, 2, 1)),
                 }),
             ],
             { from: '2026-02', to: '2026-02' },
@@ -184,36 +173,7 @@ describe('buildProgress', () => {
         expect(data.reportingLocations).toBe(2);
     });
 
-    it('does not let excluded or out-of-period records consume eligible image IDs', () => {
-        const data = buildProgress(
-            [
-                program({
-                    sessions: [
-                        session(1, { collectionDate: MAR }),
-                        session(2, { type: 'CALIBRATION' }),
-                        session(3),
-                    ],
-                    specimens: [
-                        { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                        { id: 2, sessionId: 2, images: [{ id: 11 }] },
-                        {
-                            id: 3,
-                            sessionId: 3,
-                            images: [{ id: 10 }, { id: 11 }],
-                        },
-                    ],
-                }),
-            ],
-            { from: '2026-02', to: '2026-02' },
-        );
-        expect(data.uniqueScans).toBe(2);
-        expect(data.scansByProgram).toEqual([
-            { programId: 7, scans: 2, specimens: 1 },
-        ]);
-        expect(data.monthly[0].uniqueScans).toBe(2);
-    });
-
-    it('attributes shared districts to their contributing programs while reconciling deduplicated images and zero catches', () => {
+    it('attributes shared districts to their contributing programs while reconciling zero catches', () => {
         const data = buildProgress(
             [
                 program({}, 9),
@@ -222,17 +182,17 @@ describe('buildProgress', () => {
                         sessions: [
                             session(1),
                             session(2, { siteId: 2 }),
-                            session(3, { collectionDate: MAR }),
+                            session(3, { submittedAt: MAR }),
                             session(4, { type: '' }),
                             session(5, { type: 'CALIBRATION' }),
                         ],
                         sites: [house(1), { ...house(2), district: 'Lira' }],
-                        specimens: [
-                            { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                            { id: 2, sessionId: 2, images: [] },
-                            { id: 3, sessionId: 3, images: [{ id: 30 }] },
-                            { id: 4, sessionId: 4, images: [{ id: 40 }] },
-                            { id: 5, sessionId: 5, images: [{ id: 50 }] },
+                        specimenCounts: [
+                            counts(1, 1),
+                            counts(2, 0, 1),
+                            counts(3, 1),
+                            counts(4, 1),
+                            counts(5, 1),
                         ],
                     },
                     8,
@@ -249,19 +209,10 @@ describe('buildProgress', () => {
                             { ...house(2), district: 'Lira' },
                             { ...house(11), district: 'Other' },
                         ],
-                        specimens: [
-                            {
-                                id: 1,
-                                sessionId: 1,
-                                images: [{ id: 10 }, { id: 11 }, { id: 10 }],
-                            },
-                            { id: 2, sessionId: 1, images: [{ id: 11 }] },
-                            {
-                                id: 3,
-                                sessionId: 2,
-                                images: [{ id: 20 }, { id: 21 }, { id: 22 }],
-                            },
-                            { id: 4, sessionId: 3, images: [{ id: 60 }] },
+                        specimenCounts: [
+                            counts(1, 2),
+                            counts(2, 3, 1),
+                            counts(3, 1),
                         ],
                     },
                     7,
@@ -316,10 +267,10 @@ describe('buildProgress', () => {
         }
     });
 
-    it('reconciles deduplicated scans, districts and local reporting months while including zero catches and missing GPS', () => {
+    it('reconciles scans, districts and local reporting months while including zero catches and missing GPS', () => {
         const first = session(1, {
             // February in Kampala, despite January in UTC.
-            collectionDate: Date.UTC(2026, 0, 31, 22),
+            submittedAt: Date.UTC(2026, 0, 31, 22),
         });
         const data = buildProgress(
             [
@@ -350,15 +301,13 @@ describe('buildProgress', () => {
                             district: 'Other',
                         },
                     ],
-                    specimens: [
-                        { id: 10, sessionId: 1, images: [{ id: 100 }] },
-                        { id: 10, sessionId: 1, images: [{ id: 100 }] },
-                        { id: 11, sessionId: 1, images: [{ id: 110 }] },
-                        { id: 12, sessionId: 3, images: [{ id: 120 }] },
-                        { id: 13, sessionId: 4, images: [{ id: 130 }] },
-                        { id: 14, sessionId: 5, images: [{ id: 140 }] },
-                        { id: 15, sessionId: 6, images: [{ id: 150 }] },
-                        { id: 16, sessionId: 100, images: [{ id: 160 }] },
+                    specimenCounts: [
+                        counts(1, 2),
+                        counts(3, 1),
+                        counts(4, 1),
+                        counts(5, 1),
+                        counts(6, 1),
+                        counts(100, 1), // No such Session.
                     ],
                 }),
             ],
@@ -659,21 +608,17 @@ describe('buildProgress', () => {
                         sessions: sites.map(({ siteId }) =>
                             session(siteId, {
                                 siteId,
-                                collectionDate: siteId <= 2 ? FEB : MAR,
+                                submittedAt: siteId <= 2 ? FEB : MAR,
                                 latitude: 40.7,
                                 longitude: -74,
                             }),
                         ),
-                        specimens: [
-                            {
-                                id: 1,
-                                sessionId: 1,
-                                images: [{ id: 10 }, { id: 11 }],
-                            },
-                            { id: 2, sessionId: 2, images: [{ id: 12 }] },
-                            { id: 3, sessionId: 3, images: [{ id: 13 }] },
-                            { id: 4, sessionId: 4, images: [{ id: 14 }] },
-                            { id: 5, sessionId: 5, images: [{ id: 15 }] },
+                        specimenCounts: [
+                            counts(1, 2, 1),
+                            counts(2, 1),
+                            counts(3, 1),
+                            counts(4, 1),
+                            counts(5, 1),
                         ],
                     },
                     6,
@@ -803,10 +748,7 @@ describe('buildProgress', () => {
                     {
                         sessions: [session(1), session(2, { siteId: 2 })],
                         sites: [parent, leaf],
-                        specimens: [
-                            { id: 1, sessionId: 1, images: [{ id: 10 }] },
-                            { id: 2, sessionId: 2, images: [{ id: 11 }] },
-                        ],
+                        specimenCounts: [counts(1, 1), counts(2, 1)],
                     },
                     3,
                     'Ghana',
@@ -825,7 +767,7 @@ describe('buildProgress', () => {
     it('keeps matching village names and numeric ids in different programs distinct', () => {
         const fields = {
             sessions: [session(1)],
-            specimens: [{ id: 1, sessionId: 1, images: [{ id: 10 }] }],
+            specimenCounts: [counts(1, 1)],
         };
         const data = buildProgress([program(fields, 7), program(fields, 8)], {
             from: '2026-02',
@@ -848,7 +790,7 @@ describe('buildProgress', () => {
     it('keeps districts with the same name in different countries geographically distinct', () => {
         const fields = {
             sessions: [session(1)],
-            specimens: [{ id: 1, sessionId: 1, images: [{ id: 10 }] }],
+            specimenCounts: [counts(1, 1)],
         };
         const data = buildProgress(
             [program(fields, 7), program(fields, 8, 'Kenya')],
@@ -902,10 +844,7 @@ describe('buildProgress', () => {
                 session(1, { latitude: 40.7, longitude: -74 }),
                 session(2, { siteId: 2, latitude: 2.77, longitude: 32.3 }),
             ],
-            specimens: [
-                { id: 1, sessionId: 1, images: [{ id: 10 }, { id: 11 }] },
-                { id: 2, sessionId: 2, images: [{ id: 20 }] },
-            ],
+            specimenCounts: [counts(1, 2, 1), counts(2, 1)],
         });
         const withoutGps = {
             ...source,
@@ -956,10 +895,10 @@ describe('buildProgress', () => {
                     sessions: [
                         session(1, {
                             type: 'CALIBRATION',
-                            collectionDate: Date.UTC(2020, 0, 1),
+                            submittedAt: Date.UTC(2020, 0, 1),
                         }),
-                        session(2, { collectionDate: Date.UTC(2025, 11, 1) }),
-                        session(3, { collectionDate: Date.UTC(2027, 0, 1) }),
+                        session(2, { submittedAt: Date.UTC(2025, 11, 1) }),
+                        session(3, { submittedAt: Date.UTC(2027, 0, 1) }),
                     ],
                 }),
             ],

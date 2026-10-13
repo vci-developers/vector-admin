@@ -24,23 +24,23 @@ export const progressSessionsPageSchema = z
     .object({ sessions: z.array(progressSessionSchema), total: z.number() })
     .transform(page => ({ items: page.sessions, total: page.total }));
 
-// Each image is one scan. Require the complete image list so a missing API
-// field cannot silently turn a scanned specimen into zero scans. Image URLs
-// and other metadata are not needed for the donor figures.
-export const progressSpecimenSchema = z.object({
-    id: z.number(),
+// Counted by the API per Session, so no specimen or image pages are crawled.
+// Each image is one scan; groups carry the current species (the app's
+// prediction, or a reviewer's correction).
+const countSchema = z.number().int().nonnegative();
+
+export const progressSessionCountSchema = z.object({
     sessionId: z.number(),
-    images: z.array(z.object({ id: z.number().int().nonnegative() })),
-    // The current species: the app's prediction, or a reviewer's correction.
-    thumbnailImage: z
-        .object({ species: z.string().nullish() })
-        .nullish()
-        .catch(null),
+    specimenCount: countSchema,
+    imageCount: countSchema,
+    groups: z.array(
+        z.object({ species: z.string().nullish(), count: countSchema }),
+    ),
 });
 
-export const progressSpecimensPageSchema = z
-    .object({ specimens: z.array(progressSpecimenSchema), total: z.number() })
-    .transform(page => ({ items: page.specimens, total: page.total }));
+export const progressSessionCountsSchema = z
+    .object({ sessions: z.array(progressSessionCountSchema) })
+    .transform(response => response.sessions);
 
 export type ProgressSession = z.infer<typeof progressSessionSchema>;
-export type ProgressSpecimen = z.infer<typeof progressSpecimenSchema>;
+export type ProgressSessionCount = z.infer<typeof progressSessionCountSchema>;

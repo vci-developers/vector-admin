@@ -33,15 +33,24 @@ function healthyApi(url: URL): Response {
             latitude: null,
             longitude: null,
         }));
-    if (url.pathname === '/specimens/')
-        return page(url, 'specimens', 105, id => ({
-            id,
-            sessionId: 1,
-            images: [
-                { id: id * 2 + 1, url: 'https://images.test/first.jpg' },
-                { id: id * 2 + 2, species: 'Anopheles' },
+    if (url.pathname === '/specimens/count/sessions')
+        return json({
+            sessions: [
+                {
+                    sessionId: 1,
+                    specimenCount: 105,
+                    imageCount: 210,
+                    groups: [
+                        {
+                            species: 'Anopheles',
+                            sex: 'F',
+                            abdomenStatus: null,
+                            count: 105,
+                        },
+                    ],
+                },
             ],
-        }));
+        });
     if (url.pathname === '/sites/')
         return page(url, 'sites', 1, siteId => ({
             siteId,
@@ -94,23 +103,25 @@ describe('loadProgressSnapshot', () => {
         expect(result.data.sessions[0].latitude).toBeNull();
         expect(result.data.sessions[1].latitude).toBeUndefined();
         expect(result.data.sites[0].district).toBe('Gulu');
-        expect(result.data.specimens).toHaveLength(105);
+        expect(result.data.specimenCounts).toHaveLength(1);
     });
 
     it('loads every page and tolerates nullable collector names and legacy session types', async () => {
         const fetchMock = stubApi();
         const result = await loadProgressSnapshot(7);
         expect(result.ok && result.data.sessions).toHaveLength(205);
-        expect(result.ok && result.data.specimens).toHaveLength(105);
         if (!result.ok) throw new Error('Expected a successful snapshot');
         expect(result.data.sessions[3].type).toBe('');
         expect(result.data.sessions[0]).not.toHaveProperty('collectorName');
         expect(result.data.sessions[0].deviceId).toBe(20);
         expect(result.data.sessions[3].deviceId).toBeNull();
-        expect(result.data.specimens[0].images).toEqual([{ id: 1 }, { id: 2 }]);
-        expect(result.data.specimens[104].images).toEqual([
-            { id: 209 },
-            { id: 210 },
+        expect(result.data.specimenCounts).toEqual([
+            {
+                sessionId: 1,
+                specimenCount: 105,
+                imageCount: 210,
+                groups: [{ species: 'Anopheles', count: 105 }],
+            },
         ]);
         const sessionOffsets = fetchMock.mock.calls
             .map(([input]) => new URL(input))
@@ -119,7 +130,7 @@ describe('loadProgressSnapshot', () => {
         expect(sessionOffsets).toEqual(['0', '100', '200']);
     });
 
-    it('reads only needed endpoints with stable sorting, image-backed specimens and every session type', async () => {
+    it('reads only needed endpoints with stable sorting, image-backed specimen counts and every session type', async () => {
         const fetchMock = stubApi();
         await loadProgressSnapshot(7);
         for (const [input, init] of fetchMock.mock.calls) {
@@ -129,23 +140,22 @@ describe('loadProgressSnapshot', () => {
                 Authorization: 'Bearer test-admin-token',
             });
             expect(url.pathname).not.toMatch(/devices|auth-events/);
-            if (!url.pathname.endsWith('collection-cycles')) {
+            if (url.pathname === '/specimens/count/sessions') {
+                expect(url.searchParams.get('programId')).toBe('7');
+                expect(url.searchParams.get('hasImages')).toBe('true');
+            } else if (!url.pathname.endsWith('collection-cycles')) {
                 expect(url.searchParams.get('sortBy')).toBe('id');
                 expect(url.searchParams.get('sortOrder')).toBe('asc');
             }
             // Session types are chosen per request in the builder.
             expect(url.searchParams.has('type')).toBe(false);
             expect(url.searchParams.has('sessionType')).toBe(false);
-            if (url.pathname === '/specimens/') {
-                expect(url.searchParams.get('hasImages')).toBe('true');
-                expect(url.searchParams.get('includeAllImages')).toBe('true');
-            }
         }
     });
 
     it('refuses a partial snapshot when a later page fails', async () => {
         stubApi(url =>
-            url.pathname === '/specimens/' &&
+            url.pathname === '/sessions/' &&
             url.searchParams.get('offset') === '100'
                 ? json({ error: 'Page unavailable' }, 503)
                 : healthyApi(url),
@@ -160,13 +170,13 @@ describe('loadProgressSnapshot', () => {
         stubApi(async url => {
             const response = healthyApi(url);
             if (
-                url.pathname !== '/specimens/' ||
+                url.pathname !== '/sessions/' ||
                 url.searchParams.get('offset') !== '100'
             ) {
                 return response;
             }
             const body = await response.json();
-            body.specimens[0].id = 99;
+            body.sessions[0].sessionId = 99;
             return json(body);
         });
         expect(await loadProgressSnapshot(7)).toMatchObject({
@@ -215,7 +225,7 @@ describe('loadProgressSnapshot', () => {
         stubApi(async url => {
             const response = healthyApi(url);
             if (
-                url.pathname !== '/specimens/' ||
+                url.pathname !== '/sessions/' ||
                 url.searchParams.get('offset') !== '100'
             )
                 return response;
@@ -245,24 +255,20 @@ describe('loadProgressSnapshot', () => {
 
     it('accepts a genuinely empty resource', async () => {
         stubApi(url =>
-            url.pathname === '/specimens/'
-                ? json({ specimens: [], total: 0 })
+            url.pathname === '/specimens/count/sessions'
+                ? json({ sessions: [] })
                 : healthyApi(url),
         );
         const result = await loadProgressSnapshot(7);
-        expect(result.ok && result.data.specimens).toEqual([]);
+        expect(result.ok && result.data.specimenCounts).toEqual([]);
     });
 
-    it('refuses a snapshot when a specimen page omits its complete image list', async () => {
+    it('refuses a snapshot when a session count omits its image count', async () => {
         stubApi(async url => {
             const response = healthyApi(url);
-            if (
-                url.pathname !== '/specimens/' ||
-                url.searchParams.get('offset') !== '100'
-            )
-                return response;
+            if (url.pathname !== '/specimens/count/sessions') return response;
             const body = await response.json();
-            delete body.specimens[0].images;
+            delete body.sessions[0].imageCount;
             return json(body);
         });
         expect(await loadProgressSnapshot(7)).toEqual({
@@ -278,7 +284,7 @@ describe('loadProgressSnapshot', () => {
             loadProgressSnapshot(7),
         ]);
         expect(first).toBe(second);
-        expect(fetchMock).toHaveBeenCalledTimes(7);
+        expect(fetchMock).toHaveBeenCalledTimes(6);
     });
 
     it('does not call the API without the server admin token', async () => {

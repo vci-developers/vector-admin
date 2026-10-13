@@ -10,6 +10,7 @@ export type AdminEndpoint =
     | '/programs'
     | '/sessions/'
     | '/specimens/'
+    | '/specimens/count/sessions'
     | '/devices/'
     | '/sites/'
     | '/users/auth-events'
