@@ -15,14 +15,14 @@ const GENERATED_AT = Date.UTC(2026, 9, 10, 12);
 function collection(
     sessionId: number,
     siteId: number,
-    collectionDate: number,
+    submittedAt: number,
     type: ProgressSession['type'] = 'SURVEILLANCE',
 ): ProgressSession {
     return {
         sessionId,
         siteId,
-        collectionDate,
-        submittedAt: SEPTEMBER + 86_400_000,
+        submittedAt,
+        collectionDate: SEPTEMBER + 86_400_000,
         deviceId: 20,
         type,
         latitude: null,
@@ -252,7 +252,7 @@ describe('downloaded progress workbook reconciliation', () => {
                         'Garoua',
                         1,
                         '1 health district',
-                        new Date(SEPTEMBER + 86_400_000).toISOString(),
+                        new Date(SEPTEMBER).toISOString(),
                     ],
                 ],
             );

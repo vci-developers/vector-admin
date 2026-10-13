@@ -171,10 +171,8 @@ export function prepareProgressData(
             )
             .map(session => ({
                 ...session,
-                month: monthKeyOf(
-                    session.collectionDate ?? session.submittedAt,
-                    timeZone,
-                ),
+                // Stakeholders count a Session in the month it was submitted.
+                month: monthKeyOf(session.submittedAt, timeZone),
             }));
         const scansBySession = new Map<number, number>();
         const specimensBySession = new Map<number, number>();

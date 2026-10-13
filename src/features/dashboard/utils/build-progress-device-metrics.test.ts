@@ -17,8 +17,8 @@ const session = (
     siteId: 1,
     deviceId: 20,
     type: 'SURVEILLANCE',
-    collectionDate: DEC,
-    submittedAt: JAN,
+    submittedAt: DEC,
+    collectionDate: JAN,
     latitude: null,
     longitude: null,
     ...fields,
@@ -92,8 +92,8 @@ describe('buildProgressDeviceMetrics', () => {
                     first,
                     first,
                     session(2),
-                    session(3, { collectionDate: JAN }),
-                    session(4, { deviceId: 21, collectionDate: JAN }), // Zero catch still active.
+                    session(3, { submittedAt: JAN }),
+                    session(4, { deviceId: 21, submittedAt: JAN }), // Zero catch still active.
                 ],
                 [
                     { id: 1, sessionId: 1, images: [{ id: 10 }] },
@@ -170,7 +170,7 @@ describe('buildProgressDeviceMetrics', () => {
                     session(1),
                     session(2, { type: 'CALIBRATION', deviceId: 22 }),
                     session(3, { siteId: 11, deviceId: 23 }),
-                    session(4, { collectionDate: JAN, deviceId: 24 }),
+                    session(4, { submittedAt: JAN, deviceId: 24 }),
                     session(5, { type: '', deviceId: 25 }),
                 ],
                 [
@@ -234,12 +234,12 @@ describe('buildProgressDeviceMetrics', () => {
         });
     });
 
-    it('uses local reporting months and upload time fallback', () => {
+    it('uses local submission months, with or without a collection date', () => {
         const data = program(
             7,
             [
                 session(1, {
-                    collectionDate: Date.UTC(2025, 11, 31, 22),
+                    submittedAt: Date.UTC(2025, 11, 31, 22),
                 }),
                 session(2, {
                     collectionDate: null,

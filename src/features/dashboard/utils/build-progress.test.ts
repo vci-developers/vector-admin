@@ -18,8 +18,8 @@ const session = (
     sessionId,
     siteId: 1,
     type: 'SURVEILLANCE',
-    collectionDate: FEB,
-    submittedAt: MAR,
+    submittedAt: FEB,
+    collectionDate: MAR,
     latitude: 2.77,
     longitude: 32.3,
     ...fields,
@@ -189,7 +189,7 @@ describe('buildProgress', () => {
             [
                 program({
                     sessions: [
-                        session(1, { collectionDate: MAR }),
+                        session(1, { submittedAt: MAR }),
                         session(2, { type: 'CALIBRATION' }),
                         session(3),
                     ],
@@ -222,7 +222,7 @@ describe('buildProgress', () => {
                         sessions: [
                             session(1),
                             session(2, { siteId: 2 }),
-                            session(3, { collectionDate: MAR }),
+                            session(3, { submittedAt: MAR }),
                             session(4, { type: '' }),
                             session(5, { type: 'CALIBRATION' }),
                         ],
@@ -319,7 +319,7 @@ describe('buildProgress', () => {
     it('reconciles deduplicated scans, districts and local reporting months while including zero catches and missing GPS', () => {
         const first = session(1, {
             // February in Kampala, despite January in UTC.
-            collectionDate: Date.UTC(2026, 0, 31, 22),
+            submittedAt: Date.UTC(2026, 0, 31, 22),
         });
         const data = buildProgress(
             [
@@ -659,7 +659,7 @@ describe('buildProgress', () => {
                         sessions: sites.map(({ siteId }) =>
                             session(siteId, {
                                 siteId,
-                                collectionDate: siteId <= 2 ? FEB : MAR,
+                                submittedAt: siteId <= 2 ? FEB : MAR,
                                 latitude: 40.7,
                                 longitude: -74,
                             }),
@@ -956,10 +956,10 @@ describe('buildProgress', () => {
                     sessions: [
                         session(1, {
                             type: 'CALIBRATION',
-                            collectionDate: Date.UTC(2020, 0, 1),
+                            submittedAt: Date.UTC(2020, 0, 1),
                         }),
-                        session(2, { collectionDate: Date.UTC(2025, 11, 1) }),
-                        session(3, { collectionDate: Date.UTC(2027, 0, 1) }),
+                        session(2, { submittedAt: Date.UTC(2025, 11, 1) }),
+                        session(3, { submittedAt: Date.UTC(2027, 0, 1) }),
                     ],
                 }),
             ],

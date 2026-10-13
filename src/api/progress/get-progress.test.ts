@@ -67,7 +67,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(
@@ -177,8 +177,8 @@ describe('getProgress', () => {
                         sessionId: 1,
                         siteId: 1,
                         type: 'SURVEILLANCE',
-                        collectionDate: Date.UTC(2026, 1, 5),
-                        submittedAt: Date.UTC(2026, 1, 6),
+                        submittedAt: Date.UTC(2026, 1, 5),
+                        collectionDate: Date.UTC(2026, 1, 6),
                         latitude: null,
                         longitude: null,
                     },
@@ -269,8 +269,8 @@ describe('getProgress', () => {
                         siteId: 1,
                         deviceId: 20,
                         type: 'SURVEILLANCE',
-                        collectionDate: Date.UTC(2026, 1, 5),
-                        submittedAt: Date.UTC(2026, 1, 6),
+                        submittedAt: Date.UTC(2026, 1, 5),
+                        collectionDate: Date.UTC(2026, 1, 6),
                         latitude: null,
                         longitude: null,
                     },

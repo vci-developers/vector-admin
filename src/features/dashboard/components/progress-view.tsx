@@ -522,7 +522,7 @@ export default function ProgressView() {
                                         Scans per month
                                     </h2>
                                     <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px]">
-                                        By collection month.
+                                        By submission month.
                                     </p>
                                 </div>
                                 <div className="w-full">
@@ -588,10 +588,8 @@ export default function ProgressView() {
                                     <p>
                                         One image is one scan. A specimen with
                                         two images contributes two scans. Months
-                                        use the collection date in the program’s
-                                        reporting time zone, falling back to the
-                                        upload date when a collection date is
-                                        missing.
+                                        use the date a collection was submitted,
+                                        in the program’s reporting time zone.
                                     </p>
                                     <p>
                                         Shading identifies areas with reporting
