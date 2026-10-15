@@ -1,0 +1,23 @@
+import { chromium } from 'playwright-core';
+import { readFileSync } from 'node:fs';
+const exe = process.env.HOME + '/Library/Caches/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-mac-arm64/chrome-headless-shell';
+const secret = readFileSync(new URL('./secret', import.meta.url), 'utf8').trim();
+const [path, width, out, theme] = process.argv.slice(2);
+const browser = await chromium.launch({ executablePath: exe });
+const ctx = await browser.newContext({ viewport: { width: +width, height: 1000 } });
+await ctx.addCookies([{ name: 'accessToken', value: 'preview', url: 'http://localhost:3000' }]);
+const page = await ctx.newPage();
+if (theme) await page.addInitScript(t => localStorage.setItem('theme', t), theme);
+await page.route(/\/api\/(dashboard|coverage|site-locations|program-sessions|user-logins|progress)\?/, route => {
+    const url = new URL(route.request().url());
+    const name = url.pathname.split('/').pop();
+    route.continue({ url: `${url.origin}/api/zz/${name}${url.search}`, headers: { ...route.request().headers(), 'x-zz-secret': secret } });
+});
+page.on('pageerror', e => console.log('pageerror', e.message));
+await page.goto('http://localhost:3000' + path, { waitUntil: 'load', timeout: 120000 });
+await page.waitForSelector(process.env.WAIT ?? '#summary-heading', { timeout: 240000 });
+await page.waitForLoadState('networkidle', { timeout: 240000 }).catch(() => {});
+await page.waitForTimeout(3000);
+await page.screenshot({ path: out, fullPage: true });
+console.log('ok', page.url());
+await browser.close();
