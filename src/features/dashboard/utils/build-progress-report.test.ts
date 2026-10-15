@@ -22,6 +22,7 @@ const progress: ProgressDashboard = {
     uniqueScans: 8,
     uniqueSpecimens: 0,
     species: [],
+    stephensi: [],
     scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
     monthly: [
         { month: '2026-08', uniqueScans: 5 },

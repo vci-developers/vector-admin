@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    detectsStephensi,
     listDeployedModels,
     versionLabels,
     versionNumber,
@@ -63,5 +64,15 @@ describe('versionLabels', () => {
         expect(versionLabels([build('1.0.8-adult-mosquito')])).toEqual([
             'v1.0.8',
         ]);
+    });
+});
+
+describe('detectsStephensi', () => {
+    it('is true only where a build has a stephensi class', () => {
+        expect(
+            ['Uganda', 'Kenya', 'Ghana', 'Nowhere'].map(country =>
+                detectsStephensi(program(1, country)),
+            ),
+        ).toEqual([true, true, false, false]);
     });
 });

@@ -56,6 +56,28 @@ export const progressSpeciesSchema = z.object({
 
 export type ProgressSpecies = z.infer<typeof progressSpeciesSchema>;
 
+/** One Program's specimens of one An. stephensi label, as the API names it. */
+export const progressStephensiSchema = z.object({
+    programId: z.number(),
+    species: z.string(),
+    specimens: countSchema,
+    /** Submission month of the latest Session with one. */
+    latestMonth: monthKeySchema,
+    /** Most specimens first; `monthly` lists only months with one. */
+    districts: z.array(
+        z.object({
+            key: z.string(),
+            name: z.string(),
+            specimens: countSchema,
+            monthly: z.array(
+                z.object({ month: monthKeySchema, specimens: countSchema }),
+            ),
+        }),
+    ),
+});
+
+export type ProgressStephensi = z.infer<typeof progressStephensiSchema>;
+
 export const progressDistrictSchema = z.object({
     key: z.string(),
     /** First contributing program for compatibility; use programIds for attribution. */
@@ -89,6 +111,7 @@ export const progressDashboardSchema = z.object({
     uniqueScans: countSchema.nullable(),
     uniqueSpecimens: countSchema.nullable(),
     species: z.array(progressSpeciesSchema),
+    stephensi: z.array(progressStephensiSchema),
     districts: z.array(progressDistrictSchema),
     monthly: z.array(progressMonthSchema),
     /** Oldest API snapshot in this response. */

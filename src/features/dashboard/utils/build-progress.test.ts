@@ -6,6 +6,11 @@ import type {
 import type { Site } from '@/api/site/validation/site-schema';
 import { describe, expect, it } from 'vitest';
 import {
+    isStephensi,
+    sumStephensiByDistrict,
+    sumStephensiMonths,
+} from './stephensi-totals';
+import {
     buildProgress,
     progressDistrictName,
     type ProgressProgramData,
@@ -152,6 +157,128 @@ describe('buildProgress', () => {
                 ],
             },
         ]);
+    });
+
+    it('counts An. stephensi per Program, label and District', () => {
+        const data = buildProgress(
+            [
+                program({
+                    sessions: [
+                        session(1),
+                        session(2, { siteId: 2, submittedAt: MAR }),
+                        session(3),
+                    ],
+                    sites: [house(1), { ...house(2), district: 'Amudat' }],
+                    specimenCounts: [
+                        counts(1, 2, 2, [
+                            { species: 'An. stephensi (suspected)', count: 1 },
+                            { species: 'An. gambiae', count: 1 },
+                        ]),
+                        counts(2, 3, 3, [
+                            { species: 'An. stephensi (suspected)', count: 3 },
+                        ]),
+                        counts(3, 1, 1, [
+                            { species: 'An. Stephensi', count: 1 },
+                        ]),
+                    ],
+                }),
+                program(
+                    {
+                        sessions: [session(4)],
+                        specimenCounts: [counts(4, 1, 1, [])],
+                    },
+                    8,
+                    'Kenya',
+                ),
+            ],
+            { from: '2026-02', to: '2026-03' },
+        );
+        expect(data.stephensi).toEqual([
+            {
+                programId: 7,
+                species: 'An. Stephensi',
+                specimens: 1,
+                latestMonth: '2026-02',
+                districts: [
+                    {
+                        key: 'uganda:gulu',
+                        name: 'Gulu',
+                        specimens: 1,
+                        monthly: [{ month: '2026-02', specimens: 1 }],
+                    },
+                ],
+            },
+            {
+                programId: 7,
+                species: 'An. stephensi (suspected)',
+                specimens: 4,
+                latestMonth: '2026-03',
+                districts: [
+                    {
+                        key: 'uganda:amudat',
+                        name: 'Amudat',
+                        specimens: 3,
+                        monthly: [{ month: '2026-03', specimens: 3 }],
+                    },
+                    {
+                        key: 'uganda:gulu',
+                        name: 'Gulu',
+                        specimens: 1,
+                        monthly: [{ month: '2026-02', specimens: 1 }],
+                    },
+                ],
+            },
+        ]);
+    });
+
+    it('gives the same stephensi total in the breakdown, map, places and chart', () => {
+        const data = buildProgress(
+            [
+                program({
+                    sessions: [
+                        session(1),
+                        session(2, { siteId: 2, submittedAt: MAR }),
+                        // A Test Site Session counts nowhere.
+                        session(3, { siteId: 9 }),
+                    ],
+                    sites: [
+                        house(1),
+                        { ...house(2), district: 'Amudat' },
+                        { ...house(9), district: 'Other' },
+                    ],
+                    specimenCounts: [
+                        counts(1, 4, 3, [
+                            { species: 'An. stephensi (suspected)', count: 2 },
+                            { species: 'An. stephensi', count: 1 },
+                        ]),
+                        counts(2, 2, 2, [
+                            { species: 'An. stephensi (suspected)', count: 2 },
+                        ]),
+                        counts(3, 5, 5, [
+                            { species: 'An. stephensi', count: 5 },
+                        ]),
+                    ],
+                }),
+            ],
+            { from: '2026-02', to: '2026-03' },
+        );
+        const breakdown = data.species
+            .filter(row => row.name && isStephensi(row.name))
+            .reduce((sum, row) => sum + row.specimens, 0);
+        const places = data.stephensi.reduce(
+            (sum, row) => sum + row.specimens,
+            0,
+        );
+        const map = [...sumStephensiByDistrict(data.stephensi).values()].reduce(
+            (sum, count) => sum + count,
+            0,
+        );
+        const chart = sumStephensiMonths(
+            data.monthly.map(row => row.month),
+            data.stephensi,
+            null,
+        ).reduce((sum, row) => sum + row.count, 0);
+        expect([breakdown, places, map, chart]).toEqual([5, 5, 5, 5]);
     });
 
     it('counts surveillance, calibration and training sessions but not CALIBRATION', () => {

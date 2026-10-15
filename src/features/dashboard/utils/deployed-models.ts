@@ -1,5 +1,6 @@
 import type { Program } from '@/api/program/validation/program-schema';
 import { programCode } from './program-title';
+import { isStephensi } from './stephensi-totals';
 
 /** The species model in a Program's latest app build. */
 export type DeployedModel = {
@@ -116,4 +117,11 @@ export function listDeployedModels(
               ]
             : [];
     });
+}
+
+/** Whether any of the Program's builds can tell An. stephensi apart. */
+export function detectsStephensi(program: Program): boolean {
+    return (DEPLOYED_MODELS[program.country] ?? []).some(model =>
+        model.classes.some(isStephensi),
+    );
 }
