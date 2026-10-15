@@ -173,6 +173,10 @@ async function buildSelectedProgress(
                 specimens: null,
             })),
         ].sort((a, b) => a.programId - b.programId),
+        sentinelSitesByProgram: [
+            ...aggregate.sentinelSitesByProgram,
+            ...failedProgramIds.map(programId => ({ programId, count: null })),
+        ].sort((a, b) => a.programId - b.programId),
         reportingLocations: totalReportingLocations(coverageByProgram),
     };
     return { summary, loaded };

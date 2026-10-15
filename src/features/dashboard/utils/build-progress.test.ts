@@ -97,6 +97,29 @@ describe('buildProgress', () => {
         expect(data.reportingLocations).toBe(1);
     });
 
+    it('counts the villages its houses sit in as sentinel sites', () => {
+        const data = buildProgress(
+            [
+                program({
+                    // Houses 1 and 2 are in Aleu, house 3 in Awach.
+                    sessions: [
+                        session(1),
+                        session(2, { siteId: 2 }),
+                        session(3, { siteId: 3 }),
+                    ],
+                }),
+            ],
+            { from: '2026-02', to: '2026-02' },
+        );
+        expect(data.reportingLocations).toBe(3);
+        expect(data.sentinelSitesByProgram).toEqual([
+            { programId: 7, count: 2 },
+        ]);
+        expect(data.districts[0].sentinelSitesByProgram).toEqual([
+            { programId: 7, count: 2 },
+        ]);
+    });
+
     it('retains locations with no images', () => {
         const data = buildProgress(
             [

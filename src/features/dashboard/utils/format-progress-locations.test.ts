@@ -2,8 +2,10 @@ import type { ProgressLocationCoverage } from '@/api/progress/validation/progres
 import { describe, expect, it } from 'vitest';
 import {
     formatProgressLocations,
+    formatSentinelSites,
     groupProgressLocationsByUnit,
     progressLocationUnitLabel,
+    totalSentinelSites,
 } from './format-progress-locations';
 
 const format = (count: number) => new Intl.NumberFormat('en').format(count);
@@ -107,5 +109,29 @@ describe('progressLocationUnitLabel', () => {
         expect(progressLocationUnitLabel(unit, 1)).toBe(singular);
         expect(progressLocationUnitLabel(unit, 0)).toBe(plural);
         expect(progressLocationUnitLabel(unit, null)).toBe(plural);
+    });
+});
+
+describe('totalSentinelSites', () => {
+    it('adds Programs and is unknown when one failed to load', () => {
+        expect(
+            totalSentinelSites([
+                { programId: 1, count: 9 },
+                { programId: 4, count: 3 },
+            ]),
+        ).toBe(12);
+        expect(
+            totalSentinelSites([
+                { programId: 1, count: 9 },
+                { programId: 4, count: null },
+            ]),
+        ).toBeNull();
+    });
+});
+
+describe('formatSentinelSites', () => {
+    it('reads one or many', () => {
+        expect(formatSentinelSites(1, format)).toBe('1 sentinel site');
+        expect(formatSentinelSites(1200, format)).toBe('1,200 sentinel sites');
     });
 });

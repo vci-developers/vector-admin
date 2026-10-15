@@ -22,6 +22,7 @@ const progress: ProgressDashboard = {
     uniqueScans: 8,
     uniqueSpecimens: 0,
     species: [],
+    sentinelSitesByProgram: [],
     stephensi: [],
     scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
     monthly: [
@@ -42,6 +43,7 @@ const progress: ProgressDashboard = {
             uniqueScans: 8,
             uniqueSpecimens: 0,
             species: [],
+            sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 5 },
@@ -61,6 +63,7 @@ const progress: ProgressDashboard = {
             uniqueScans: 0,
             uniqueSpecimens: 0,
             species: [],
+            sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 0, specimens: 0 }],
             monthly: [
                 { month: '2026-08', uniqueScans: 0 },
@@ -368,6 +371,7 @@ describe('buildProgressReport', () => {
             uniqueScans: 12,
             uniqueSpecimens: 0,
             species: [],
+            sentinelSitesByProgram: [],
             scansByProgram: [
                 { programId: 7, scans: 8, specimens: 0 },
                 { programId: 2, scans: 4, specimens: 0 },
@@ -391,6 +395,7 @@ describe('buildProgressReport', () => {
                     uniqueScans: 4,
                     uniqueSpecimens: 0,
                     species: [],
+                    sentinelSitesByProgram: [],
                     scansByProgram: [{ programId: 2, scans: 4, specimens: 0 }],
                     monthly: [
                         { month: '2026-08', uniqueScans: 2 },

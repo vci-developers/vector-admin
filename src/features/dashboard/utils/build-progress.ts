@@ -6,12 +6,14 @@ import type {
     ProgressLocationCoverage,
     ProgressMonth,
     ProgressProgramScans,
+    ProgressSentinelSites,
     ProgressSpecies,
     ProgressStephensi,
 } from '@/api/progress/validation/progress-schema';
 import type { Site } from '@/api/site/validation/site-schema';
 import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
+import { countSentinelSites } from './count-sentinel-sites';
 import { siteLocationPath } from './site-location-path';
 import { isStephensi } from './stephensi-totals';
 import {
@@ -150,8 +152,11 @@ type StephensiAccumulator = Omit<ProgressStephensi, 'districts'> & {
     >;
 };
 
+type SiteVisits = Parameters<typeof countSentinelSites>[0];
+
 type DistrictAccumulator = ProgressDistrict & {
     speciesCounts: SpeciesCounts;
+    visits: Map<number, SiteVisits>;
     coverage: Map<number, CoverageAccumulator>;
     scans: Map<number, number>;
     specimens: Map<number, number>;
@@ -256,6 +261,7 @@ export function buildProgress(
     const districts = new Map<string, DistrictAccumulator>();
     const coverage: CoverageAccumulator[] = [];
     const scansByProgram: ProgressProgramScans[] = [];
+    const sentinelSitesByProgram: ProgressSentinelSites[] = [];
     let uniqueScans = 0;
     let uniqueSpecimens = 0;
     const speciesCounts: SpeciesCounts = new Map();
@@ -285,6 +291,7 @@ export function buildProgress(
             specimens: 0,
         };
         scansByProgram.push(programScans);
+        const programVisits: SiteVisits = [];
         for (const session of sessions) {
             const site = sites.get(session.siteId);
             const districtName = progressDistrictName(site, unit);
@@ -304,6 +311,8 @@ export function buildProgress(
                     name: districtName ?? UNKNOWN_DISTRICT,
                     coverageByProgram: [],
                     scansByProgram: [],
+                    sentinelSitesByProgram: [],
+                    visits: new Map(),
                     reportingLocations: 0,
                     uniqueScans: 0,
                     uniqueSpecimens: 0,
@@ -345,6 +354,17 @@ export function buildProgress(
             }
             const count = scansBySession.get(session.sessionId) ?? 0;
             programScans.scans += count;
+            if (site) {
+                const visit = {
+                    siteId: session.siteId,
+                    location: siteLocationPath(site),
+                };
+                programVisits.push(visit);
+                const districtVisits =
+                    district.visits.get(program.programId) ?? [];
+                district.visits.set(program.programId, districtVisits);
+                districtVisits.push(visit);
+            }
             district.scans.set(
                 program.programId,
                 (district.scans.get(program.programId) ?? 0) + count,
@@ -404,6 +424,10 @@ export function buildProgress(
                 session.submittedAt,
             );
         }
+        sentinelSitesByProgram.push({
+            programId: program.programId,
+            count: countSentinelSites(programVisits).sentinelSites,
+        });
     }
 
     const rows: ProgressDistrict[] = [...districts.values()].map(district => {
@@ -429,6 +453,12 @@ export function buildProgress(
                     specimens: district.specimens.get(programId) ?? 0,
                 }))
                 .sort((a, b) => a.programId - b.programId),
+            sentinelSitesByProgram: [...district.visits]
+                .map(([programId, visits]) => ({
+                    programId,
+                    count: countSentinelSites(visits).sentinelSites,
+                }))
+                .sort((a, b) => a.programId - b.programId),
             reportingLocations: totalReportingLocations(coverageByProgram),
             // Anchors resolve the collection site's named reporting area.
             // Session GPS describes where the session was conducted.
@@ -449,6 +479,9 @@ export function buildProgress(
         to,
         coverageByProgram,
         scansByProgram: scansByProgram.sort(
+            (a, b) => a.programId - b.programId,
+        ),
+        sentinelSitesByProgram: sentinelSitesByProgram.sort(
             (a, b) => a.programId - b.programId,
         ),
         reportingLocations: totalReportingLocations(coverageByProgram),

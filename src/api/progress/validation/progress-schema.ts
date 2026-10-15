@@ -48,6 +48,14 @@ export const progressProgramScansSchema = z.object({
 
 export type ProgressProgramScans = z.infer<typeof progressProgramScansSchema>;
 
+/** Sentinel Sites with Sessions in the period; null when the program failed to load. */
+export const progressSentinelSitesSchema = z.object({
+    programId: z.number(),
+    count: countSchema.nullable(),
+});
+
+export type ProgressSentinelSites = z.infer<typeof progressSentinelSitesSchema>;
+
 /** Specimens per species, most first; a null name has no species yet. */
 export const progressSpeciesSchema = z.object({
     name: z.string().nullable(),
@@ -87,6 +95,7 @@ export const progressDistrictSchema = z.object({
     name: z.string(),
     coverageByProgram: z.array(progressLocationCoverageSchema),
     scansByProgram: z.array(progressProgramScansSchema),
+    sentinelSitesByProgram: z.array(progressSentinelSitesSchema),
     reportingLocations: countSchema.nullable(),
     uniqueScans: countSchema,
     uniqueSpecimens: countSchema,
@@ -106,6 +115,7 @@ export const progressDashboardSchema = z.object({
     to: monthKeySchema,
     coverageByProgram: z.array(progressLocationCoverageSchema),
     scansByProgram: z.array(progressProgramScansSchema),
+    sentinelSitesByProgram: z.array(progressSentinelSitesSchema),
     /** Null for mixed units, incomplete metadata, or no selected programs. */
     reportingLocations: countSchema.nullable(),
     uniqueScans: countSchema.nullable(),
