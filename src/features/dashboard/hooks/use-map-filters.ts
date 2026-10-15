@@ -24,6 +24,8 @@ export const MAP_FILTER_DEFAULTS = {
     zeroCatch: false,
     // Developers: the list of devices without a location, under the map.
     unplacedList: false,
+    // Developers: shade a hex grid of Session GPS instead of areas.
+    hex: false,
 };
 
 // Map-only filters; the KPI tiles and summary table ignore them.
@@ -40,6 +42,7 @@ const mapFilterParsers = {
     nonMosquito: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.nonMosquito),
     zeroCatch: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.zeroCatch),
     unplacedList: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.unplacedList),
+    hex: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.hex),
 };
 
 export function useMapFilters() {

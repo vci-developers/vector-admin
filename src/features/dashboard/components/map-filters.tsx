@@ -220,6 +220,7 @@ export default function MapFilters({
         !sameAs(filters.hideAbdomen, d.hideAbdomen),
         filters.zeroCatch !== d.zeroCatch,
         filters.unplacedList !== d.unplacedList,
+        filters.hex !== d.hex,
     ].filter(Boolean).length;
 
     return (
@@ -253,6 +254,11 @@ export default function MapFilters({
                         <p className="text-muted-foreground px-2 text-xs">
                             {t('mapOnly')}
                         </p>
+                        <FilterRow
+                            label={t('hexShading')}
+                            checked={filters.hex}
+                            onToggle={() => set({ hex: !filters.hex })}
+                        />
                         <LayerSection layer="specimens" onChange={onChange}>
                             <ValueGroup
                                 title={t('species')}

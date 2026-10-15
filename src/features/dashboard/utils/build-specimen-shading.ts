@@ -10,6 +10,8 @@ export type ShadedAreaRef = {
     name: string;
     /** 0 for the top-level area, 1 for the level below. */
     depth: number;
+    /** A hex cell's Sessions; areas find theirs by name. */
+    sessionIds?: number[];
 };
 
 export type SpecimenShade = ShadedAreaRef & {

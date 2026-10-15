@@ -282,6 +282,7 @@
         "reset": "Reset map filters",
         "coverage": "Coverage",
         "unplacedList": "List devices without a location",
+        "hexShading": "Shade a hex grid instead of areas",
         "devicesHint": "Devices with Sessions in the period. Devices with none are not drawn."
     },
     "MapSection": {
