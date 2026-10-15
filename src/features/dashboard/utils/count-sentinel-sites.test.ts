@@ -40,6 +40,59 @@ describe('countSentinelSites', () => {
         ).toBe(2);
     });
 
+    it('counts the Sentinel Site above Household-level Sites once', () => {
+        const ghana = (...names: string[]) =>
+            names.map((name, index) => ({
+                level: [
+                    'Region',
+                    'District',
+                    'Town/Village',
+                    'Sentinel Site',
+                    'Household',
+                ][index],
+                name,
+            }));
+        expect(
+            countSentinelSites([
+                {
+                    siteId: 1,
+                    location: ghana(
+                        'Western',
+                        'Tarkwa',
+                        'Nsuaem',
+                        'Police',
+                        'H1',
+                    ),
+                },
+                {
+                    siteId: 2,
+                    location: ghana(
+                        'Western',
+                        'Tarkwa',
+                        'Nsuaem',
+                        'Police',
+                        'H2',
+                    ),
+                },
+                // A Session at the Sentinel Site itself is the same place.
+                {
+                    siteId: 3,
+                    location: ghana('Western', 'Tarkwa', 'Nsuaem', 'Police'),
+                },
+                {
+                    siteId: 4,
+                    location: ghana(
+                        'Western',
+                        'Tarkwa',
+                        'Nsuaem',
+                        'Market',
+                        'H1',
+                    ),
+                },
+            ]),
+        ).toEqual({ sentinelSites: 2, houses: 3 });
+    });
+
     it('counts a Site with no house as its own Sentinel Site', () => {
         const hierarchy = [
             { level: 'Region', name: 'Ashanti' },

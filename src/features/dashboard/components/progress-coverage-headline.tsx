@@ -1,9 +1,14 @@
 import type { Program } from '@/api/program/validation/program-schema';
-import type { ProgressLocationCoverage } from '@/api/progress/validation/progress-schema';
+import type {
+    ProgressLocationCoverage,
+    ProgressSentinelSites,
+} from '@/api/progress/validation/progress-schema';
 import {
+    formatSentinelSites,
     groupProgressLocationsByUnit,
     progressLocationUnitLabel,
     totalProgressLocations,
+    totalSentinelSites,
 } from '@/features/dashboard/utils/format-progress-locations';
 import { cn } from '@/utils/cn';
 import { MapPin } from 'lucide-react';
@@ -13,11 +18,13 @@ import styles from './progress-view.module.css';
 
 export default function ProgressCoverageHeadline({
     coverage,
+    sentinelSites,
     programs,
     expanded,
     onToggle,
 }: {
     coverage: readonly ProgressLocationCoverage[];
+    sentinelSites: readonly ProgressSentinelSites[];
     programs: readonly Program[];
     expanded: boolean;
     onToggle: () => void;
@@ -33,6 +40,11 @@ export default function ProgressCoverageHeadline({
         : total === 1
           ? 'reporting location'
           : 'reporting locations';
+    const sentinelTotal = totalSentinelSites(sentinelSites);
+    const sentinelByProgram = new Map(
+        sentinelSites.map(row => [row.programId, row.count]),
+    );
+    const formatNumber = (count: number) => formatter.number(count);
     const hasBreakdown = coverage.length > 1;
     const programById = new Map(
         programs.map(program => [program.programId, program]),
@@ -62,6 +74,12 @@ export default function ProgressCoverageHeadline({
                           ? `${totalUnit} unavailable`
                           : `active ${totalUnit}`}
                 </span>
+                {sentinelTotal !== null && (
+                    // Full width, so it starts its own line under the households.
+                    <span className={cn(styles.headlineUnit, 'basis-full')}>
+                        {formatSentinelSites(sentinelTotal, formatNumber)}
+                    </span>
+                )}
             </p>
             {expanded && (
                 <>
@@ -72,6 +90,9 @@ export default function ProgressCoverageHeadline({
                         >
                             {coverage.map(entry => {
                                 const program = programById.get(
+                                    entry.programId,
+                                );
+                                const sentinel = sentinelByProgram.get(
                                     entry.programId,
                                 );
                                 return (
@@ -104,29 +125,50 @@ export default function ProgressCoverageHeadline({
                                                 </span>
                                             </p>
                                         </div>
-                                        <p className={styles.coverageFigure}>
-                                            <span
-                                                className={cn(
-                                                    styles.coverageCount,
-                                                    entry.count === null &&
-                                                        styles.coverageUnavailable,
-                                                )}
+                                        {/* Figure and sentinel sites stack in the right-hand column. */}
+                                        <div className="text-right">
+                                            <p
+                                                className={
+                                                    styles.coverageFigure
+                                                }
                                             >
-                                                {entry.count === null
-                                                    ? 'Unavailable'
-                                                    : formatter.number(
-                                                          entry.count,
-                                                      )}
-                                            </span>{' '}
-                                            <span
-                                                className={styles.coverageUnit}
-                                            >
-                                                {progressLocationUnitLabel(
-                                                    entry.unit,
-                                                    entry.count,
-                                                )}
-                                            </span>
-                                        </p>
+                                                <span
+                                                    className={cn(
+                                                        styles.coverageCount,
+                                                        entry.count === null &&
+                                                            styles.coverageUnavailable,
+                                                    )}
+                                                >
+                                                    {entry.count === null
+                                                        ? 'Unavailable'
+                                                        : formatter.number(
+                                                              entry.count,
+                                                          )}
+                                                </span>{' '}
+                                                <span
+                                                    className={
+                                                        styles.coverageUnit
+                                                    }
+                                                >
+                                                    {progressLocationUnitLabel(
+                                                        entry.unit,
+                                                        entry.count,
+                                                    )}
+                                                </span>
+                                            </p>
+                                            {sentinel != null && (
+                                                <p
+                                                    className={
+                                                        styles.coverageUnit
+                                                    }
+                                                >
+                                                    {formatSentinelSites(
+                                                        sentinel,
+                                                        formatNumber,
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
                                     </li>
                                 );
                             })}

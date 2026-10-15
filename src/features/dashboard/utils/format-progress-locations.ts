@@ -1,4 +1,7 @@
-import type { ProgressLocationCoverage } from '@/api/progress/validation/progress-schema';
+import type {
+    ProgressLocationCoverage,
+    ProgressSentinelSites,
+} from '@/api/progress/validation/progress-schema';
 
 const labels: Record<ProgressLocationCoverage['unit'], [string, string]> = {
     household: ['household', 'households'],
@@ -57,4 +60,20 @@ export function formatProgressLocations(
                 : `${formatNumber(count)} ${label}`;
         })
         .join(' · ');
+}
+
+/** Programs never share a Sentinel Site, so their counts add up; any missing one makes the total unknown. */
+export function totalSentinelSites(
+    rows: readonly ProgressSentinelSites[],
+): number | null {
+    if (rows.length === 0 || rows.some(row => row.count === null)) return null;
+    return rows.reduce((sum, row) => sum + (row.count ?? 0), 0);
+}
+
+/** "1 sentinel site", "3 sentinel sites". */
+export function formatSentinelSites(
+    count: number,
+    formatNumber: (count: number) => string,
+): string {
+    return `${formatNumber(count)} ${count === 1 ? 'sentinel site' : 'sentinel sites'}`;
 }

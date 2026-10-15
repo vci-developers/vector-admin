@@ -56,6 +56,7 @@ function district(
         uniqueScans: 5,
         uniqueSpecimens: 0,
         species: [],
+        sentinelSitesByProgram: [],
         scansByProgram: [
             {
                 programId: overrides.programId ?? 7,
@@ -389,6 +390,7 @@ describe('matchProgressDistrictBoundaries', () => {
             uniqueScans: 0,
             uniqueSpecimens: 0,
             species: [],
+            sentinelSitesByProgram: [],
             monthly: [{ month: '2026-09', uniqueScans: 0 }],
         });
         const result = matchProgressDistrictBoundaries(
@@ -402,6 +404,7 @@ describe('matchProgressDistrictBoundaries', () => {
             uniqueScans: 0,
             uniqueSpecimens: 0,
             species: [],
+            sentinelSitesByProgram: [],
             reportingLocations: 3,
             position: null,
         });

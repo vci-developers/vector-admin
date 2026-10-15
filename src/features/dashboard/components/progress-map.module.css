@@ -415,6 +415,12 @@
     font-weight: 600;
 }
 
+.tooltipStephensi {
+    color: var(--progress-stephensi);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .tooltipLocations {
     color: #748478;
     font-size: 10px;
@@ -435,6 +441,116 @@
 
     .districtLabel span {
         font-size: 11px;
+    }
+}
+
+.stephensiIcon {
+    display: grid;
+    place-items: center;
+}
+
+/* Only the dot takes clicks; the glow around it leaves the area clickable. */
+.canvas .stephensiIcon:global(.leaflet-interactive) {
+    pointer-events: none;
+}
+
+.stephensiGlow {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--progress-stephensi) 80%, transparent) 0%,
+        color-mix(in srgb, var(--progress-stephensi) 40%, transparent) 35%,
+        transparent 70%
+    );
+    animation: stephensi-glow 1.6s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+.stephensiDot {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+    transition:
+        transform 120ms ease,
+        box-shadow 120ms ease;
+    box-sizing: border-box;
+    width: 13px;
+    height: 13px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--progress-stephensi);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+}
+
+/* A target bigger than the 13px dot. */
+.stephensiDot::before {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    content: '';
+}
+
+.stephensiDot[data-compact='true'] {
+    width: 9px;
+    height: 9px;
+    border-width: 1.5px;
+}
+
+.stephensiIcon:hover .stephensiDot {
+    transform: scale(1.15);
+}
+
+.stephensiIcon:hover .stephensiDot,
+.stephensiDot[data-selected='true'],
+.stephensiIcon:focus-visible .stephensiDot {
+    box-shadow:
+        0 0 0 2px #fff,
+        0 0 0 4px var(--progress-stephensi);
+}
+
+.stephensiIcon:hover .stephensiDot[data-compact='true'],
+.stephensiDot[data-compact='true'][data-selected='true'],
+.stephensiIcon:focus-visible .stephensiDot[data-compact='true'] {
+    box-shadow:
+        0 0 0 1.5px #fff,
+        0 0 0 3px var(--progress-stephensi);
+}
+
+.canvas[data-stephensi-tooltip]
+    :global(.leaflet-tooltip):not(.stephensiTooltip) {
+    visibility: hidden;
+}
+
+@keyframes stephensi-glow {
+    from {
+        opacity: 0.35;
+        transform: scale(0.55);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes stephensi-glow-still {
+    from {
+        opacity: 0.25;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Brightens in place instead of growing: no motion, still noticeable. */
+    .stephensiGlow {
+        animation-name: stephensi-glow-still;
+    }
+
+    .stephensiDot {
+        transition: none;
     }
 }
 

@@ -1,6 +1,8 @@
 import type { ProgressSpecies } from '@/api/progress/validation/progress-schema';
+import { syncStephensiGlow } from '@/features/dashboard/utils/stephensi-glow';
+import { isStephensi } from '@/features/dashboard/utils/stephensi-totals';
 import { cn } from '@/utils/cn';
-import { Bug } from 'lucide-react';
+import { Bug, ChevronRight } from 'lucide-react';
 import { useFormatter } from 'next-intl';
 import styles from './progress-view.module.css';
 
@@ -8,10 +10,13 @@ import styles from './progress-view.module.css';
 export default function ProgressSpeciesBreakdown({
     species,
     areaName,
+    onStephensiSelect,
 }: {
     species: readonly ProgressSpecies[];
     /** The selected area, or null for the whole selection. */
     areaName: string | null;
+    /** When given, An. stephensi rows stand out and open its view. */
+    onStephensiSelect?: () => void;
 }) {
     const formatter = useFormatter();
 
@@ -40,9 +45,13 @@ export default function ProgressSpeciesBreakdown({
             </div>
             {species.length > 0 ? (
                 <ol className={styles.contributionList}>
-                    {species.map(row => (
-                        <li key={row.name ?? ''} className={styles.speciesRow}>
-                            <div className="flex items-center justify-between gap-3">
+                    {species.map(row => {
+                        const highlighted =
+                            onStephensiSelect !== undefined &&
+                            row.name !== null &&
+                            isStephensi(row.name);
+                        const content = (
+                            <>
                                 <p
                                     className={cn(
                                         styles.contributionArea,
@@ -61,9 +70,37 @@ export default function ProgressSpeciesBreakdown({
                                             : 'specimens'}
                                     </span>
                                 </span>
-                            </div>
-                        </li>
-                    ))}
+                            </>
+                        );
+                        return (
+                            <li
+                                key={row.name ?? ''}
+                                className={styles.speciesRow}
+                            >
+                                {highlighted ? (
+                                    <button
+                                        type="button"
+                                        onClick={onStephensiSelect}
+                                        ref={syncStephensiGlow}
+                                        className={cn(
+                                            styles.stephensiRow,
+                                            'focus-visible:ring-ring -mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left outline-none focus-visible:ring-2 [&>p]:flex-1',
+                                        )}
+                                    >
+                                        {content}
+                                        <ChevronRight
+                                            className="size-3.5 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3">
+                                        {content}
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
                 </ol>
             ) : (
                 <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
