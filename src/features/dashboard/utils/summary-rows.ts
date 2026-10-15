@@ -14,8 +14,14 @@ import {
 } from './metric-definitions';
 import { programSeriesColor } from './series-colors';
 
-export const TIMING_STATS = ['median', 'p25', 'p75', 'mean', 'sd'] as const;
-export type TimingStat = (typeof TIMING_STATS)[number];
+const TIMING_STATS = ['median', 'p25', 'p75', 'mean', 'sd'] as const;
+/** The team sheet's handling columns, in its order. */
+export const TIMING_COLUMNS = [
+    'idEvents',
+    'excluded',
+    ...TIMING_STATS,
+] as const;
+export type TimingColumn = (typeof TIMING_COLUMNS)[number];
 
 /** The team sheet's columns, in its order. */
 export type SheetColumn = {
@@ -26,7 +32,7 @@ export type SheetColumn = {
 } & (
     | { kind: 'metric'; key: MetricKey }
     | { kind: 'field'; key: FieldKey }
-    | { kind: 'timing'; key: TimingStat }
+    | { kind: 'timing'; key: TimingColumn }
 );
 
 export const SHEET_COLUMNS: SheetColumn[] = [
@@ -49,6 +55,14 @@ export const SHEET_COLUMNS: SheetColumn[] = [
             denominator: m.records,
         }),
     })),
+    // ID events are not recorded yet: a blank column keeps pasted rows aligned.
+    { kind: 'timing', key: 'idEvents', format: 'count', value: () => null },
+    {
+        kind: 'timing',
+        key: 'excluded',
+        format: 'count',
+        value: m => m.excludedGaps,
+    },
     ...TIMING_STATS.map((key): SheetColumn => ({
         kind: 'timing',
         key,

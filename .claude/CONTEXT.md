@@ -129,8 +129,9 @@ averaged; a Device counts once). With several Programs a Total row follows.
 Columns, in order: Active Devices, Images, Unique Specimens, Images per Active
 Device, Unique Users and Logins (Program rows only: users log in to a Program,
 not a Site), Metadata Completeness, DHIS2 Upload Rate, % species ID, % capture
-date, % location, % operator ID, then Time between images as median, 25th pct,
-75th pct, mean and SD in seconds. Copy is values only, no header or name: a
+date, % location, % operator ID, then Time between images as ID events logged
+(blank until recorded), events excluded, median, 25th pct, 75th pct, mean and
+SD in seconds. Copy is values only, no header or name: a
 button per row, or tick rows and Copy selected. A Device that moved between
 Areas is an Active Device in each. _Avoid_: Location Breakdown (the earlier
 drill-down to every level, removed)
@@ -240,8 +241,8 @@ DHIS2, and the API has no per-Program setting, so Programs in other countries
 show it blank and stay out of the Total.
 
 **Time between images**: Seconds between consecutive images (by `capturedAt`)
-within one Session, every gap included: retakes of the same specimen and pauses
-too. Gaps are pooled across Sessions, never averaged per Session; percentiles
+within one Session: retakes of the same specimen and pauses included, 0 s gaps
+(same capture time) excluded and counted as Events excluded. Gaps are pooled across Sessions, never averaged per Session; percentiles
 and SD as Excel's PERCENTILE.INC and STDEV.S. The Session panel shows each
 Session's median gap.
 

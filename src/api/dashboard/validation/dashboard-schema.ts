@@ -70,6 +70,8 @@ export const periodMetricsSchema = z.object({
             sd: z.number().nullable(),
         })
         .nullable(),
+    /** 0 s gaps between images, left out of `timing`. */
+    excludedGaps: z.number(),
 });
 
 /** A coverage figure's working; null where the workbook has no figure. */

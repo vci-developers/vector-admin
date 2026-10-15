@@ -1,5 +1,5 @@
 import type { SessionState } from '@/api/session/validation/session-schema';
-import { timingStats } from './build-handling-time';
+import { handlingStats } from './build-handling-time';
 
 type SessionRow = {
     sessionId: number;
@@ -164,7 +164,7 @@ export function missingOf(row: SessionRow): MissingOption[] {
 
 /** The Session's median seconds from one image to the next, if any. */
 export const medianGap = (row: SessionRow): number | null =>
-    timingStats(row.handling.gaps)?.median ?? null;
+    handlingStats(row.handling.gaps).timing?.median ?? null;
 
 /** Sort value; null always sorts last, whichever the direction. */
 function valueOf(row: SessionRow, column: SortColumn): number | string | null {

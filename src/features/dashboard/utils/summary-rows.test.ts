@@ -35,6 +35,7 @@ const metrics: PeriodMetricsDto = {
     },
     dhis2UploadRate: null,
     timing: { count: 3, median: 20, p25: 15, p75: 25.25, mean: 20, sd: null },
+    excludedGaps: 2,
 };
 
 describe('SHEET_COLUMNS counts', () => {
@@ -73,6 +74,8 @@ describe('summaryToTsv', () => {
             '100.0%',
             '45.6%',
             '100.0%',
+            '',
+            '2',
             '20.0',
             '15.0',
             '25.3',
@@ -89,7 +92,7 @@ describe('summaryToTsv', () => {
 
         expect(lines).toHaveLength(2);
         expect(lines[0].split('\t').slice(4, 6)).toEqual(['', '']);
-        expect(lines[1]).toBe('\t'.repeat(16));
+        expect(lines[1]).toBe('\t'.repeat(18));
     });
 });
 

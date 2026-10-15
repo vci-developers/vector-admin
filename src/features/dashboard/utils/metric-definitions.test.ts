@@ -33,6 +33,7 @@ const metrics: PeriodMetricsDto = {
     },
     dhis2UploadRate: 10 / 40,
     timing: null,
+    excludedGaps: 0,
 };
 
 describe('METRICS calculations', () => {
