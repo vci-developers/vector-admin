@@ -1,4 +1,3 @@
-import { COVERAGE_STATUSES } from '@/features/dashboard/utils/parse-coverage-sheets';
 import {
     AREA_SEVERITY_STEPS,
     SEVERITY_STEPS,
@@ -8,6 +7,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import {
     ACTIVE_COLOR,
     COVERAGE_STYLES,
+    FILLED_COVERAGE_STATUSES,
     ZERO_CATCH_COLOR,
     type MapLayer,
 } from './map-constants';
@@ -111,7 +111,7 @@ export default function MapLegend({
                         {t('legendCoverageTitle')}
                     </p>
                     <ul className="flex max-w-56 flex-col gap-1.5">
-                        {COVERAGE_STATUSES.map(status => {
+                        {FILLED_COVERAGE_STATUSES.map(status => {
                             const { color, fillOpacity } =
                                 COVERAGE_STYLES[status];
                             return (

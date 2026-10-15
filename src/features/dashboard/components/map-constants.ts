@@ -13,11 +13,17 @@ export const ACTIVE_COLOR = '#15803d';
 export const IDLE_COLOR = '#6b7280';
 export const ZERO_CATCH_COLOR = '#b91c1c';
 
-// Coverage Status: three distinct hues the points don't use (specimens are
-// red, devices green), so a fill never reads as catch size or device status.
+// Coverage Status: the map fills only these. Active is left out because the
+// specimen shading already greens every area reporting.
+export const FILLED_COVERAGE_STATUSES = [
+    'Targeted',
+    'Surveillance only',
+] as const;
+export type FilledCoverageStatus = (typeof FILLED_COVERAGE_STATUSES)[number];
+
+// Hues the points don't use (specimens are red, devices green), so a fill
+// never reads as catch size or device status.
 export const COVERAGE_STYLES = {
-    // The Stakeholder map's green for areas reporting.
-    Active: { color: '#168367', fillOpacity: 0.3, weight: 2 },
     Targeted: {
         color: '#d97706',
         fillOpacity: 0.25,
@@ -28,4 +34,7 @@ export const COVERAGE_STYLES = {
         fillOpacity: 0.18,
         weight: 1.5,
     },
-} as const;
+} as const satisfies Record<
+    FilledCoverageStatus,
+    { color: string; fillOpacity: number; weight: number }
+>;

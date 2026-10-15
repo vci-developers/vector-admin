@@ -332,6 +332,7 @@
             "abdomen": "Abdomen"
         },
         "chartInPeriod": "in {period}",
+        "chartHeading": "Specimens over time",
         "chartTitle": {
             "day": "Specimens per day",
             "week": "Specimens per week",
@@ -381,7 +382,6 @@
             "Surveillance only": "Surveillance without VectorCam"
         },
         "coverageStatusHint": {
-            "Active": "Collecting with VectorCam now.",
             "Targeted": "Planned for VectorCam, not using it yet.",
             "Surveillance only": "Active surveillance not utilizing VectorCam."
         },
@@ -393,6 +393,14 @@
         "panelLoading": "Loading site locations…",
         "panelPartial": "Loading…",
         "searchUnit": "Coverage · {status}",
+        "placeLabel": "Place",
+        "placeAll": "All places",
+        "placeSearch": "Search places",
+        "placeEmpty": "No places match “{query}”.",
+        "placeKind": {
+            "country": "Country",
+            "area": "Area"
+        },
         "unitSummary": "{status} · {sessions, plural, =0 {no sessions on the map} one {# session} other {# sessions}}",
         "pointLabel": "Collection point",
         "locationSentinelSites": "{count, plural, one {# sentinel site} other {# sentinel sites}}",

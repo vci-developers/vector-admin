@@ -12,6 +12,17 @@
     font-family: var(--font-geist-sans), sans-serif;
 }
 
+/* Touch pinches zoom the map, not the page. */
+.canvas:global(.leaflet-container.leaflet-touch-zoom) {
+    touch-action: none;
+}
+
+/* Outlines hide while zooming (PinchZoom): stretched mid-gesture, they
+   swell, and come back redrawn when it settles. */
+.canvas[data-map-zooming='true'] :global(.leaflet-map-pane) svg path {
+    stroke-opacity: 0;
+}
+
 .canvas :global(.leaflet-tile-pane) {
     opacity: 0.58;
     filter: saturate(0.12) brightness(1.03) contrast(0.96);
@@ -78,4 +89,19 @@
    black. !important: the pane sets its blend mode inline. */
 :global([data-theme='dark']) .canvas :global(.leaflet-coverage-pane) {
     mix-blend-mode: normal !important;
+}
+
+/* Country names, as on the Stakeholder map. */
+.countryLabel span {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #92a99a;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.23em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+:global([data-theme='dark']) .countryLabel span {
+    color: #6f8a7e;
 }

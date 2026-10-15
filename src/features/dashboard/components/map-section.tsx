@@ -23,6 +23,11 @@ import {
     type ShadedAreaRef,
 } from '@/features/dashboard/utils/build-specimen-shading';
 import { findMapGaps } from '@/features/dashboard/utils/find-map-gaps';
+import {
+    buildPlaceOptions,
+    selectedPlaceKey,
+    type PlaceOption,
+} from '@/features/dashboard/utils/build-place-options';
 import { scopeTitle } from '@/features/dashboard/utils/program-title';
 import { unitSessionIds } from '@/features/dashboard/utils/search-map';
 import {
@@ -195,6 +200,17 @@ export default function MapSection({
     const boundaries = useAreaBoundaries(
         dashboard.selectedProgramIds.flatMap(id => countryOf.get(id) ?? []),
     );
+    // The Stakeholder map lines Uganda's Districts for context; the file is
+    // already loaded above for the shading.
+    const districtLines = useMemo(() => {
+        const districts = boundaries.get('Uganda');
+        return districts?.length
+            ? {
+                  type: 'MultiPolygon' as const,
+                  coordinates: districts.flatMap(d => d.geometry.coordinates),
+              }
+            : null;
+    }, [boundaries]);
     const shading = useMemo(
         () =>
             buildSpecimenShading({
@@ -228,18 +244,70 @@ export default function MapSection({
         status: fill.status,
         sessionIds: unitSessionIds(fill, view.sessions.placed),
     }));
-    const selectArea = (area: ShadedAreaRef) =>
-        setSelection({
-            layer: 'specimens',
-            ids: areaSessionIds(area, view.sessions.placed),
-            area,
-        });
-    const selectUnit = (unit: SelectedUnit) =>
-        setSelection({
-            layer: 'specimens',
-            ids: unitSessionIds(unit, view.sessions.placed),
-            unit,
-        });
+    // Each selection holds its Sessions on the map, whichever layers are on.
+    const areaSelection = (area: ShadedAreaRef) => ({
+        layer: 'specimens' as const,
+        ids: areaSessionIds(area, view.sessions.placed),
+        area,
+    });
+    const unitSelection = (unit: SelectedUnit) => ({
+        layer: 'specimens' as const,
+        ids: unitSessionIds(unit, view.sessions.placed),
+        unit,
+    });
+    const countrySelection = (country: string) => ({
+        layer: 'specimens' as const,
+        ids: view.sessions.placed
+            .filter(s => view.programs.get(s.programId)?.country === country)
+            .map(s => s.sessionId),
+        country,
+    });
+    const places = buildPlaceOptions({
+        outlines,
+        areas: shading,
+        units: fills,
+        countryOf,
+    });
+    // Picking a place selects it as a click would, then zooms to its shape.
+    const pickPlace = (place: PlaceOption | null) => {
+        if (!place) {
+            setSelection(null);
+            // Back out to every selected country.
+            if (outlines.length > 0)
+                setFocus(current => ({
+                    layer: 'specimens',
+                    ids: [],
+                    shape: {
+                        type: 'MultiPolygon',
+                        coordinates: outlines.flatMap(
+                            o => o.geometry.coordinates,
+                        ),
+                    },
+                    seq: (current?.seq ?? 0) + 1,
+                }));
+            return;
+        }
+        const next =
+            place.kind === 'country'
+                ? countrySelection(place.name)
+                : place.kind === 'area'
+                  ? areaSelection(place.area)
+                  : unitSelection(place.unit);
+        setSelection(next);
+        setFocus(current => ({
+            layer: next.layer,
+            ids: next.ids,
+            shape: place.shape,
+            seq: (current?.seq ?? 0) + 1,
+        }));
+    };
+    // A clicked place zooms like a picked one; one with no shape just selects.
+    const clickPlace = (selection: NonNullable<MapSelection>) => {
+        const key = selectedPlaceKey(selection);
+        const place = places.find(p => p.key === key);
+        if (place) pickPlace(place);
+        else setSelection(selection);
+    };
     // Only point layers can be empty; Coverage alone is not "nothing placed".
     const nothingPlaced =
         (showSpecimens || showDevices) &&
@@ -321,6 +389,7 @@ export default function MapSection({
                         specimenShading={shading}
                         coverageFills={fills}
                         outlines={outlines}
+                        districtLines={districtLines}
                         specimenPoints={view.sessions.placed}
                         devices={view.devices.placed}
                         sessionsByDevice={view.sessionsByDevice}
@@ -328,9 +397,15 @@ export default function MapSection({
                         fitKey={dashboard.selectedProgramIds.join(',')}
                         dataKey={`${period.from}:${period.to}:${dashboard.selectedProgramIds.join(',')}`}
                         selection={selection}
-                        onSelect={setSelection}
-                        onSelectUnit={selectUnit}
-                        onSelectArea={selectArea}
+                        // Clearing (an empty-map click) zooms back out too.
+                        onSelect={next =>
+                            next ? setSelection(next) : pickPlace(null)
+                        }
+                        onSelectUnit={unit => clickPlace(unitSelection(unit))}
+                        onSelectArea={area => clickPlace(areaSelection(area))}
+                        onSelectCountry={country =>
+                            clickPlace(countrySelection(country))
+                        }
                         focus={focus}
                         showSessions={isDeveloper}
                         // Stakeholders see specimens per Area, not per Session.
@@ -463,7 +538,8 @@ export default function MapSection({
                             plannedAreas={dashboard.plannedAreas}
                             areaDevicePlans={dashboard.areaDevicePlans}
                             userCoverage={dashboard.userCoverage}
-                            onClear={() => setSelection(null)}
+                            places={places}
+                            onPickPlace={pickPlace}
                         />
                     </div>
                 </Card>

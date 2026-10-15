@@ -212,7 +212,11 @@ how many Sites it spans, so the path sharpens as zooming splits clusters. A
 search box on the map finds places at any level of the Site hierarchy by name,
 and Sessions, devices and Sites by number; picking one zooms to it and selects
 it as a click would. It searches only what the map shows, so the map filters
-still apply. A device uses its latest Session's Site. The panel beside the map
+still apply. Clicking a country, shaded area or Coverage Unit selects it and
+zooms to its shape. The panel's Place picker lists the same places, searchable
+by place or country, and names what is selected; its "All places", like a click
+on empty map, clears the selection and zooms back out to the selected
+countries. A device uses its latest Session's Site. The panel beside the map
 charts specimens per week (periods of up to three months) or per month, stacked
 by species, sex or abdomen status, for the clicked point, cluster or device, or
 for everything on the map when nothing is clicked; each value keeps its colour
@@ -273,8 +277,10 @@ Entered by hand, not derived from Sessions. **Geographic Coverage** = Active ÷
 example: 11 / 14, 11 / 22). Uganda's units are Districts. The four coverage
 metrics are shown per Program, never pooled; Programs without figures are left
 out. Their tooltips use the team's own definitions word for word. Drawn on the
-map as the **Coverage layer** (a Map Filter layer, on by default): each unit's
-boundary filled by status, under the specimen and device points. The fills are
+map as the **Coverage layer** (a Map Filter layer, on by default): each
+Targeted or Surveillance-only unit's boundary filled by status, under the
+specimen and device points. Active units get no fill on the internal map: the
+specimen shading already greens every area reporting. The fills are
 planning status and ignore the Reporting Period, so a Targeted unit can show
 points and an Active one none. _Avoid_: Area (top-level place derived from
 Sites; may not match a Coverage Unit)
