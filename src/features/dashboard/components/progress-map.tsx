@@ -61,6 +61,7 @@ import {
     useMapEvents,
 } from 'react-leaflet';
 import type { UpcomingArea } from '@/features/dashboard/utils/build-upcoming-areas';
+import { stephensiGlowDelay } from '@/features/dashboard/utils/stephensi-glow';
 import styles from './progress-map.module.css';
 
 const number = new Intl.NumberFormat('en');
@@ -69,6 +70,9 @@ const TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL = 40 / 3;
 // At or below this zoom the map groups Districts into countries.
 const OVERVIEW_MAX_ZOOM = 7;
 // Amber keeps planned places apart from the green scan scale.
+// SVG strokes cannot read CSS variables; the light --progress-stephensi.
+const STEPHENSI_STROKE = '#b5176f';
+
 const UPCOMING_STYLE: L.PathOptions = {
     color: '#b36b00',
     weight: 1.5,
@@ -205,6 +209,8 @@ function ReportingDistrictAreas({
     hoveredKey,
     onHover,
     areaLayers,
+    stephensi,
+    stephensiKey,
 }: {
     fills: ProgressDistrictFill[];
     attributions: ReadonlyMap<string, string>;
@@ -214,6 +220,9 @@ function ReportingDistrictAreas({
     hoveredKey: string | null;
     onHover: (key: string | null) => void;
     areaLayers: Map<string, L.GeoJSON>;
+    stephensi?: ReadonlyMap<string, number>;
+    /** The area outlined in the stephensi colour: its dot hovered or its view open. */
+    stephensiKey: string | null;
 }) {
     const maximum = Math.max(
         1,
@@ -226,11 +235,24 @@ function ReportingDistrictAreas({
                 const interactive = detailDistrictKeys.has(district.key);
                 const showSelection = selected && interactive;
                 const baseStyle = districtStyle(district, maximum, selected);
-                // The area and its name tag share one hover.
+                // The area, its name tag and its marker share one hover.
                 const style =
-                    district.key === hoveredKey && !selected
-                        ? { ...baseStyle, color: '#146e5e', weight: 1.9 }
-                        : baseStyle;
+                    district.key === stephensiKey
+                        ? {
+                              ...baseStyle,
+                              color: STEPHENSI_STROKE,
+                              weight: 3,
+                              opacity: 1,
+                          }
+                        : district.key === hoveredKey && !selected
+                          ? {
+                                ...baseStyle,
+                                color: '#063b30',
+                                weight: 2.6,
+                                opacity: 1,
+                            }
+                          : baseStyle;
+                const stephensiCount = stephensi?.get(district.key);
                 const activate = () => onSelect(selected ? null : district.key);
                 return (
                     <GeoJSON
@@ -302,6 +324,14 @@ function ReportingDistrictAreas({
                                             count => number.format(count),
                                         )}
                                     </span>
+                                    {stephensiCount !== undefined && (
+                                        <span
+                                            className={styles.tooltipStephensi}
+                                        >
+                                            {number.format(stephensiCount)}{' '}
+                                            <i>An. stephensi</i>
+                                        </span>
+                                    )}
                                 </div>
                             </Tooltip>
                         )}
@@ -514,6 +544,109 @@ function UpcomingAreas({
     );
 }
 
+/** On each District with An. stephensi, this dot replaces its scan marker. */
+function StephensiSpots({
+    districts,
+    counts,
+    selectedKey,
+    onSelect,
+    onHover,
+}: {
+    districts: ProgressDistrict[];
+    counts: ReadonlyMap<string, number>;
+    selectedKey: string | null;
+    onSelect: (key: string) => void;
+    onHover: (key: string | null) => void;
+}) {
+    // Smaller at overview scale, where a country is only a few dots wide.
+    const compact = useViewport().zoom <= OVERVIEW_MAX_ZOOM;
+    return (
+        <Pane name="progressStephensi" style={{ zIndex: 650 }}>
+            {districts.flatMap(district => {
+                const specimens = counts.get(district.key);
+                if (!specimens || !district.position) return [];
+                const selected = district.key === selectedKey;
+                const label = `${districtLabel(district)}. ${number.format(specimens)} An. stephensi`;
+                const mark = (marker: L.Marker | null) => {
+                    const element = marker?.getElement();
+                    element?.setAttribute('aria-label', label);
+                    element?.setAttribute('aria-pressed', String(selected));
+                };
+                return [
+                    <Marker
+                        key={district.key}
+                        ref={mark}
+                        pane="progressStephensi"
+                        position={[
+                            district.position.latitude,
+                            district.position.longitude,
+                        ]}
+                        icon={L.divIcon({
+                            className: styles.stephensiIcon,
+                            iconSize: compact ? [32, 32] : [56, 56],
+                            tooltipAnchor: [0, compact ? -6 : -10],
+                            html: `<span class="${styles.stephensiGlow}" style="animation-delay:${stephensiGlowDelay()}"></span><span class="${styles.stephensiDot}" data-selected="${selected}" data-compact="${compact}"></span>`,
+                        })}
+                        keyboard
+                        bubblingMouseEvents={false}
+                        eventHandlers={{
+                            add: event => mark(event.target as L.Marker),
+                            click: () => onSelect(district.key),
+                            mouseover: () => onHover(district.key),
+                            mouseout: () => onHover(null),
+                            // One tooltip at a time, even over a selected area's pinned one.
+                            tooltipopen: event =>
+                                (event.target as L.Marker)
+                                    .getElement()
+                                    ?.closest('.leaflet-container')
+                                    ?.setAttribute(
+                                        'data-stephensi-tooltip',
+                                        '',
+                                    ),
+                            tooltipclose: event =>
+                                (event.target as L.Marker)
+                                    .getElement()
+                                    ?.closest('.leaflet-container')
+                                    ?.removeAttribute('data-stephensi-tooltip'),
+                        }}
+                    >
+                        <Tooltip
+                            pane="tooltipPane"
+                            direction="top"
+                            className={`${styles.tooltip} ${styles.stephensiTooltip}`}
+                            opacity={1}
+                        >
+                            <div className={styles.tooltipContent}>
+                                <span className={styles.tooltipName}>
+                                    {district.name}
+                                </span>
+                                <span className={styles.tooltipScans}>
+                                    {number.format(district.uniqueScans)} scans
+                                </span>
+                                <span className={styles.tooltipLocations}>
+                                    {formatProgressLocations(
+                                        district.coverageByProgram,
+                                        count => number.format(count),
+                                    )}
+                                </span>
+                                <span className={styles.tooltipStephensi}>
+                                    {number.format(specimens)}{' '}
+                                    <i>An. stephensi</i>
+                                </span>
+                                {!selected && (
+                                    <span className={styles.tooltipHint}>
+                                        Select to see its <i>An. stephensi</i>
+                                    </span>
+                                )}
+                            </div>
+                        </Tooltip>
+                    </Marker>,
+                ];
+            })}
+        </Pane>
+    );
+}
+
 /** Group at overview scale, then reveal districts without colliding markers. */
 function ReportingActivity({
     districts,
@@ -524,6 +657,8 @@ function ReportingActivity({
     onSelect,
     upcoming,
     upcomingLayers,
+    stephensi,
+    stephensiKey,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
@@ -533,6 +668,8 @@ function ReportingActivity({
     onSelect: (key: string | null) => void;
     upcoming: UpcomingArea[];
     upcomingLayers: Map<string, L.GeoJSON>;
+    stephensi?: ReadonlyMap<string, number>;
+    stephensiKey: string | null;
 }) {
     const map = useMap();
     const viewport = useViewport();
@@ -979,10 +1116,15 @@ function ReportingActivity({
                 hoveredKey={hoveredKey}
                 onHover={setHoveredKey}
                 areaLayers={areaLayers}
+                stephensi={stephensi}
+                stephensiKey={stephensiKey}
             />
             {nodes.map(node => {
                 const selected = node.districtKeys.includes(selectedKey ?? '');
                 const district = node.sourceDistricts[0];
+                // Its stephensi dot stands in for it.
+                if (node.kind === 'district' && stephensi?.has(district.key))
+                    return null;
                 const zoomLabel = `Zoom to ${node.kind === 'country' ? node.country : `${node.sourceDistricts.length} nearby`} reporting areas.`;
                 const label =
                     node.kind === 'district'
@@ -1005,6 +1147,10 @@ function ReportingActivity({
                           : node.kind === 'district'
                             ? district
                             : node;
+                // A country or cluster adds up the Districts it stands for.
+                const stephensiTotal = (
+                    'name' in shown ? [shown.key] : node.districtKeys
+                ).reduce((sum, key) => sum + (stephensi?.get(key) ?? 0), 0);
                 return (
                     <Marker
                         key={node.key}
@@ -1037,6 +1183,14 @@ function ReportingActivity({
                                     node,
                                 ),
                             click: activate,
+                            mouseover: () => {
+                                if (node.kind === 'district')
+                                    setHoveredKey(district.key);
+                            },
+                            mouseout: () => {
+                                if (node.kind === 'district')
+                                    setHoveredKey(null);
+                            },
                             keydown: event => {
                                 const original =
                                     event.originalEvent as KeyboardEvent;
@@ -1080,6 +1234,12 @@ function ReportingActivity({
                                         count => number.format(count),
                                     )}
                                 </span>
+                                {stephensiTotal > 0 && (
+                                    <span className={styles.tooltipStephensi}>
+                                        {number.format(stephensiTotal)}{' '}
+                                        <i>An. stephensi</i>
+                                    </span>
+                                )}
                                 {node.kind !== 'district' &&
                                     (node.kind === 'country' || !selected) && (
                                         <span className={styles.tooltipHint}>
@@ -1653,9 +1813,18 @@ export default function ProgressMap({
     selectedKey,
     onSelect,
     onPlacementChange,
+    stephensi,
+    onStephensiSelect,
+    stephensiFocused = false,
 }: {
     districts: ProgressDistrict[];
     upcoming?: UpcomingArea[];
+    /** Specimens per District key; when given, each gets a rippling dot. */
+    stephensi?: ReadonlyMap<string, number>;
+    /** A click on a stephensi dot; plain selection when omitted. */
+    onStephensiSelect?: (key: string) => void;
+    /** Whether the selected District's stephensi view is open. */
+    stephensiFocused?: boolean;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
     onPlacementChange?: (placement: ProgressMapPlacement) => void;
@@ -1664,6 +1833,9 @@ export default function ProgressMap({
         .toSorted()
         .join('|');
     const [loadedAreas, setLoadedAreas] = useState(() => new Map(AREA_CACHE));
+    const [stephensiHoverKey, setStephensiHoverKey] = useState<string | null>(
+        null,
+    );
     // Upcoming outlines fill it; their tags read it in hover handlers.
     const [upcomingLayers] = useState(() => new Map<string, L.GeoJSON>());
     useEffect(() => {
@@ -1822,7 +1994,23 @@ export default function ProgressMap({
                 onSelect={onSelect}
                 upcoming={upcoming}
                 upcomingLayers={upcomingLayers}
+                stephensi={stephensi}
+                stephensiKey={
+                    stephensi
+                        ? (stephensiHoverKey ??
+                          (stephensiFocused ? selectedKey : null))
+                        : null
+                }
             />
+            {stephensi && (
+                <StephensiSpots
+                    districts={mappedDistricts}
+                    counts={stephensi}
+                    selectedKey={selectedKey}
+                    onSelect={onStephensiSelect ?? onSelect}
+                    onHover={setStephensiHoverKey}
+                />
+            )}
         </MapContainer>
     );
 }
