@@ -95,9 +95,14 @@ describe('buildSelectionTimeline', () => {
     });
 
     it('buckets by quarter past two years', () => {
+        // Every five months: no quiet stretch long enough to fold.
+        const months = ['2024-02', '2024-07', '2024-12', '2025-05', '2025-10'];
         const timeline = buildSelectionTimeline({
             sessions: [
-                at('2024-02-10T00:00:00Z', [group('Culex', 1)]),
+                ...months.map(month =>
+                    at(`${month}-10T00:00:00Z`, [group('Culex', 1)]),
+                ),
+                at('2026-03-01T00:00:00Z', [group('Culex', 1)]),
                 at('2026-08-01T00:00:00Z', [group('Culex', 2)]),
             ],
             period: { from: '2023-01', to: '2026-09' },
@@ -105,11 +110,60 @@ describe('buildSelectionTimeline', () => {
             ranking: RANKING,
         });
         expect(timeline.granularity).toBe('quarter');
+        expect(timeline.foldedBefore).toBeNull();
         const keys = timeline.buckets.map(b => b.key);
         expect(keys[0]).toBe('2024-Q1');
         expect(keys.at(-1)).toBe('2026-Q3');
         expect(keys).toHaveLength(11);
         expect(timeline.buckets.at(-1)?.total).toBe(2);
+    });
+
+    it('folds data before a quiet half-year into one bar and sizes the rest by what follows', () => {
+        const timeline = buildSelectionTimeline({
+            sessions: [
+                at('2021-03-10T00:00:00Z', [group('Culex', 1)]),
+                at('2021-05-10T00:00:00Z', [group('Culex', 2)]),
+                at('2025-07-10T00:00:00Z', [group('Culex', 3)]),
+                at('2025-12-10T00:00:00Z', [group('Culex', 1)]),
+                at('2026-04-10T00:00:00Z', [group('Culex', 1)]),
+                at('2026-09-10T00:00:00Z', [group('Culex', 4)]),
+            ],
+            period: { from: '2020-08', to: '2026-10' },
+            dimension: 'species',
+            ranking: RANKING,
+        });
+        expect(timeline.granularity).toBe('month');
+        expect(timeline.foldedBefore).toBe(Date.parse('2025-07-01T00:00:00Z'));
+        expect(timeline.buckets[0]).toMatchObject({
+            start: Date.parse('2021-03-01T00:00:00Z'),
+            total: 3,
+        });
+        expect(timeline.buckets[1]).toMatchObject({ key: '2025-07', total: 3 });
+        expect(timeline.buckets.at(-1)?.key).toBe('2026-10');
+        expect(timeline.buckets).toHaveLength(17);
+        expect(timeline.total).toBe(12);
+    });
+
+    it('keeps a gap shorter than six months on the axis', () => {
+        const timeline = buildSelectionTimeline({
+            sessions: [
+                at('2026-01-10T00:00:00Z', [group('Culex', 1)]),
+                at('2026-07-10T00:00:00Z', [group('Culex', 2)]),
+            ],
+            period: { from: '2026-01', to: '2026-07' },
+            dimension: 'species',
+            ranking: RANKING,
+        });
+        expect(timeline.foldedBefore).toBeNull();
+        expect(timeline.buckets.map(b => b.key)).toEqual([
+            '2026-01',
+            '2026-02',
+            '2026-03',
+            '2026-04',
+            '2026-05',
+            '2026-06',
+            '2026-07',
+        ]);
     });
 
     it('keeps each value on its map-wide slot and folds the rest', () => {

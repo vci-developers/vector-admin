@@ -393,7 +393,7 @@ describe('buildPeriodMetrics', () => {
         expect(metrics.programs.map(p => p.cycles)).toEqual([[7], []]);
     });
 
-    it('starts All time at the earliest Session and has no previous period', () => {
+    it('starts All time at the earliest Session', () => {
         const metrics = buildPeriodMetrics(
             [
                 program(1, {
@@ -409,27 +409,5 @@ describe('buildPeriodMetrics', () => {
         );
 
         expect([metrics.from, metrics.to]).toEqual(['2025-11', '2026-02']);
-        expect(metrics.previousTotal).toBeNull();
-    });
-
-    it('totals the same-length period just before for comparison', () => {
-        const metrics = buildPeriodMetrics(
-            [
-                program(1, {
-                    sessions: [
-                        session(1, { collectionDate: Date.UTC(2025, 11, 3) }),
-                        session(2, { deviceId: 2 }),
-                        session(3, {
-                            deviceId: 3,
-                            collectionDate: Date.UTC(2026, 2, 3),
-                        }),
-                    ],
-                }),
-            ],
-            { from: '2026-02', to: '2026-03' },
-        );
-
-        expect(metrics.total.activeDevices).toBe(1);
-        expect(metrics.previousTotal?.activeDevices).toBe(2);
     });
 });

@@ -15,6 +15,9 @@ vi.mock('@/api/dashboard/get-default-excluded-programs', () => ({
     getDashboardProgramSelection: vi.fn(),
 }));
 vi.mock('@/lib/auth-session/with-viewer', () => ({ getViewAs: vi.fn() }));
+vi.mock('next/headers', () => ({
+    cookies: vi.fn(async () => ({ get: () => undefined })),
+}));
 vi.mock('next-intl/server', () => ({
     getTranslations: vi.fn(async () => (key: string) => key),
 }));

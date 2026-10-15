@@ -70,6 +70,8 @@ export const periodMetricsSchema = z.object({
             sd: z.number().nullable(),
         })
         .nullable(),
+    /** 0 s gaps between images, left out of `timing`. */
+    excludedGaps: z.number(),
 });
 
 /** A coverage figure's working; null where the workbook has no figure. */
@@ -133,8 +135,6 @@ export const dashboardSchema = z.object({
         ),
         /** For Stakeholders, users and logins are always null. */
         total: periodMetricsSchema.nullable(),
-        /** Always null for Stakeholders. */
-        previousTotal: periodMetricsSchema.nullable(),
     }),
     /** Device Status over the period. */
     devices: z.array(deviceRowSchema),

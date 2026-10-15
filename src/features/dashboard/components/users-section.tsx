@@ -6,15 +6,24 @@ import {
     userLoginsSearch,
 } from '@/api/user-logins/hooks/use-get-user-logins';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { programSeriesColor } from '@/features/dashboard/utils/series-colors';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Users as UsersIcon } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
+import PanelHeader, {
+    PANEL_PRIMARY,
+    panelClassName,
+    SEGMENT,
+    SEGMENTED,
+} from './panel-header';
 import { LoginsBreakdownTable, UsersTable } from './user-login-tables';
+
+type UsersTab = 'users' | 'logins';
 
 export default function UsersSection({
     dashboard,
@@ -31,6 +40,7 @@ export default function UsersSection({
     const [download, setDownload] = useState<'idle' | 'busy' | 'failed'>(
         'idle',
     );
+    const [tab, setTab] = useState<UsersTab>('users');
 
     const { programs, programColors } = useMemo(() => {
         const ids = dashboard.programs.map(p => p.programId);
@@ -69,89 +79,106 @@ export default function UsersSection({
     const tableProps = { users, period, programs, programColors };
 
     return (
-        <section
-            aria-labelledby="users-heading"
-            className="flex flex-col gap-4"
-        >
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 id="users-heading" className="text-lg font-semibold">
-                        {t('heading', { period: period.label })}
-                    </h2>
-                    <p className="text-muted-foreground text-sm">
-                        {result?.ok
+        <section aria-labelledby="users-heading">
+            <Card className={panelClassName}>
+                <PanelHeader
+                    id="users-heading"
+                    icon={UsersIcon}
+                    title={t('heading', { period: period.label })}
+                    description={
+                        result?.ok
                             ? t('summary', {
                                   users: formatter.number(users.length),
                                   logins: formatter.number(totalLogins),
                               })
-                            : t('description')}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {download === 'failed' && (
-                        <span role="alert" className="text-destructive text-sm">
-                            {t('downloadFailed')}
-                        </span>
-                    )}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={downloadReport}
-                        disabled={download === 'busy' || !result?.ok}
-                    >
-                        {download === 'busy' ? (
-                            <Loader2 className="animate-spin" />
-                        ) : (
-                            <Download />
-                        )}
-                        {t('download')}
-                    </Button>
-                </div>
-            </div>
-
-            {!result && (
-                <Card className="gap-2 p-4" aria-busy="true">
-                    {Array.from({ length: 5 }, (_, i) => (
-                        <Skeleton key={i} height="md" width="full" />
-                    ))}
-                </Card>
-            )}
-            {result && !result.ok && (
-                <p role="alert" className="text-destructive text-sm">
-                    {t('loadError')}
-                </p>
-            )}
-            {result?.ok && users.length === 0 && (
-                <p className="text-muted-foreground text-sm">{t('empty')}</p>
-            )}
-            {result?.ok && users.length > 0 && (
-                <div className="flex flex-col gap-4">
-                    <Card className="gap-2 py-4">
-                        <CardHeader className="px-4">
-                            <CardTitle className="text-sm">
-                                {t('usersTitle')}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-2">
-                            <UsersTable {...tableProps} />
-                        </CardContent>
-                    </Card>
-                    <Card className="gap-2 py-4">
-                        <CardHeader className="px-4">
-                            <CardTitle className="text-sm">
-                                {t(
-                                    period.from === period.to
-                                        ? 'byDayTitle'
-                                        : 'byMonthTitle',
+                            : t('description')
+                    }
+                    actions={
+                        <>
+                            {result?.ok && users.length > 0 && (
+                                <ToggleGroup
+                                    type="single"
+                                    size="sm"
+                                    spacing={1}
+                                    className={SEGMENTED}
+                                    value={tab}
+                                    onValueChange={value => {
+                                        if (value) setTab(value as UsersTab);
+                                    }}
+                                    aria-label={t('tabsLabel')}
+                                >
+                                    <ToggleGroupItem
+                                        value="users"
+                                        className={SEGMENT}
+                                    >
+                                        {t('usersTitle')}
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem
+                                        value="logins"
+                                        className={SEGMENT}
+                                    >
+                                        {t(
+                                            period.from === period.to
+                                                ? 'byDayTitle'
+                                                : 'byMonthTitle',
+                                        )}
+                                    </ToggleGroupItem>
+                                </ToggleGroup>
+                            )}
+                            {download === 'failed' && (
+                                <span
+                                    role="alert"
+                                    className="text-destructive text-sm"
+                                >
+                                    {t('downloadFailed')}
+                                </span>
+                            )}
+                            <Button
+                                className={PANEL_PRIMARY}
+                                onClick={downloadReport}
+                                disabled={download === 'busy' || !result?.ok}
+                            >
+                                {download === 'busy' ? (
+                                    <Loader2 className="animate-spin" />
+                                ) : (
+                                    <Download />
                                 )}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-2">
-                            <LoginsBreakdownTable {...tableProps} />
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+                                {t('download')}
+                            </Button>
+                        </>
+                    }
+                />
+                {!result && (
+                    <div
+                        className="flex flex-col gap-2 p-(--d-pad-x)"
+                        aria-busy="true"
+                    >
+                        {Array.from({ length: 5 }, (_, i) => (
+                            <Skeleton key={i} height="md" width="full" />
+                        ))}
+                    </div>
+                )}
+                {result && !result.ok && (
+                    <p
+                        role="alert"
+                        className="text-destructive p-(--d-pad-x) text-sm"
+                    >
+                        {t('loadError')}
+                    </p>
+                )}
+                {result?.ok && users.length === 0 && (
+                    <p className="text-muted-foreground p-(--d-pad-x) text-sm">
+                        {t('empty')}
+                    </p>
+                )}
+                {result?.ok &&
+                    users.length > 0 &&
+                    (tab === 'users' ? (
+                        <UsersTable {...tableProps} />
+                    ) : (
+                        <LoginsBreakdownTable {...tableProps} />
+                    ))}
+            </Card>
         </section>
     );
 }

@@ -106,7 +106,7 @@ export function UsersTable({ users, programs, programColors }: TablesProps) {
             </TableBody>
             {/* Stuck to the bottom so the total stays in view while scrolling;
                 1px past the edge so no half-covered pixel row shows through. */}
-            <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 font-semibold [&_td]:shadow-[inset_0_1px_0_var(--border)]">
+            <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 font-semibold [&_td]:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ink)_18%,transparent)]">
                 <TableRow>
                     <TableCell />
                     <TableCell colSpan={3}>
@@ -300,7 +300,7 @@ export function LoginsBreakdownTable({ users, period }: TablesProps) {
                     );
                 })}
             </TableBody>
-            <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 font-semibold [&_td]:shadow-[inset_0_1px_0_var(--border)]">
+            <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 font-semibold [&_td]:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ink)_18%,transparent)]">
                 <TableRow>
                     <TableCell className="bg-card sticky left-0">
                         {t('total')}

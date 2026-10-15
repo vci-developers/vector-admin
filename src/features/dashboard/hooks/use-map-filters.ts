@@ -22,6 +22,8 @@ export const MAP_FILTER_DEFAULTS = {
     hideAbdomen: [NOT_RECORDED],
     nonMosquito: false,
     zeroCatch: false,
+    // Developers: the list of devices without a location, under the map.
+    unplacedList: false,
 };
 
 // Map-only filters; the KPI tiles and summary table ignore them.
@@ -37,6 +39,7 @@ const mapFilterParsers = {
     ),
     nonMosquito: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.nonMosquito),
     zeroCatch: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.zeroCatch),
+    unplacedList: parseAsBoolean.withDefault(MAP_FILTER_DEFAULTS.unplacedList),
 };
 
 export function useMapFilters() {

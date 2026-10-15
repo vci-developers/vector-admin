@@ -48,6 +48,18 @@ export function timingStats(values: number[]): TimingStats | null {
     };
 }
 
+/**
+ * Stats over the gaps that took time. A 0 s gap (two images with the same
+ * capture time) is excluded and only counted.
+ */
+export function handlingStats(gaps: number[]) {
+    const timed = gaps.filter(gap => gap > 0);
+    return {
+        timing: timingStats(timed),
+        excluded: gaps.length - timed.length,
+    };
+}
+
 /** Times one Session's images: every gap between consecutive captures. */
 export function timeSessionImages(images: TimedImage[]): SessionHandling {
     const times = images

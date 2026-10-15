@@ -242,7 +242,7 @@ export async function getDashboard(
         selectedProgramIds: selectedIds,
         failedProgramIds,
         // Stakeholders get the period's totals and each Program's figures for
-        // their headline tiles, but no previous period, no cycles and nothing
+        // their headline tiles, but no cycles and nothing
         // about users or logins.
         metrics:
             viewer.role === 'developer'
@@ -259,7 +259,6 @@ export async function getDashboard(
                           cycles: [],
                       })),
                       total: withoutUsers(metrics.total),
-                      previousTotal: null,
                   },
         devices: shownDevices,
         areas,

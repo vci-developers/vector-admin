@@ -6,38 +6,63 @@ import type {
 import {
     FIELDS,
     METRICS,
+    ratioCounts,
     type FieldKey,
     type MetricFormat,
     type MetricKey,
+    type RatioCounts,
 } from './metric-definitions';
 import { programSeriesColor } from './series-colors';
 
-export const TIMING_STATS = ['median', 'p25', 'p75', 'mean', 'sd'] as const;
-export type TimingStat = (typeof TIMING_STATS)[number];
+const TIMING_STATS = ['median', 'p25', 'p75', 'mean', 'sd'] as const;
+/** The team sheet's handling columns, in its order. */
+export const TIMING_COLUMNS = [
+    'idEvents',
+    'excluded',
+    ...TIMING_STATS,
+] as const;
+export type TimingColumn = (typeof TIMING_COLUMNS)[number];
 
 /** The team sheet's columns, in its order. */
 export type SheetColumn = {
     format: MetricFormat;
     value: (metrics: PeriodMetricsDto) => number | null;
+    /** Percentages only: the counts behind the figure. */
+    counts?: (metrics: PeriodMetricsDto) => RatioCounts;
 } & (
     | { kind: 'metric'; key: MetricKey }
     | { kind: 'field'; key: FieldKey }
-    | { kind: 'timing'; key: TimingStat }
+    | { kind: 'timing'; key: TimingColumn }
 );
 
 export const SHEET_COLUMNS: SheetColumn[] = [
-    ...METRICS.map(({ key, format, value }): SheetColumn => ({
+    ...METRICS.map(({ key, format, value, calculation }): SheetColumn => ({
         kind: 'metric',
         key,
         format,
         value,
+        ...(format === 'percent' && calculation
+            ? { counts: m => ratioCounts(calculation(m)) }
+            : {}),
     })),
     ...FIELDS.map((key): SheetColumn => ({
         kind: 'field',
         key,
         format: 'percent',
         value: m => m.fieldCompleteness[key],
+        counts: m => ({
+            numerator: m.fieldPasses[key],
+            denominator: m.records,
+        }),
     })),
+    // ID events are not recorded yet: a blank column keeps pasted rows aligned.
+    { kind: 'timing', key: 'idEvents', format: 'count', value: () => null },
+    {
+        kind: 'timing',
+        key: 'excluded',
+        format: 'count',
+        value: m => m.excludedGaps,
+    },
     ...TIMING_STATS.map((key): SheetColumn => ({
         kind: 'timing',
         key,

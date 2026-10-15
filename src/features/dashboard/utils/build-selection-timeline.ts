@@ -34,6 +34,8 @@ export type SelectionTimeline = {
     series: TimelineSeries[];
     buckets: TimelineBucket[];
     total: number;
+    /** Set when older data is folded into the first bucket: the next one's start. */
+    foldedBefore: number | null;
 };
 
 type TimelineSession = {
@@ -50,6 +52,32 @@ const monthKeyUtc = (time: number) => new Date(time).toISOString().slice(0, 7);
 
 const quarterKey = (month: MonthKey) =>
     `${month.slice(0, 4)}-Q${Math.ceil(Number(month.slice(5, 7)) / 3)}`;
+
+/** A quiet stretch this long ends the span the chart spreads out. */
+const FOLD_GAP_MONTHS = 6;
+const FOLDED_BUCKET_KEY = 'before';
+
+/**
+ * Walking back from the latest data, the earliest month before a quiet stretch
+ * of {@link FOLD_GAP_MONTHS}; null when no older data lies past such a stretch.
+ */
+function denseStart(
+    months: MonthKey[],
+    withData: Set<string>,
+): MonthKey | null {
+    let start: MonthKey | null = null;
+    let gap = 0;
+    for (const month of [...months].reverse()) {
+        if (!withData.has(month)) {
+            gap += 1;
+            continue;
+        }
+        if (start && gap >= FOLD_GAP_MONTHS) return start;
+        start = month;
+        gap = 0;
+    }
+    return null;
+}
 
 /** Enough bars to show a shape, few enough that each stays readable. */
 function granularityFor(monthCount: number): TimelineGranularity {
@@ -130,7 +158,10 @@ function emptyBuckets(
  * or quarter, or per day when asked, stacked by species, sex or abdomen
  * status. Empty buckets before
  * the first specimen are dropped; later ones stay, so a quiet stretch shows as
- * a gap. Buckets are UTC; the chart is a shape, not the Reporting Month counts.
+ * a gap. Data older than a quiet stretch of six months or more is folded into
+ * one leading bucket, and the bucket size follows the span after it (stray
+ * old Sessions would otherwise stretch "All time" to quarters). Buckets are
+ * UTC; the chart is a shape, not the Reporting Month counts.
  *
  * @param ranking the dimension's values across the whole map, most common
  * first: the first {@link TIMELINE_SLOTS} named values keep their colour
@@ -141,17 +172,42 @@ export function buildSelectionTimeline({
     period,
     dimension,
     ranking,
-    granularity = granularityFor(monthsInRange(period.from, period.to).length),
+    granularity: requested,
 }: {
     sessions: TimelineSession[];
     period: { from: MonthKey; to: MonthKey };
     dimension: TimelineDimension;
     ranking: string[];
-    /** Overrides the bucket size picked from the period's length. */
+    /** Overrides the bucket size picked from the period's length; nothing is
+     * folded. */
     granularity?: TimelineGranularity;
 }): SelectionTimeline {
-    const buckets = emptyBuckets(period, granularity);
+    const withData = new Set(
+        sessions
+            .filter(session => session.specimenGroups.some(g => g.count > 0))
+            .map(session => monthKeyUtc(session.collectedAt)),
+    );
+    const dense = requested
+        ? null
+        : denseStart(monthsInRange(period.from, period.to), withData);
+    const span = dense ? { from: dense, to: period.to } : period;
+    const granularity =
+        requested ?? granularityFor(monthsInRange(span.from, span.to).length);
+    const foldedBefore = dense ? Date.parse(`${dense}-01T00:00:00Z`) : null;
+    const buckets = emptyBuckets(span, granularity);
     const byKey = new Map(buckets.map(bucket => [bucket.key, bucket]));
+    const earlier: TimelineBucket | null = dense
+        ? {
+              key: FOLDED_BUCKET_KEY,
+              start: Math.min(
+                  ...[...withData]
+                      .filter(month => month < dense)
+                      .map(month => Date.parse(`${month}-01T00:00:00Z`)),
+              ),
+              total: 0,
+              counts: {},
+          }
+        : null;
     const slots = new Map(
         ranking
             .filter(value => value !== NOT_RECORDED)
@@ -164,7 +220,11 @@ export function buildSelectionTimeline({
     let total = 0;
 
     for (const session of sessions) {
-        const bucket = byKey.get(bucketKey(session.collectedAt, granularity));
+        const bucket =
+            byKey.get(bucketKey(session.collectedAt, granularity)) ??
+            (foldedBefore !== null && session.collectedAt < foldedBefore
+                ? earlier
+                : undefined);
         if (!bucket) continue;
         for (const group of session.specimenGroups) {
             const value = valueOf(group, dimension);
@@ -202,11 +262,13 @@ export function buildSelectionTimeline({
     // "All time" can start years before anything was caught; days keep the
     // whole period, so the quiet ones at the start show too.
     const first = buckets.findIndex(bucket => bucket.total > 0);
+    const shown =
+        granularity !== 'day' && first > 0 ? buckets.slice(first) : buckets;
     return {
         granularity,
         series,
-        buckets:
-            granularity !== 'day' && first > 0 ? buckets.slice(first) : buckets,
+        buckets: earlier ? [earlier, ...shown] : shown,
         total,
+        foldedBefore,
     };
 }

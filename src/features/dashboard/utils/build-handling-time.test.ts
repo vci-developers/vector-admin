@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { timeSessionImages, timingStats } from './build-handling-time';
+import {
+    handlingStats,
+    timeSessionImages,
+    timingStats,
+} from './build-handling-time';
 
 const at = (specimenId: number, seconds: number) => ({
     specimenId,
@@ -31,6 +35,19 @@ describe('timingStats', () => {
     it('has no SD for one value and no stats for none', () => {
         expect(timingStats([12])?.sd).toBeNull();
         expect(timingStats([])).toBeNull();
+    });
+});
+
+describe('handlingStats', () => {
+    it('leaves 0 s gaps out of the stats and counts them as excluded', () => {
+        expect(handlingStats([0, 10, 0, 30])).toEqual({
+            timing: expect.objectContaining({ count: 2, median: 20 }),
+            excluded: 2,
+        });
+    });
+
+    it('still counts exclusions when every gap is 0 s', () => {
+        expect(handlingStats([0, 0])).toEqual({ timing: null, excluded: 2 });
     });
 });
 

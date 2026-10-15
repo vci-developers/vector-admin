@@ -13,8 +13,11 @@ import {
     type TimelineDimension,
 } from '@/features/dashboard/utils/build-selection-timeline';
 import type { MonthKey } from '@/features/dashboard/utils/month-key';
+import { ChartColumn } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
+import { SEGMENT, SEGMENTED } from './panel-header';
+import panelStyles from './panel.module.css';
 import SelectionChart from './selection-chart';
 
 type Props = {
@@ -66,37 +69,54 @@ export default function DailyChartSheet({
                 closeLabel={t('dailyClose')}
                 className="w-full sm:max-w-[min(96vw,64rem)]"
             >
-                <SheetHeader className="border-b">
-                    <SheetTitle>{t('dailyTitle', { title })}</SheetTitle>
-                    <SheetDescription>
-                        {t('dailyDescription', { period: period.label })}
-                    </SheetDescription>
+                {/* Styled as the internal panels' headers (PanelHeader). */}
+                <SheetHeader className={panelStyles.header}>
+                    <div className={panelStyles.heading}>
+                        <span className={panelStyles.chip}>
+                            <ChartColumn
+                                className="size-[18px]"
+                                aria-hidden="true"
+                            />
+                        </span>
+                        <div className="min-w-0 pr-8">
+                            <SheetTitle className={panelStyles.title}>
+                                {t('dailyTitle', { title })}
+                            </SheetTitle>
+                            <SheetDescription
+                                className={panelStyles.description}
+                            >
+                                {t('dailyDescription', {
+                                    period: period.label,
+                                })}
+                            </SheetDescription>
+                        </div>
+                    </div>
                 </SheetHeader>
-                <div className="flex flex-col gap-3 overflow-auto p-4">
+                <div className="flex flex-col gap-4 overflow-auto px-(--d-pad-x) py-5">
                     <ToggleGroup
                         type="single"
-                        variant="outline"
                         size="sm"
+                        spacing={1}
+                        className={SEGMENTED}
                         value={dimension}
                         onValueChange={value => {
                             if (value)
                                 onDimensionChange(value as TimelineDimension);
                         }}
                         aria-label={t('chartStackBy')}
-                        className="self-start"
                     >
                         {dimensions.map(d => (
                             <ToggleGroupItem
                                 key={d}
                                 value={d}
-                                className="px-3 text-xs"
+                                className={SEGMENT}
                             >
                                 {t(`chartDimension.${d}`)}
                             </ToggleGroupItem>
                         ))}
                     </ToggleGroup>
                     {timeline && timeline.total > 0 ? (
-                        <SelectionChart timeline={timeline} view="bar" tall />
+                        <SelectionChart timeline={timeline} view="bar" scroll />
                     ) : (
                         <p className="text-muted-foreground text-xs">
                             {t('chartEmpty')}

@@ -10,10 +10,16 @@
             "light": "Light theme",
             "dark": "Dark theme"
         },
+        "density": {
+            "label": "Layout density",
+            "compact": "Compact layout",
+            "comfortable": "Comfortable layout",
+            "spacious": "Spacious layout"
+        },
         "viewAs": {
             "label": "Dashboard view",
             "developer": "Internal",
-            "stakeholder": "Progress"
+            "stakeholder": "Stakeholder"
         }
     },
     "Auth": {
@@ -37,18 +43,21 @@
         "switchAccount": "Sign in with a different account"
     },
     "Dashboard": {
+        "eyebrow": "Internal",
         "heading": "Surveillance progress",
         "loading": "Loading surveillance data…",
         "loadError": "Could not load the dashboard. Refresh the page to try again.",
         "failedPrograms": "Could not load {names}. Their rows are marked failed and totals are incomplete.",
         "noProgramsSelected": "No programs selected. Choose at least one program.",
         "loadingPoints": "Loading sessions and devices…",
-        "coverageLoadError": "Could not load the coverage figures.",
-        "updating": "Updating…"
+        "coverageLoadError": "Could not load the coverage figures."
     },
     "Filters": {
         "programs": "Programs",
         "programsSummary": "{selected} of {total} programs",
+        "allPrograms": "All programs",
+        "noPrograms": "No programs",
+        "reportingPeriod": "Reporting period",
         "hiddenByDefault": "hidden by default",
         "resetPrograms": "Reset to default",
         "selectAll": "Select all",
@@ -74,7 +83,8 @@
         },
         "sessionTypes": "Session types",
         "sessionTypesSummary": "{count, plural, =0 {No session types} other {# session types}}",
-        "withTestSite": "with test site",
+        "testSiteIncluded": "Test site included",
+        "testSiteExcluded": "Test site left out",
         "includeTestSite": "Include the test site (Other)",
         "testSiteHint": "Uganda's catch-all for testing and training, outside any district.",
         "resetSessions": "Reset to default"
@@ -83,6 +93,7 @@
         "lastUpdated": "Updated {time}",
         "refresh": "Refresh",
         "refreshing": "Refreshing…",
+        "updating": "Updating…",
         "refreshError": "Refresh failed. Try again."
     },
     "MetricTable": {
@@ -115,7 +126,7 @@
             "description": "Images / active devices, for the same programs and period. Blank when no devices were active."
         },
         "metadataCompleteness": {
-            "title": "Metadata complete",
+            "title": "Metadata completeness",
             "description": "Share of specimens whose record has all four: a species, a capture date, a location (its site's district, or else the session's GPS inside the country), and an operator name."
         },
         "dhis2UploadRate": {
@@ -133,11 +144,9 @@
     },
     "Kpi": {
         "incomplete": "Incomplete",
-        "delta": "{delta} vs {month}",
-        "deltaPoints": "{delta} pts vs {month}"
+        "ofRecords": "{numerator} of {denominator} records"
     },
     "Summary": {
-        "heading": "Summary, {period}",
         "total": "Total",
         "incomplete": "Incomplete",
         "failed": "Failed to load",
@@ -145,28 +154,32 @@
         "copied": "Copied values",
         "copyFailed": "Copy failed",
         "openSessions": "Show {program} sessions for this period",
-        "previousMonths": "previous {count} months",
-        "inProgress": "In progress",
-        "inProgressHint": "{month} hasn't ended yet, so its numbers are still coming in.",
+        "currentMonthInProgress": "Current month in progress",
+        "allSelectedCountries": "All selected countries",
         "periodInProgress": "{period}, in progress",
         "cycleRange": "Cycles {first}–{last} · {count}",
         "area": "Area",
         "programTotal": "Program total",
         "noArea": "No {level}",
         "timing": {
-            "median": "Median",
-            "p25": "25th pct",
-            "p75": "75th pct",
-            "mean": "Mean",
-            "sd": "SD"
+            "idEvents": "ID events logged",
+            "excluded": "Events excluded",
+            "median": "Median sec / specimen",
+            "p25": "25th pct (sec)",
+            "p75": "75th pct (sec)",
+            "mean": "Mean (sec)",
+            "sd": "SD (sec)"
         },
-        "timingNote": "Times are seconds between consecutive images in a session, pauses and retakes included.",
+        "byProgramTitle": "By program",
+        "timingNote": "Times are seconds between consecutive images in a session, pauses and retakes included. Gaps of 0 seconds are excluded.",
         "selectRow": "Select {row}",
         "copy": "Copy",
         "copyRow": "Copy {row} values",
         "copySelected": "Copy selected ({count})",
         "noAreaNoLevel": "No area",
         "timingInfo": {
+            "idEvents": "Not recorded yet. Left blank so copied rows line up with the team sheet.",
+            "excluded": "Gaps of 0 seconds between consecutive images (the same capture time). They are left out of every figure to the right.",
             "median": "The middle gap: half the gaps between consecutive images are shorter. Every gap in every session in the period, pooled (Excel MEDIAN).",
             "p25": "A quarter of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.25).",
             "p75": "Three quarters of the gaps between consecutive images are shorter than this (Excel PERCENTILE.INC at 0.75).",
@@ -202,11 +215,6 @@
             "heading": "Devices without a location ({count})",
             "description": "No in-country GPS fix, and their site could not be geocoded (yet).",
             "empty": "Every used device is on the map."
-        },
-        "neverUsed": {
-            "heading": "Never used ({count})",
-            "description": "Registered devices with no sessions.",
-            "empty": "Every registered device has sessions."
         },
         "location": "Location",
         "locating": "Locating site…",
@@ -277,10 +285,10 @@
         "showAll": "Show all",
         "reset": "Reset map filters",
         "coverage": "Coverage",
+        "unplacedList": "List devices without a location",
         "devicesHint": "Devices with Sessions in the period. Devices with none are not drawn."
     },
     "MapSection": {
-        "heading": "Collection, {period}",
         "label": "Collection map",
         "specimenStats": "{gps} specimens placed by GPS · {site} by site location · {unplaced} from {unplacedSessions} sessions with no location",
         "legend": "Map key",
@@ -306,6 +314,9 @@
         "searchSite": "Site #{id}",
         "locatingSites": "Loading…",
         "legendBySite": "Dashed outline: site location (no GPS)",
+        "shadingTitle": "Specimens per area",
+        "shadingHint": "Darker shade = more specimens",
+        "notesOpen": "How the map placed this period's data",
         "gapsTitle": "Not on the map",
         "gapsOpen": "{count, plural, one {# program not on the map} other {# programs not on the map}}: see why",
         "gapNoSessions": "no sessions in {period}",
@@ -321,6 +332,7 @@
             "abdomen": "Abdomen"
         },
         "chartInPeriod": "in {period}",
+        "chartHeading": "Specimens over time",
         "chartTitle": {
             "day": "Specimens per day",
             "week": "Specimens per week",
@@ -339,16 +351,13 @@
         "chartReadoutBucket": "{bucket} · {total} total",
         "chartReadoutPeriod": "Whole period · hover a bar for just that {granularity, select, day {day} week {week} month {month} other {quarter}}",
         "chartAxisY": "Specimens",
-        "chartAxisX": {
-            "day": "Day",
-            "week": "Week starting",
-            "month": "Month",
-            "quarter": "Quarter"
-        },
+        "chartCaption": "{granularity, select, day {Specimens by day} week {Specimens by week, labelled by its first day} month {Specimens by month} other {Specimens by quarter}}",
+        "chartScrollHint": "scroll sideways for earlier days",
         "chartAria": "Chart of {total} specimens per {granularity}",
         "chartWeekOf": "Week of {date}",
         "chartQuarter": "Q{quarter} {year}",
         "chartQuarterTick": "Q{quarter} {short}",
+        "chartBefore": "Before {date}",
         "chartOther": "Other",
         "chartNotRecorded": "Image upload pending",
         "chartOtherOrNotRecorded": "Other or image upload pending",
@@ -373,7 +382,6 @@
             "Surveillance only": "Surveillance without VectorCam"
         },
         "coverageStatusHint": {
-            "Active": "Collecting with VectorCam now.",
             "Targeted": "Planned for VectorCam, not using it yet.",
             "Surveillance only": "Active surveillance not utilizing VectorCam."
         },
@@ -385,6 +393,14 @@
         "panelLoading": "Loading site locations…",
         "panelPartial": "Loading…",
         "searchUnit": "Coverage · {status}",
+        "placeLabel": "Place",
+        "placeAll": "All places",
+        "placeSearch": "Search places",
+        "placeEmpty": "No places match “{query}”.",
+        "placeKind": {
+            "country": "Country",
+            "area": "Area"
+        },
         "unitSummary": "{status} · {sessions, plural, =0 {no sessions on the map} one {# session} other {# sessions}}",
         "pointLabel": "Collection point",
         "locationSentinelSites": "{count, plural, one {# sentinel site} other {# sentinel sites}}",
@@ -410,6 +426,7 @@
         "downloadFailed": "Download failed. Try again.",
         "loadError": "Could not load VectorVerify logins.",
         "empty": "No VectorVerify logins in this period.",
+        "tabsLabel": "Users or logins",
         "usersTitle": "Users",
         "byDayTitle": "Logins by day",
         "byMonthTitle": "Logins by month",

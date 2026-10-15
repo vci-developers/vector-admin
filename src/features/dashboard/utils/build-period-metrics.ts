@@ -4,8 +4,8 @@ import type { Session } from '@/api/session/validation/session-schema';
 import type { Site } from '@/api/site/validation/site-schema';
 import type { Specimen } from '@/api/specimen/validation/specimen-schema';
 import {
+    handlingStats,
     timeSessionImages,
-    timingStats,
     type TimingStats,
 } from './build-handling-time';
 import {
@@ -14,13 +14,7 @@ import {
     type RequiredField,
 } from './check-record-fields';
 import { sessionBucketTime } from './counted-sessions';
-import {
-    addMonths,
-    monthKeyOf,
-    monthsInRange,
-    programTimeZone,
-    type MonthKey,
-} from './month-key';
+import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
 
 export type PeriodCounts = {
@@ -58,6 +52,8 @@ export type PeriodMetrics = Omit<
     dhis2UploadRate: number | null;
     /** Time between images; null with no gap to time. */
     timing: TimingStats | null;
+    /** 0 s gaps between images, left out of `timing`. */
+    excludedGaps: number;
 };
 
 export type ProgramPeriodMetrics = {
@@ -72,8 +68,6 @@ export type DashboardMetrics = {
     to: MonthKey;
     programs: ProgramPeriodMetrics[];
     total: PeriodMetrics;
-    /** The same-length period just before; null for All time. */
-    previousTotal: PeriodMetrics | null;
 };
 
 export type ProgramData = { program: Program; snapshot: ProgramSnapshot };
@@ -115,6 +109,7 @@ export function withRatios(
     { imageGaps, ...counts }: PeriodCounts,
     loginsTracked: boolean,
 ): PeriodMetrics {
+    const handling = handlingStats(imageGaps);
     return {
         ...counts,
         uniqueUsers: loginsTracked ? counts.uniqueUsers : null,
@@ -128,7 +123,8 @@ export function withRatios(
             operatorId: ratio(counts.fieldPasses.operatorId, counts.records),
         },
         dhis2UploadRate: ratio(counts.submittedRecords, counts.dhis2Records),
-        timing: timingStats(imageGaps),
+        timing: handling.timing,
+        excludedGaps: handling.excluded,
     };
 }
 
@@ -313,20 +309,9 @@ export function buildPeriodMetrics(
         cycles: overlappingCycles(programData.snapshot, period),
     }));
 
-    const length = monthsInRange(period.from, period.to).length;
-    const previous = range.from
-        ? {
-              from: addMonths(period.from, -length),
-              to: addMonths(period.from, -1),
-          }
-        : null;
-
     return {
         ...period,
         programs: programMetrics,
         total: withRatios(totalFor(programs, period), loginsTracked(period)),
-        previousTotal: previous
-            ? withRatios(totalFor(programs, previous), loginsTracked(previous))
-            : null,
     };
 }

@@ -1,0 +1,107 @@
+/* The internal map, styled after the Stakeholder map (progress-map.module.css):
+   a washed-out basemap so the data reads first, and green-tinted controls.
+   Copied, not shared, so neither map moves the other. */
+
+.canvas {
+    /* Area names drawn on the map. */
+    --map-label: #0f172a;
+    --map-halo: #fff;
+    width: 100%;
+    height: 100%;
+    background: #f0f6f2;
+    font-family: var(--font-geist-sans), sans-serif;
+}
+
+/* Touch pinches zoom the map, not the page. */
+.canvas:global(.leaflet-container.leaflet-touch-zoom) {
+    touch-action: none;
+}
+
+/* Outlines hide while zooming (PinchZoom): stretched mid-gesture, they
+   swell, and come back redrawn when it settles. */
+.canvas[data-map-zooming='true'] :global(.leaflet-map-pane) svg path {
+    stroke-opacity: 0;
+}
+
+.canvas :global(.leaflet-tile-pane) {
+    opacity: 0.58;
+    filter: saturate(0.12) brightness(1.03) contrast(0.96);
+}
+
+/* The Stakeholder map has no dark theme: here the tiles turn dark instead of
+   glaring white. */
+:global([data-theme='dark']) .canvas {
+    --map-label: #e4f3ed;
+    --map-halo: #0f1d19;
+    background: #0f1d19;
+}
+:global([data-theme='dark']) .canvas :global(.leaflet-tile-pane) {
+    opacity: 0.7;
+    filter: invert(1) hue-rotate(180deg) saturate(0.15) brightness(0.8)
+        contrast(0.9);
+}
+
+.canvas :global(.leaflet-control-zoom) {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 3px 14px rgb(26 75 61 / 8%);
+}
+
+.canvas :global(.leaflet-control-zoom a) {
+    width: 34px;
+    height: 34px;
+    border-color: var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font:
+        400 21px/34px var(--font-geist-sans),
+        sans-serif;
+}
+
+.canvas :global(.leaflet-control-zoom a:hover) {
+    background: var(--muted);
+    color: var(--primary);
+}
+
+.canvas :global(.leaflet-control-zoom a:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: -3px;
+}
+
+.canvas :global(.leaflet-control-attribution) {
+    margin-right: 8px;
+    margin-bottom: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--card) 95%, transparent);
+    color: var(--muted-foreground);
+    font-size: 10px;
+}
+
+.canvas :global(.leaflet-control-attribution a) {
+    color: var(--ink);
+    text-underline-offset: 2px;
+}
+
+/* Coverage multiplies onto a light map; on a dark one that sinks it to near
+   black. !important: the pane sets its blend mode inline. */
+:global([data-theme='dark']) .canvas :global(.leaflet-coverage-pane) {
+    mix-blend-mode: normal !important;
+}
+
+/* Country names, as on the Stakeholder map. */
+.countryLabel span {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #92a99a;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.23em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+:global([data-theme='dark']) .countryLabel span {
+    color: #6f8a7e;
+}

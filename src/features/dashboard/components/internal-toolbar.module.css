@@ -1,0 +1,170 @@
+/* The internal toolbar, styled after the Stakeholder one
+   (progress-view.module.css) but kept separate so neither page moves the
+   other. Control height follows the density setting. */
+
+.eyebrow {
+    margin-bottom: 8px;
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.heading {
+    color: var(--ink);
+    font-size: clamp(1.75rem, 2.5vw, 2.25rem);
+    line-height: 1.12;
+    font-weight: 600;
+    letter-spacing: -0.055em;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: var(--d-grid);
+    flex: 1 1 44rem;
+    max-width: 64rem;
+    min-width: 0;
+    padding: var(--d-pad-y) var(--d-pad-x);
+    border: 1px solid var(--line);
+    border-radius: var(--d-radius);
+    background: var(--card);
+    box-shadow: 0 2px 4px rgb(20 55 43 / 2%);
+}
+
+@media (min-width: 640px) {
+    .filters {
+        /* Programs, Sessions, period: the period needs room for a range. */
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(
+                15.5rem,
+                1.1fr
+            );
+    }
+}
+
+.field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.trigger {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: var(--d-control);
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+    text-align: left;
+    transition: border-color 150ms;
+}
+
+.trigger:hover {
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.trigger:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 0;
+}
+
+.triggerValue {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.triggerTitle {
+    overflow: hidden;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.375;
+    letter-spacing: -0.025em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.triggerSubtitle {
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.375;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Compact: one-line controls (no subtitle) and a one-line heading. */
+:global([data-density='compact']) .eyebrow {
+    display: none;
+}
+:global([data-density='compact']) .heading {
+    font-size: 1.5rem;
+    letter-spacing: -0.04em;
+}
+:global([data-density='compact']) .triggerTitle {
+    font-size: 15px;
+}
+:global([data-density='compact']) .triggerSubtitle {
+    display: none;
+}
+
+.periodFilter {
+    height: var(--d-control);
+    min-width: 0;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+}
+
+.periodFilter :global(button) {
+    height: 100%;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.periodFilter :global(button[data-size='sm']) {
+    flex: 1;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.periodFilter :global(button[data-size='icon-sm']) {
+    width: 36px;
+    flex-shrink: 0;
+}
+
+.periodFilter :global(button[data-size='icon-sm']:first-child) {
+    border-right: 1px solid var(--border);
+}
+
+.periodFilter :global(button[data-size='icon-sm']:last-child) {
+    border-left: 1px solid var(--border);
+}
+
+.periodFilter :global(button:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: -3px;
+}

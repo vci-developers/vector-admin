@@ -1,14 +1,18 @@
 import VectorCamLogo from '@/components/ui/vectorcam-logo';
+import type { Density } from '@/features/dashboard/utils/density';
 import type { ViewAs } from '@/lib/auth-session/viewer';
 import { getTranslations } from 'next-intl/server';
+import DensityToggle from './density-toggle';
 import ThemeToggle from './theme-toggle';
 import ViewAsToggle from './view-as-toggle';
 
 export default async function AppHeader({
     viewAs,
+    density,
 }: {
     /** The header switch's choice; null for anyone but a Developer. */
     viewAs: ViewAs | null;
+    density: Density;
 }) {
     const t = await getTranslations('App');
     return (
@@ -25,6 +29,11 @@ export default async function AppHeader({
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
                     {viewAs && <ViewAsToggle current={viewAs} />}
+                    {viewAs === 'developer' && (
+                        <div className="text-muted-foreground opacity-75 transition-opacity focus-within:opacity-100 hover:opacity-100">
+                            <DensityToggle initial={density} />
+                        </div>
+                    )}
                     <div className="text-muted-foreground opacity-75 transition-opacity focus-within:opacity-100 hover:opacity-100">
                         <ThemeToggle />
                     </div>

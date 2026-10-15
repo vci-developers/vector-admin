@@ -14,11 +14,9 @@ import type {
 } from '@/features/dashboard/utils/place-by-site';
 import { buildOutsideMask } from '@/features/dashboard/utils/build-outside-mask';
 import { coverageLabelPoint } from '@/features/dashboard/utils/coverage-label-point';
+import { createProgressPinchZoom } from '@/features/dashboard/utils/create-progress-pinch-zoom';
 import { placeLabels } from '@/features/dashboard/utils/place-labels';
-import {
-    COVERAGE_STATUSES,
-    type CoverageStatus,
-} from '@/features/dashboard/utils/parse-coverage-sheets';
+import type { CoverageStatus } from '@/features/dashboard/utils/parse-coverage-sheets';
 import type { CoverageUnitRef } from '@/features/dashboard/utils/search-map';
 import {
     areaKey,
@@ -30,6 +28,7 @@ import {
     specimenSeverity,
     type SeverityStep,
 } from '@/features/dashboard/utils/specimen-severity';
+import type { MultiPolygon } from '@/features/dashboard/utils/match-coverage-boundaries';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
@@ -48,14 +47,22 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import {
     ACTIVE_COLOR,
     COVERAGE_STYLES,
+    FILLED_COVERAGE_STATUSES,
     IDLE_COLOR,
     ZERO_CATCH_COLOR,
+    type FilledCoverageStatus,
     type MapLayer,
     type PointLayer,
 } from './map-constants';
 import LocationPath from './location-path';
 import { DeviceDetails, SessionDetails } from './map-point-details';
 import SpecimenSummary, { type SummarySession } from './specimen-summary';
+import styles from './surveillance-map.module.css';
+import type {
+    ShadedAreaRef,
+    SpecimenShade,
+} from '@/features/dashboard/utils/build-specimen-shading';
+import { PROGRESS_SCAN_FILL_OPACITY } from '@/features/dashboard/utils/progress-map-colors';
 
 /** A Coverage Unit picked on the map or in search, with its status. */
 export type SelectedUnit = CoverageUnitRef & { status: CoverageStatus };
@@ -65,6 +72,10 @@ export type MapSelection = {
     layer: PointLayer;
     ids: number[];
     unit?: SelectedUnit;
+    /** A shaded area, clicked: the Sessions inside it. */
+    area?: ShadedAreaRef;
+    /** A country, clicked: the Sessions of its Programs. */
+    country?: string;
 } | null;
 /** Points to zoom to; a new `seq` zooms again, even to the same points. */
 export type MapFocus = {
@@ -73,13 +84,19 @@ export type MapFocus = {
     seq: number;
     /** Zoom to this unit's shape instead of the points. */
     unit?: CoverageUnitRef;
+    /** Zoom to this shape instead of the points: a country or area. */
+    shape?: MultiPolygon;
 } | null;
 
 type SurveillanceMapProps = {
     layers: MapLayer[];
+    /** Areas shaded green by specimens, whatever layers are on. */
+    specimenShading?: SpecimenShade[];
     coverageFills: CoverageFillDto[];
     /** The selected Programs' countries, outlined whatever layers are on. */
     outlines: CountryOutlineDto[];
+    /** Uganda's Districts, lined for context once zoomed in; null until loaded. */
+    districtLines?: MultiPolygon | null;
     specimenPoints: PlacedSession[];
     devices: PlacedDevice[];
     /** Each device's Sessions in the period, whatever the map filters. */
@@ -92,6 +109,8 @@ type SurveillanceMapProps = {
     selection: MapSelection;
     onSelect: (selection: MapSelection) => void;
     onSelectUnit: (unit: SelectedUnit) => void;
+    onSelectArea: (area: ShadedAreaRef) => void;
+    onSelectCountry: (country: string) => void;
     focus: MapFocus;
     /** false for Stakeholders: summaries only, no Session's own details. */
     showSessions: boolean;
@@ -219,6 +238,21 @@ function areaIcon(
     });
 }
 const compact = new Intl.NumberFormat('en', { notation: 'compact' });
+
+/** Each area's bounding-box corners, as [lat, lon]. */
+function cornersOf(
+    geometries: { coordinates: number[][][][] }[],
+): [number, number][] {
+    return geometries.flatMap(geometry => {
+        const positions = geometry.coordinates.flat(2);
+        const lats = positions.map(([, lat]) => lat);
+        const lons = positions.map(([lon]) => lon);
+        return [
+            [Math.min(...lats), Math.min(...lons)],
+            [Math.max(...lats), Math.max(...lons)],
+        ] as [number, number][];
+    });
+}
 
 function FitToPoints({
     points,
@@ -511,36 +545,231 @@ function MapPopup({
 }
 
 /**
- * The selected countries picked out by fading the rest of the map, with no
- * border line of their own. Never clickable.
+ * The selected countries picked out as on the Stakeholder map: the rest of the
+ * map faded, each country tinted, bordered and named, and Uganda's districts
+ * lined once zoomed in. Clicking a country selects it.
  */
-function CountryFocus({ outlines }: { outlines: CountryOutlineDto[] }) {
+function CountryFocus({
+    outlines,
+    districtLines,
+    selected,
+    onSelect,
+}: {
+    outlines: CountryOutlineDto[];
+    districtLines: MultiPolygon | null;
+    selected: string | undefined;
+    onSelect: (country: string) => void;
+}) {
+    const map = useMap();
+    const [zoom, setZoom] = useState(() => map.getZoom());
+    useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
     const mask = useMemo(
         () => buildOutsideMask(outlines.map(o => o.geometry)),
+        [outlines],
+    );
+    const labels = useMemo(
+        () =>
+            outlines.flatMap(o => {
+                const point = coverageLabelPoint(o.geometry);
+                return point ? [{ country: o.country, at: point.at }] : [];
+            }),
         [outlines],
     );
     if (outlines.length === 0) return null;
     // Keyed by the countries: react-leaflet's GeoJSON ignores new data.
     const key = outlines.map(o => o.country).join(',');
     return (
-        // Below the coverage fills (400).
-        <Pane name="outsideMask" style={{ zIndex: 390 }}>
-            <GeoJSON
-                key={key}
-                data={mask}
-                interactive={false}
-                style={{
-                    stroke: false,
-                    fillColor: '#f8fafc',
-                    fillOpacity: 0.45,
-                }}
-            />
-        </Pane>
+        <>
+            {/* Below the coverage fills (400). */}
+            <Pane name="outsideMask" style={{ zIndex: 390 }}>
+                <GeoJSON
+                    key={key}
+                    data={mask}
+                    interactive={false}
+                    style={{
+                        stroke: false,
+                        fillColor: '#f8fafc',
+                        fillOpacity: 0.45,
+                    }}
+                />
+            </Pane>
+            {/* Under the shaded areas (350), so an area's click wins. */}
+            <Pane name="countries" style={{ zIndex: 340 }}>
+                {outlines.map(o => {
+                    const base =
+                        o.country === selected
+                            ? { color: '#075341', weight: 3, opacity: 1 }
+                            : { color: '#8ea99e', weight: 1, opacity: 0.65 };
+                    return (
+                        <GeoJSON
+                            key={`${o.country}:${o.country === selected}`}
+                            data={o.geometry}
+                            // The map's own click clears the selection.
+                            bubblingMouseEvents={false}
+                            style={{
+                                ...base,
+                                fillColor: '#d4e8dc',
+                                fillOpacity: 0.2,
+                            }}
+                            eventHandlers={{
+                                mouseover: event =>
+                                    (event.target as L.GeoJSON).setStyle({
+                                        color: '#075341',
+                                        weight: 3,
+                                        opacity: 1,
+                                    }),
+                                mouseout: event =>
+                                    (event.target as L.GeoJSON).setStyle(base),
+                                click: () => onSelect(o.country),
+                            }}
+                        />
+                    );
+                })}
+            </Pane>
+            {zoom >= 6.5 && districtLines && (
+                <Pane
+                    name="districtContext"
+                    style={{ zIndex: 395, pointerEvents: 'none' }}
+                >
+                    <GeoJSON
+                        data={districtLines}
+                        interactive={false}
+                        style={{
+                            color: '#bdcbc4',
+                            weight: 0.5,
+                            opacity: 0.32,
+                            fill: false,
+                        }}
+                    />
+                </Pane>
+            )}
+            {/* Under the points (600) and unit names (640). */}
+            <Pane
+                name="countryLabels"
+                style={{ zIndex: 450, pointerEvents: 'none' }}
+            >
+                {labels.map(label => (
+                    <Marker
+                        key={label.country}
+                        position={label.at}
+                        icon={L.divIcon({
+                            className: styles.countryLabel,
+                            iconSize: [0, 0],
+                            html: `<span>${escapeHtml(label.country)}</span>`,
+                        })}
+                        interactive={false}
+                        keyboard={false}
+                    />
+                ))}
+            </Pane>
+        </>
     );
 }
 
 const isUnit = (fill: CoverageFillDto, unit: CoverageUnitRef | undefined) =>
     unit?.programId === fill.programId && unit.unit === fill.unit;
+
+// As the Stakeholder map (progress-map.tsx): Chromium trackpad pinches arrive
+// as ctrl+wheel and zoom continuously; plain scrolling stays with the page.
+const PINCH_PIXELS_PER_ZOOM_LEVEL = 40 / 3;
+
+// Leaflet 1.9's continuous-gesture methods, as its TouchZoom handler uses.
+type ContinuousPinchMap = L.Map & {
+    _stop: () => void;
+    _moveStart: (zoomChanged: boolean, noMoveStart: boolean) => void;
+    _move: (
+        center: L.LatLng,
+        zoom: number,
+        options: { pinch: true; round: false },
+    ) => void;
+    _moveEnd: (zoomChanged: boolean) => void;
+    _limitCenter: (
+        center: L.LatLng,
+        zoom: number,
+        bounds: L.LatLngBounds | undefined,
+    ) => L.LatLng;
+    _animatingZoom?: boolean;
+};
+
+function PinchZoom() {
+    const map = useMap();
+    useEffect(() => {
+        const container = map.getContainer();
+        const pinchMap = map as ContinuousPinchMap;
+        let applying = false;
+        const apply = (callback: () => void) => {
+            applying = true;
+            try {
+                callback();
+            } finally {
+                applying = false;
+            }
+        };
+        const gesture = createProgressPinchZoom<L.Point>({
+            getZoom: () => map.getZoom(),
+            getMinZoom: () => map.getMinZoom(),
+            getMaxZoom: () => map.getMaxZoom(),
+            start: () =>
+                apply(() => {
+                    pinchMap._stop();
+                    pinchMap._moveStart(true, false);
+                }),
+            move: (zoom, anchor) =>
+                apply(() => {
+                    const half = map.getSize().divideBy(2);
+                    const offset = anchor
+                        .subtract(half)
+                        .multiplyBy(1 - 1 / map.getZoomScale(zoom));
+                    const center = pinchMap._limitCenter(
+                        map.containerPointToLatLng(half.add(offset)),
+                        zoom,
+                        map.options.maxBounds as L.LatLngBounds | undefined,
+                    );
+                    pinchMap._move(center, zoom, { pinch: true, round: false });
+                }),
+            finish: () =>
+                apply(() => {
+                    // Redraw paths and labels once, at the end of the gesture.
+                    map.fire('zoom');
+                    pinchMap._moveEnd(true);
+                }),
+        });
+        const resetGesture = () => {
+            if (!applying) gesture.cancel(true);
+        };
+        const pinchWheel = (event: WheelEvent) => {
+            if (!event.ctrlKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (pinchMap._animatingZoom) return;
+            gesture.zoomBy(
+                L.DomEvent.getWheelDelta(event) / PINCH_PIXELS_PER_ZOOM_LEVEL,
+                map.mouseEventToContainerPoint(event),
+            );
+        };
+        // Mid-zoom Leaflet stretches the drawn shapes and redraws them only at
+        // the end, so outlines swell; the CSS hides them until then.
+        const markZooming = () => {
+            container.dataset.mapZooming = 'true';
+        };
+        const markSettled = () => {
+            delete container.dataset.mapZooming;
+        };
+        container.addEventListener('wheel', pinchWheel, { passive: false });
+        map.on('movestart zoomstart', resetGesture);
+        map.on('zoomstart', markZooming);
+        map.on('zoomend', markSettled);
+        return () => {
+            container.removeEventListener('wheel', pinchWheel);
+            map.off('movestart zoomstart', resetGesture);
+            map.off('zoomstart', markZooming);
+            map.off('zoomend', markSettled);
+            gesture.cancel();
+            markSettled();
+        };
+    }, [map]);
+    return null;
+}
 
 /**
  * Leaflet measures its box once. The Stakeholder map stretches to fill the
@@ -604,9 +833,10 @@ function FlyToFocus({
     const seq = focus?.seq;
     useEffect(() => {
         if (!focus) return;
-        const fill = fills.find(f => isUnit(f, focus.unit));
-        if (fill) {
-            map.flyToBounds(L.geoJSON(fill.geometry).getBounds(), {
+        const shape =
+            focus.shape ?? fills.find(f => isUnit(f, focus.unit))?.geometry;
+        if (shape) {
+            map.flyToBounds(L.geoJSON(shape).getBounds(), {
                 padding: [48, 48],
                 duration: 1,
             });
@@ -639,68 +869,67 @@ const unitLabel = (name: string, drop: number) =>
     L.divIcon({
         className: '',
         iconSize: [0, 0],
-        html: `<span style="position:absolute;top:${drop}px;transform:translate(-50%,-50%);white-space:nowrap;font:600 12px/1 var(--font-geist-sans),sans-serif;color:#0f172a;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff">${escapeHtml(name)}</span>`,
+        html: `<span style="position:absolute;top:${drop}px;transform:translate(-50%,-50%);white-space:nowrap;font:600 12px/1 var(--font-geist-sans),sans-serif;color:var(--map-label);text-shadow:0 0 3px var(--map-halo),0 0 3px var(--map-halo),0 0 2px var(--map-halo)">${escapeHtml(name)}</span>`,
     });
 
-/**
- * Coverage Units filled by status, under the points, with their names on top.
- * Multiply blending tints the map like a highlighter, so the tiles' own place
- * names stay readable through fills and outlines; hovering a unit thickens
- * its outline.
- */
-// Names show between these zooms: further out a District name means little,
-// further in the tiles print District names themselves.
+// Names show from this zoom: further out a District name means little.
 const MIN_LABEL_ZOOM = 6;
-const MAX_LABEL_ZOOM = 8;
 // The label's box in pixels, from its 12 px semibold text plus a little air.
 const labelBox = (name: string) => ({
     width: name.length * 7.6 + 10,
     height: 16,
 });
 
-function CoverageFills({
+/**
+ * Shaded areas' and drawn Coverage Units' names, above the fills and points.
+ * The busiest area keeps its name in a collision, then Targeted units, then
+ * the rest; a name already placed for an area is not repeated for its unit.
+ * Projected at the zoom alone, so panning never reshuffles them.
+ */
+function PlaceLabels({
+    shading,
     fills,
     labelDrops,
-    selected,
-    onSelect,
 }: {
-    fills: CoverageFillDto[];
-    /**
-     * Pixels to lower a unit's name by, keyed by `areaKey`: an Area mark sits
-     * where the name would, so the name goes just beneath it.
-     */
+    shading: SpecimenShade[];
+    fills: FilledCoverage[];
     labelDrops: Map<string, number>;
-    selected: CoverageUnitRef | undefined;
-    onSelect: (unit: SelectedUnit) => void;
 }) {
     const map = useMap();
     const [zoom, setZoom] = useState(() => map.getZoom());
     useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
-    // When names collide, Active units keep theirs first, then Targeted, then
-    // the rest; within a status the bigger District wins.
-    const labels = useMemo(
-        () =>
-            fills
-                .flatMap(fill => {
-                    const point = coverageLabelPoint(fill.geometry);
-                    return point
-                        ? [
-                              {
-                                  key: areaKey(fill.programId, fill.unit),
-                                  at: point.at,
-                                  area: point.area,
-                                  rank: COVERAGE_STATUSES.indexOf(fill.status),
-                                  name: fill.unit,
-                              },
-                          ]
-                        : [];
-                })
-                .sort((a, b) => a.rank - b.rank || b.area - a.area),
-        [fills],
-    );
-    // Projected at the zoom alone, so panning never reshuffles the names.
+    const labels = useMemo(() => {
+        const places = [
+            ...[...shading]
+                .sort((a, b) => b.specimens - a.specimens)
+                .map(shade => ({
+                    programId: shade.programId,
+                    name: shade.name,
+                    geometry: shade.geometry,
+                })),
+            ...[...fills]
+                .sort(
+                    (a, b) =>
+                        FILLED_COVERAGE_STATUSES.indexOf(a.status) -
+                        FILLED_COVERAGE_STATUSES.indexOf(b.status),
+                )
+                .map(fill => ({
+                    programId: fill.programId,
+                    name: fill.unit,
+                    geometry: fill.geometry,
+                })),
+        ];
+        const keys = new Set<string>();
+        return places.flatMap(place => {
+            const key = areaKey(place.programId, place.name);
+            const point = coverageLabelPoint(place.geometry);
+            if (!point || keys.has(key)) return [];
+            keys.add(key);
+            return [{ key, at: point.at, name: place.name }];
+        });
+    }, [shading, fills]);
     const shown = useMemo(() => {
-        if (zoom < MIN_LABEL_ZOOM || zoom > MAX_LABEL_ZOOM) return new Set();
+        if (zoom < MIN_LABEL_ZOOM) return new Set();
         return placeLabels(
             labels.map(label => {
                 const { x, y } = map.project(label.at, zoom);
@@ -714,80 +943,96 @@ function CoverageFills({
         );
     }, [labels, zoom, map, labelDrops]);
     return (
-        <>
-            <Pane
-                name="coverage"
-                style={{ zIndex: 400, mixBlendMode: 'multiply' }}
-            >
-                {fills.map(fill => {
-                    const style = COVERAGE_STYLES[fill.status];
-                    const { color, fillOpacity } = style;
-                    // The selected unit keeps the hover outline.
-                    const weight = isUnit(fill, selected)
-                        ? style.weight + 2
-                        : style.weight;
-                    return (
-                        <GeoJSON
-                            key={`${fill.programId}:${fill.unit}`}
-                            data={fill.geometry}
-                            // A unit click selects it; it must not reach the
-                            // map, which clears the selection.
-                            bubblingMouseEvents={false}
-                            style={{
-                                color,
-                                weight,
-                                opacity: 0.9,
-                                fillColor: color,
-                                fillOpacity,
-                            }}
-                            eventHandlers={{
-                                mouseover: event =>
-                                    (event.target as L.GeoJSON).setStyle({
-                                        weight: style.weight + 2,
-                                    }),
-                                mouseout: event =>
-                                    (event.target as L.GeoJSON).setStyle({
-                                        weight,
-                                    }),
-                                click: () =>
-                                    onSelect({
-                                        programId: fill.programId,
-                                        unit: fill.unit,
-                                        status: fill.status,
-                                    }),
-                            }}
-                        />
-                    );
-                })}
-            </Pane>
-            {/* Above the points (600), below popups (700); never clickable. */}
-            <Pane
-                name="coverageLabels"
-                style={{ zIndex: 640, pointerEvents: 'none' }}
-            >
-                {labels
-                    .filter(label => shown.has(label.key))
-                    .map(label => (
-                        <Marker
-                            key={label.key}
-                            position={label.at}
-                            icon={unitLabel(
-                                label.name,
-                                labelDrops.get(label.key) ?? 0,
-                            )}
-                            interactive={false}
-                            keyboard={false}
-                        />
-                    ))}
-            </Pane>
-        </>
+        // Above the points (600), below popups (700); never clickable.
+        <Pane name="placeLabels" style={{ zIndex: 640, pointerEvents: 'none' }}>
+            {labels
+                .filter(label => shown.has(label.key))
+                .map(label => (
+                    <Marker
+                        key={label.key}
+                        position={label.at}
+                        icon={unitLabel(
+                            label.name,
+                            labelDrops.get(label.key) ?? 0,
+                        )}
+                        interactive={false}
+                        keyboard={false}
+                    />
+                ))}
+        </Pane>
+    );
+}
+
+type FilledCoverage = CoverageFillDto & { status: FilledCoverageStatus };
+const isFilled = (fill: CoverageFillDto): fill is FilledCoverage =>
+    (FILLED_COVERAGE_STATUSES as readonly string[]).includes(fill.status);
+
+/**
+ * Coverage Units filled by status, under the points. Multiply blending tints
+ * the map like a highlighter, so the tiles' own place names stay readable
+ * through fills and outlines; hovering a unit thickens its outline.
+ */
+function CoverageFills({
+    fills,
+    selected,
+    onSelect,
+}: {
+    fills: FilledCoverage[];
+    selected: CoverageUnitRef | undefined;
+    onSelect: (unit: SelectedUnit) => void;
+}) {
+    return (
+        <Pane name="coverage" style={{ zIndex: 400, mixBlendMode: 'multiply' }}>
+            {fills.map(fill => {
+                const style = COVERAGE_STYLES[fill.status];
+                const { color, fillOpacity } = style;
+                // The selected unit keeps the hover outline.
+                const weight = isUnit(fill, selected)
+                    ? style.weight + 2
+                    : style.weight;
+                return (
+                    <GeoJSON
+                        key={`${fill.programId}:${fill.unit}`}
+                        data={fill.geometry}
+                        // A unit click selects it; it must not reach the
+                        // map, which clears the selection.
+                        bubblingMouseEvents={false}
+                        style={{
+                            color,
+                            weight,
+                            opacity: 0.9,
+                            fillColor: color,
+                            fillOpacity,
+                        }}
+                        eventHandlers={{
+                            mouseover: event =>
+                                (event.target as L.GeoJSON).setStyle({
+                                    weight: style.weight + 2,
+                                }),
+                            mouseout: event =>
+                                (event.target as L.GeoJSON).setStyle({
+                                    weight,
+                                }),
+                            click: () =>
+                                onSelect({
+                                    programId: fill.programId,
+                                    unit: fill.unit,
+                                    status: fill.status,
+                                }),
+                        }}
+                    />
+                );
+            })}
+        </Pane>
     );
 }
 
 export default function SurveillanceMap({
     layers,
+    specimenShading = [],
     coverageFills,
     outlines,
+    districtLines = null,
     specimenPoints,
     devices,
     sessionsByDevice,
@@ -797,6 +1042,8 @@ export default function SurveillanceMap({
     selection,
     onSelect,
     onSelectUnit,
+    onSelectArea,
+    onSelectCountry,
     focus,
     showSessions,
     byArea,
@@ -917,6 +1164,12 @@ export default function SurveillanceMap({
         hasActive: area.deviceIds.some(id => activeDevices.has(id)),
         isSelected,
     });
+    // Active units are not filled: the specimen shading already greens every
+    // area reporting.
+    const drawnFills = useMemo(
+        () => (showCoverage ? coverageFills.filter(isFilled) : []),
+        [showCoverage, coverageFills],
+    );
     // A unit's name goes just below its Area's bubble.
     const labelDrops = new Map(
         areas
@@ -983,22 +1236,19 @@ export default function SurveillanceMap({
         );
     }
 
-    // Fill corners count towards the fit, so a coverage-only map still zooms in.
+    // Area corners count towards the fit, so a map of shading or coverage
+    // alone still zooms in.
     const coverageCorners = useMemo(
-        () =>
-            coverageFills.flatMap(fill => {
-                const positions = fill.geometry.coordinates.flat(2);
-                const lats = positions.map(([, lat]) => lat);
-                const lons = positions.map(([lon]) => lon);
-                return [
-                    [Math.min(...lats), Math.min(...lons)],
-                    [Math.max(...lats), Math.max(...lons)],
-                ] as [number, number][];
-            }),
+        () => cornersOf(coverageFills.map(fill => fill.geometry)),
         [coverageFills],
+    );
+    const shadingCorners = useMemo(
+        () => cornersOf(specimenShading.map(shade => shade.geometry)),
+        [specimenShading],
     );
 
     const fitPoints: [number, number][] = [
+        ...shadingCorners,
         ...(showCoverage ? coverageCorners : []),
         ...(showSpecimens
             ? specimenPoints.map(
@@ -1027,23 +1277,76 @@ export default function SurveillanceMap({
         <MapContainer
             center={[0, 20]}
             zoom={2}
-            scrollWheelZoom
-            className="h-full w-full"
+            scrollWheelZoom={false}
+            touchZoom
+            zoomSnap={0}
+            zoomDelta={0.5}
+            className={styles.canvas}
         >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <CountryFocus outlines={outlines} />
+            <CountryFocus
+                outlines={outlines}
+                districtLines={districtLines}
+                selected={selection?.country}
+                onSelect={onSelectCountry}
+            />
+            {/* Under coverage and the marks, which take their own clicks. */}
+            <Pane name="shading" style={{ zIndex: 350 }}>
+                {specimenShading.map(shade => {
+                    const isSelected =
+                        selection?.area?.programId === shade.programId &&
+                        selection.area.name === shade.name;
+                    const base = isSelected
+                        ? { color: '#075341', weight: 3 }
+                        : { color: '#fff', weight: 1 };
+                    return (
+                        <GeoJSON
+                            key={`${shade.key}:${shade.fillColor}:${isSelected}`}
+                            data={shade.geometry}
+                            // A click selects the area; it must not reach the
+                            // map, which clears the selection.
+                            bubblingMouseEvents={false}
+                            style={{
+                                ...base,
+                                fillColor: shade.fillColor,
+                                fillOpacity: PROGRESS_SCAN_FILL_OPACITY,
+                            }}
+                            eventHandlers={{
+                                mouseover: event =>
+                                    (event.target as L.GeoJSON).setStyle({
+                                        color: '#075341',
+                                        weight: 3,
+                                    }),
+                                mouseout: event =>
+                                    (event.target as L.GeoJSON).setStyle(base),
+                                click: () =>
+                                    onSelectArea({
+                                        programId: shade.programId,
+                                        name: shade.name,
+                                        depth: shade.depth,
+                                    }),
+                            }}
+                        />
+                    );
+                })}
+            </Pane>
+            <PlaceLabels
+                shading={specimenShading}
+                fills={drawnFills}
+                labelDrops={labelDrops}
+            />
             {showCoverage && (
                 <CoverageFills
-                    fills={coverageFills}
-                    labelDrops={labelDrops}
+                    fills={drawnFills}
                     selected={selection?.unit}
                     onSelect={onSelectUnit}
                 />
             )}
             <FollowContainerSize />
+            <PinchZoom />
             <KeepPageStillOnMarkClick />
             <ClearOnEmptyClick
                 onClear={() => {

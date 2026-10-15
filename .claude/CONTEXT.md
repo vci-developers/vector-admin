@@ -129,8 +129,9 @@ averaged; a Device counts once). With several Programs a Total row follows.
 Columns, in order: Active Devices, Images, Unique Specimens, Images per Active
 Device, Unique Users and Logins (Program rows only: users log in to a Program,
 not a Site), Metadata Completeness, DHIS2 Upload Rate, % species ID, % capture
-date, % location, % operator ID, then Time between images as median, 25th pct,
-75th pct, mean and SD in seconds. Copy is values only, no header or name: a
+date, % location, % operator ID, then Time between images as ID events logged
+(blank until recorded), events excluded, median, 25th pct, 75th pct, mean and
+SD in seconds. Copy is values only, no header or name: a
 button per row, or tick rows and Copy selected. A Device that moved between
 Areas is an Active Device in each. _Avoid_: Location Breakdown (the earlier
 drill-down to every level, removed)
@@ -211,7 +212,11 @@ how many Sites it spans, so the path sharpens as zooming splits clusters. A
 search box on the map finds places at any level of the Site hierarchy by name,
 and Sessions, devices and Sites by number; picking one zooms to it and selects
 it as a click would. It searches only what the map shows, so the map filters
-still apply. A device uses its latest Session's Site. The panel beside the map
+still apply. Clicking a country, shaded area or Coverage Unit selects it and
+zooms to its shape. The panel's Place picker lists the same places, searchable
+by place or country, and names what is selected; its "All places", like a click
+on empty map, clears the selection and zooms back out to the selected
+countries. A device uses its latest Session's Site. The panel beside the map
 charts specimens per week (periods of up to three months) or per month, stacked
 by species, sex or abdomen status, for the clicked point, cluster or device, or
 for everything on the map when nothing is clicked; each value keeps its colour
@@ -240,8 +245,8 @@ DHIS2, and the API has no per-Program setting, so Programs in other countries
 show it blank and stay out of the Total.
 
 **Time between images**: Seconds between consecutive images (by `capturedAt`)
-within one Session, every gap included: retakes of the same specimen and pauses
-too. Gaps are pooled across Sessions, never averaged per Session; percentiles
+within one Session: retakes of the same specimen and pauses included, 0 s gaps
+(same capture time) excluded and counted as Events excluded. Gaps are pooled across Sessions, never averaged per Session; percentiles
 and SD as Excel's PERCENTILE.INC and STDEV.S. The Session panel shows each
 Session's median gap.
 
@@ -272,8 +277,10 @@ Entered by hand, not derived from Sessions. **Geographic Coverage** = Active ÷
 example: 11 / 14, 11 / 22). Uganda's units are Districts. The four coverage
 metrics are shown per Program, never pooled; Programs without figures are left
 out. Their tooltips use the team's own definitions word for word. Drawn on the
-map as the **Coverage layer** (a Map Filter layer, on by default): each unit's
-boundary filled by status, under the specimen and device points. The fills are
+map as the **Coverage layer** (a Map Filter layer, on by default): each
+Targeted or Surveillance-only unit's boundary filled by status, under the
+specimen and device points. Active units get no fill on the internal map: the
+specimen shading already greens every area reporting. The fills are
 planning status and ignore the Reporting Period, so a Targeted unit can show
 points and an Active one none. _Avoid_: Area (top-level place derived from
 Sites; may not match a Coverage Unit)

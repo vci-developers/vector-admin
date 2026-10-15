@@ -24,10 +24,11 @@ import {
     type SummaryRow,
 } from '@/features/dashboard/utils/summary-rows';
 import { cn } from '@/utils/cn';
-import { Check, Copy } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { Check, Copy, Table as TableIcon } from 'lucide-react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { Fragment, useState } from 'react';
 import MetricInfo, { InfoTip } from './metric-info';
+import PanelHeader, { PANEL_ACTION, PANEL_QUIET } from './panel-header';
 import MetricValue from './metric-value';
 
 const METRIC_COLUMNS = SHEET_COLUMNS.filter(c => c.kind === 'metric');
@@ -127,6 +128,7 @@ function SheetRow({
     onCopy,
 }: RowProps) {
     const t = useTranslations('Summary');
+    const formatter = useFormatter();
     const canCopy = metrics !== null && !incomplete;
     return (
         // The checkbox stays the keyboard control; clicking anywhere else on
@@ -166,10 +168,22 @@ function SheetRow({
                         </span>
                     ) : (
                         metrics && (
-                            <MetricValue
-                                value={column.value(metrics)}
-                                format={column.format}
-                            />
+                            <>
+                                <MetricValue
+                                    value={column.value(metrics)}
+                                    format={column.format}
+                                />
+                                {/* The count behind the percentage. */}
+                                {column.counts &&
+                                    column.value(metrics) !== null && (
+                                        <span className="text-muted-foreground block text-[11px] font-normal">
+                                            {formatter.number(
+                                                column.counts(metrics)
+                                                    .numerator,
+                                            )}
+                                        </span>
+                                    )}
+                            </>
                         )
                     )}
                 </TableCell>
@@ -246,53 +260,57 @@ export default function SummaryTable({
             : t('noAreaNoLevel'));
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-2">
-                <p className="text-muted-foreground text-xs">
-                    {t('timingNote')}
-                </p>
-                <div className="flex items-center gap-2">
-                    <span aria-live="polite" className="text-sm">
-                        {copied === 'failed' ? (
-                            <span className="text-destructive">
-                                {t('copyFailed')}
-                            </span>
-                        ) : (
-                            copied !== null && (
-                                <span className="text-muted-foreground">
-                                    {t('copied')}
+        <>
+            <PanelHeader
+                icon={TableIcon}
+                title={t('byProgramTitle')}
+                description={t('timingNote')}
+                actions={
+                    <>
+                        <span aria-live="polite" className="text-sm">
+                            {copied === 'failed' ? (
+                                <span className="text-destructive">
+                                    {t('copyFailed')}
                                 </span>
-                            )
-                        )}
-                    </span>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={selected.length === 0}
-                        onClick={() => setSelected([])}
-                    >
-                        {t('deselectAll')}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={selected.length === 0}
-                        onClick={() =>
-                            copy(
-                                'selected',
-                                selected.flatMap(key =>
-                                    rowsInOrder.filter(row => row.key === key),
-                                ),
-                            )
-                        }
-                    >
-                        {copied === 'selected' ? <Check /> : <Copy />}
-                        {t('copySelected', { count: selected.length })}
-                    </Button>
-                </div>
-            </div>
+                            ) : (
+                                copied !== null && (
+                                    <span className="text-muted-foreground">
+                                        {t('copied')}
+                                    </span>
+                                )
+                            )}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            className={PANEL_QUIET}
+                            disabled={selected.length === 0}
+                            onClick={() => setSelected([])}
+                        >
+                            {t('deselectAll')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className={PANEL_ACTION}
+                            disabled={selected.length === 0}
+                            onClick={() =>
+                                copy(
+                                    'selected',
+                                    selected.flatMap(key =>
+                                        rowsInOrder.filter(
+                                            row => row.key === key,
+                                        ),
+                                    ),
+                                )
+                            }
+                        >
+                            {copied === 'selected' ? <Check /> : <Copy />}
+                            {t('copySelected', { count: selected.length })}
+                        </Button>
+                    </>
+                }
+            />
             <Table containerClassName="max-h-[40rem] overflow-auto">
-                <TableHeader className="bg-card sticky top-0 z-10 [&_th]:h-auto [&_th]:py-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
+                <TableHeader className="[&_th]:bg-card sticky top-0 z-10 [&_th]:h-auto [&_th]:py-2 [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
                     <TableRow>
                         <TableHead
                             rowSpan={2}
@@ -407,7 +425,7 @@ export default function SummaryTable({
                     ))}
                 </TableBody>
                 {showGrandTotal && (
-                    <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 [&_td]:shadow-[inset_0_1px_0_var(--border)]">
+                    <TableFooter className="[&_td]:bg-card sticky -bottom-px z-10 [&_td]:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--ink)_18%,transparent)]">
                         <SheetRow
                             label={t('total')}
                             metrics={total}
@@ -422,6 +440,6 @@ export default function SummaryTable({
                     </TableFooter>
                 )}
             </Table>
-        </div>
+        </>
     );
 }

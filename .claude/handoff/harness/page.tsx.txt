@@ -1,0 +1,35 @@
+// TEMPORARY: Claude's screenshot harness; delete after review.
+import { loadPrograms } from '@/api/admin/load-programs';
+import AppHeader from '@/features/dashboard/components/app-header';
+import DashboardProvider from '@/features/dashboard/components/dashboard-provider';
+import DashboardView from '@/features/dashboard/components/dashboard-view';
+import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
+import { parseDensity } from '@/features/dashboard/utils/density';
+
+export default async function Preview({
+    searchParams,
+}: {
+    searchParams: Promise<{ d?: string; v?: string }>;
+}) {
+    const params = await searchParams;
+    const density = parseDensity(params.d);
+    const view = params.v === 'stakeholder' ? 'stakeholder' : 'developer';
+    const programs = await loadPrograms();
+    return (
+        <div className="flex min-h-dvh flex-col">
+            <AppHeader viewAs={view} density={density} />
+            <main
+                data-density={view === 'developer' ? density : undefined}
+                className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 pt-(--d-top) pb-8 sm:px-6 lg:px-10"
+            >
+                <DashboardProvider
+                    view={view}
+                    defaultExclude={HIDDEN_BY_DEFAULT_PROGRAM_IDS}
+                    programs={programs.ok ? programs.data : []}
+                >
+                    <DashboardView view={view} />
+                </DashboardProvider>
+            </main>
+        </div>
+    );
+}

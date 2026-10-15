@@ -1,12 +1,13 @@
-import { COVERAGE_STATUSES } from '@/features/dashboard/utils/parse-coverage-sheets';
 import {
     AREA_SEVERITY_STEPS,
     SEVERITY_STEPS,
 } from '@/features/dashboard/utils/specimen-severity';
+import { PROGRESS_SCAN_LEGEND } from '@/features/dashboard/utils/progress-map-colors';
 import { useFormatter, useTranslations } from 'next-intl';
 import {
     ACTIVE_COLOR,
     COVERAGE_STYLES,
+    FILLED_COVERAGE_STATUSES,
     ZERO_CATCH_COLOR,
     type MapLayer,
 } from './map-constants';
@@ -14,10 +15,13 @@ import {
 export default function MapLegend({
     layers,
     byArea,
+    shading = false,
 }: {
     layers: MapLayer[];
     /** Specimens are drawn per Area, on the Area scale. */
     byArea: boolean;
+    /** Areas are shaded green by specimens. */
+    shading?: boolean;
 }) {
     const t = useTranslations('MapSection');
     const formatter = useFormatter();
@@ -35,8 +39,21 @@ export default function MapLegend({
     return (
         <div
             aria-label={t('legend')}
-            className="bg-card/90 absolute bottom-3 left-3 z-[1000] flex flex-col gap-2 rounded-md border px-3 py-2 text-xs shadow-sm"
+            className="bg-card/95 absolute bottom-3 left-3 z-[1000] flex flex-col gap-2 rounded-xl border border-(color:--line) px-3 py-2.5 text-xs shadow-[0_3px_14px_rgb(26_75_61/8%)]"
         >
+            {shading && (
+                <div>
+                    <p className="mb-1 font-medium">{t('shadingTitle')}</p>
+                    <span
+                        aria-hidden="true"
+                        className="block h-2 w-28 rounded-full"
+                        style={{ background: PROGRESS_SCAN_LEGEND }}
+                    />
+                    <p className="text-muted-foreground mt-1">
+                        {t('shadingHint')}
+                    </p>
+                </div>
+            )}
             {layers.includes('specimens') && (
                 <div>
                     <p className="mb-1 font-medium">
@@ -94,7 +111,7 @@ export default function MapLegend({
                         {t('legendCoverageTitle')}
                     </p>
                     <ul className="flex max-w-56 flex-col gap-1.5">
-                        {COVERAGE_STATUSES.map(status => {
+                        {FILLED_COVERAGE_STATUSES.map(status => {
                             const { color, fillOpacity } =
                                 COVERAGE_STYLES[status];
                             return (

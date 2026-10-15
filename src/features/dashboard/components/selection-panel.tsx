@@ -17,19 +17,26 @@ import type {
     PlacedSession,
 } from '@/features/dashboard/utils/place-by-site';
 import { countCollectors } from '@/features/dashboard/utils/count-collectors';
+import {
+    selectedPlaceKey,
+    type PlaceOption,
+} from '@/features/dashboard/utils/build-place-options';
 import { programTitle } from '@/features/dashboard/utils/program-title';
 import type { UserCoverageDto } from '@/api/dashboard/validation/dashboard-schema';
 import type { LocationLevel } from '@/features/dashboard/utils/site-location-path';
-import { ArrowLeft, Maximize2, Users } from 'lucide-react';
+import { ChartColumn, Maximize2, Users } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import DailyChartSheet from './daily-chart-sheet';
 import SelectionChart, { CHART_VIEWS, type ChartView } from './selection-chart';
 import SelectionList from './selection-list';
 import LocationPath from './location-path';
 import PanelTileFigures from './panel-tile-figures';
+import PlacePicker from './place-picker';
 import type { SummarySession } from './specimen-summary';
 import type { MapSelection } from './surveillance-map';
+import { PANEL_ACTION, SEGMENT, SEGMENTED } from './panel-header';
+import panelStyles from './panel.module.css';
 
 type PanelSession = SummarySession & {
     collectedAt: number;
@@ -73,7 +80,10 @@ type SelectionPanelProps = {
     /** Uganda's planned devices per District, by its rollout rule. */
     areaDevicePlans: { programId: number; area: string; planned: number }[];
     userCoverage: UserCoverageDto[];
-    onClear: () => void;
+    /** Every place on the map, for the picker. */
+    places: PlaceOption[];
+    /** null for the whole map. */
+    onPickPlace: (place: PlaceOption | null) => void;
 };
 
 const rankingOf = (counts: Map<string, number>) =>
@@ -101,7 +111,8 @@ export default function SelectionPanel({
     plannedAreas,
     areaDevicePlans,
     userCoverage,
-    onClear,
+    places,
+    onPickPlace,
 }: SelectionPanelProps) {
     const t = useTranslations('MapSection');
     const formatter = useFormatter();
@@ -109,6 +120,7 @@ export default function SelectionPanel({
     // Temporary: lets us compare chart forms before settling on one.
     const [view, setView] = useState<ChartView>('bar');
     const [daily, setDaily] = useState(false);
+    const chartHeadingId = useId();
 
     const selected = useMemo(() => {
         if (!selection)
@@ -160,17 +172,24 @@ export default function SelectionPanel({
     );
 
     const unit = selection?.unit;
+    const area = selection?.area;
+    const placeKey = selectedPlaceKey(selection);
     const title = !selection
         ? scope.title
         : unit
           ? unit.unit
-          : selection.layer === 'specimens'
-            ? t('selectedSessions', { count: selection.ids.length })
-            : t('selectedDevices', { count: selection.ids.length });
-    // A unit names its Program even when nothing was collected there.
+          : area
+            ? area.name
+            : selection.country
+              ? selection.country
+              : selection.layer === 'specimens'
+                ? t('selectedSessions', { count: selection.ids.length })
+                : t('selectedDevices', { count: selection.ids.length });
+    // A unit or area names its Program even when nothing was collected there.
+    const named = unit ?? area;
     const programLine = scope.single
         ? ''
-        : (unit ? [unit.programId] : selected.programIds)
+        : (named ? [named.programId] : selected.programIds)
               .map(id => programs.get(id))
               .filter((p): p is Program => Boolean(p))
               .map(programTitle)
@@ -178,7 +197,10 @@ export default function SelectionPanel({
 
     if (loading) {
         return (
-            <div aria-busy="true" className="flex flex-col gap-3 px-4">
+            <div
+                aria-busy="true"
+                className="flex flex-col gap-3 px-(--d-pad-x)"
+            >
                 <p role="status" className="sr-only">
                     {t('panelLoading')}
                 </p>
@@ -193,10 +215,19 @@ export default function SelectionPanel({
     }
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4">
-            <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">{title}</h3>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-(--d-pad-x)">
+            <div>
+                <h3 className={panelStyles.title}>{title}</h3>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed sm:text-[13px]">
+                    <span className="font-medium text-(color:--ink)">
+                        {t('summaryTotal', {
+                            specimens: specimenTotal,
+                            sessions: selected.sessions.length,
+                        })}
+                    </span>{' '}
+                    {t('chartInPeriod', { period: periodLabel })}
+                </p>
+                <div className="mt-2 flex flex-col gap-0.5">
                     {unit && (
                         <p className="text-xs">
                             {t('unitSummary', {
@@ -240,112 +271,109 @@ export default function SelectionPanel({
                         />
                     )}
                     {locatingCount > 0 && (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p className="text-muted-foreground text-xs">
                             {t('panelPartial')}
                         </p>
                     )}
                 </div>
-                {selection && (
-                    <Button
-                        variant="ghost"
-                        size="xs"
-                        className="shrink-0"
-                        onClick={onClear}
-                    >
-                        <ArrowLeft />
-                        {scope.title}
-                    </Button>
-                )}
             </div>
 
-            <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={dimension}
-                onValueChange={value => {
-                    if (value) setDimension(value as TimelineDimension);
-                }}
-                aria-label={t('chartStackBy')}
+            {/* Its "All" choice goes back to the whole scope. */}
+            <PlacePicker
+                options={places}
+                selectedKey={placeKey}
+                selectionLabel={selection && !placeKey ? title : null}
+                onChange={onPickPlace}
+            />
+
+            <section
+                aria-labelledby={chartHeadingId}
+                className="flex flex-col gap-3 border-t border-(color:--line) pt-5"
             >
-                {DIMENSIONS.map(d => (
-                    <ToggleGroupItem key={d} value={d} className="px-3 text-xs">
-                        {t(`chartDimension.${d}`)}
-                    </ToggleGroupItem>
-                ))}
-            </ToggleGroup>
-
-            <div className="flex flex-col gap-1">
-                <p className="text-xs">
-                    <span className="font-medium">
-                        {t('summaryTotal', {
-                            specimens: specimenTotal,
-                            sessions: selected.sessions.length,
-                        })}
+                <div className="flex items-center gap-3">
+                    <span className={panelStyles.chip}>
+                        <ChartColumn className="size-4" aria-hidden="true" />
                     </span>
-                    <span className="text-muted-foreground">
-                        {' '}
-                        {t('chartInPeriod', { period: periodLabel })}
-                    </span>
-                </p>
-            </div>
+                    <h4 id={chartHeadingId} className="text-sm font-semibold">
+                        {t('chartHeading')}
+                    </h4>
+                </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2">
                 <ToggleGroup
                     type="single"
-                    variant="outline"
                     size="sm"
-                    value={view}
+                    spacing={1}
+                    className={SEGMENTED}
+                    value={dimension}
                     onValueChange={value => {
-                        if (value) setView(value as ChartView);
+                        if (value) setDimension(value as TimelineDimension);
                     }}
-                    aria-label={t('chartView')}
+                    aria-label={t('chartStackBy')}
                 >
-                    {CHART_VIEWS.map(v => (
-                        <ToggleGroupItem
-                            key={v}
-                            value={v}
-                            className="px-3 text-xs"
-                        >
-                            {t(`chartViews.${v}`)}
+                    {DIMENSIONS.map(d => (
+                        <ToggleGroupItem key={d} value={d} className={SEGMENT}>
+                            {t(`chartDimension.${d}`)}
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>
-                <Button
-                    variant="outline"
-                    size="xs"
-                    disabled={timeline.total === 0}
-                    onClick={() => setDaily(true)}
-                >
-                    <Maximize2 />
-                    {t('dailyOpen')}
-                </Button>
-            </div>
-            <DailyChartSheet
-                open={daily}
-                onOpenChange={setDaily}
-                title={title}
-                period={period}
-                sessions={selected.sessions}
-                dimensions={DIMENSIONS}
-                dimension={dimension}
-                onDimensionChange={setDimension}
-                ranking={ranking}
-            />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <ToggleGroup
+                        type="single"
+                        size="sm"
+                        spacing={1}
+                        className={SEGMENTED}
+                        value={view}
+                        onValueChange={value => {
+                            if (value) setView(value as ChartView);
+                        }}
+                        aria-label={t('chartView')}
+                    >
+                        {CHART_VIEWS.map(v => (
+                            <ToggleGroupItem
+                                key={v}
+                                value={v}
+                                className={SEGMENT}
+                            >
+                                {t(`chartViews.${v}`)}
+                            </ToggleGroupItem>
+                        ))}
+                    </ToggleGroup>
+                    <Button
+                        variant="outline"
+                        className={PANEL_ACTION}
+                        disabled={timeline.total === 0}
+                        onClick={() => setDaily(true)}
+                    >
+                        <Maximize2 />
+                        {t('dailyOpen')}
+                    </Button>
+                </div>
+                <DailyChartSheet
+                    open={daily}
+                    onOpenChange={setDaily}
+                    title={title}
+                    period={period}
+                    sessions={selected.sessions}
+                    dimensions={DIMENSIONS}
+                    dimension={dimension}
+                    onDimensionChange={setDimension}
+                    ranking={ranking}
+                />
 
-            {timeline.total > 0 ? (
-                <SelectionChart timeline={timeline} view={view} />
-            ) : (
-                <p className="text-muted-foreground text-xs">
-                    {t('chartEmpty', {
-                        count: formatter.number(selected.sessions.length),
-                    })}
-                </p>
-            )}
+                {timeline.total > 0 ? (
+                    <SelectionChart timeline={timeline} view={view} />
+                ) : (
+                    <p className="text-muted-foreground text-xs">
+                        {t('chartEmpty', {
+                            count: formatter.number(selected.sessions.length),
+                        })}
+                    </p>
+                )}
+            </section>
 
             {selection && (showSessions || selection.layer === 'devices') && (
-                <details className="-mx-2 border-t pt-2">
-                    <summary className="text-muted-foreground hover:text-foreground cursor-pointer px-2 text-xs font-medium select-none">
+                <details className="-mx-2 border-t border-(color:--line) px-2 pt-3">
+                    <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium select-none">
                         {selection.layer === 'specimens'
                             ? t('chartListSessions', {
                                   count: selection.ids.length,
@@ -354,14 +382,12 @@ export default function SelectionPanel({
                                   count: selection.ids.length,
                               })}
                     </summary>
-                    <div>
-                        <SelectionList
-                            selection={selection}
-                            sessions={sessions}
-                            devices={devices}
-                            programs={programs}
-                        />
-                    </div>
+                    <SelectionList
+                        selection={selection}
+                        sessions={sessions}
+                        devices={devices}
+                        programs={programs}
+                    />
                 </details>
             )}
         </div>

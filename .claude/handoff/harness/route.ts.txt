@@ -1,0 +1,43 @@
+// TEMPORARY: Claude's screenshot harness (production GETs only); delete after review.
+import { getCoverage } from '@/api/coverage/get-coverage';
+import { getCoverageQuerySchema } from '@/api/coverage/validation/coverage-schema';
+import { getDashboard } from '@/api/dashboard/get-dashboard';
+import { getDashboardQuerySchema } from '@/api/dashboard/validation/dashboard-schema';
+import { getProgramSessions } from '@/api/program-sessions/get-program-sessions';
+import { getProgramSessionsQuerySchema } from '@/api/program-sessions/validation/program-sessions-schema';
+import { getSiteLocations } from '@/api/site-locations/get-site-locations';
+import { getSiteLocationsQuerySchema } from '@/api/site-locations/validation/site-locations-schema';
+import { getUserLogins } from '@/api/user-logins/get-user-logins';
+import { getUserLoginsQuerySchema } from '@/api/user-logins/validation/user-logins-schema';
+import { getProgress } from '@/api/progress/get-progress';
+import { getProgressQuerySchema } from '@/api/progress/validation/progress-schema';
+import { NextResponse, type NextRequest } from 'next/server';
+
+const developer = { role: 'developer' as const };
+
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ name: string }> },
+) {
+    if (request.headers.get('x-zz-secret') !== '__SECRET__') {
+        return new NextResponse(null, { status: 404 });
+    }
+    const { name } = await params;
+    const raw = Object.fromEntries(request.nextUrl.searchParams);
+    const result =
+        name === 'dashboard'
+            ? await getDashboard(getDashboardQuerySchema.parse(raw), developer)
+            : name === 'coverage'
+              ? await getCoverage(getCoverageQuerySchema.parse(raw), developer)
+              : name === 'site-locations'
+                ? await getSiteLocations(getSiteLocationsQuerySchema.parse(raw), developer)
+                : name === 'program-sessions'
+                  ? await getProgramSessions(getProgramSessionsQuerySchema.parse(raw))
+                  : name === 'user-logins'
+                    ? await getUserLogins(getUserLoginsQuerySchema.parse(raw))
+                    : name === 'progress'
+                      ? await getProgress(getProgressQuerySchema.parse(raw), developer)
+                      : null;
+    if (!result) return new NextResponse(null, { status: 404 });
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+}
