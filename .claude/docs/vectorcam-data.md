@@ -86,7 +86,15 @@ Complete; they drive every live metric. Paged per Program, cached ~1 h.
   (app prediction, replaced on review), image `capturedAt`.
 - `/specimens/count/sessions` (`programId`, `hasImages`): one row per Session
   with `specimenCount`, `imageCount` and species/sex/abdomen `groups`; one
-  unpaged call. The Stakeholder view uses it instead of `/specimens/`.
+  unpaged call. The Stakeholder view uses it instead of `/specimens/`. A group's
+  `count` is specimens, not images (checked on prod 2026-10-15: groups add up to
+  `specimenCount` in all 2,604 Uganda and Kenya Sessions). Stephensi names:
+  "Anopheles stephensi (suspected)" (Uganda), "Anopheles stephensi" (Kenya).
+- Images per species are not in the counts. `/specimens/` with `species=`
+  (thumbnail's species) and `includeAllImages` gives them: Kenya's 256 stephensi
+  specimens have 306 images, 296 of them predicted stephensi; 8 more stephensi
+  images sit on other specimens (2026-10-15, all time). Not used: the
+  Stakeholder view counts specimens.
 - `/devices/`: every registered device, including never used; `ssaid`, no IMEI.
   A Device is an app registration: a factory reset makes a new one.
 - `/programs/{id}/collection-cycles`: cycles and the Program's timezone.

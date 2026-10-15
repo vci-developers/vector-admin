@@ -49,6 +49,20 @@ _As of 2026-10-09. Definitions live in `.claude/CONTEXT.md`; data sources in
 - Needed: Geographic Units rows for Ghana, Kenya, Cameroon and Colombia; until
   then they show no place figures. Mind the Gap is not a Program in VectorCam.
 
+### An. stephensi filter: suspected vs confirmed
+
+- The "Show An. stephensi" filter swaps each District's scan marker for a
+  glowing dot and highlights its rows in the species breakdown. Clicking either,
+  or the chart's All species / An. stephensi toggle, charts it per month and
+  lists it per Program and species label that contains "stephensi", as the API
+  names it. The chart and dots add all labels. Uganda's Amudat build predicts
+  "Anopheles stephensi (suspected)", Kenya's "Anopheles stephensi". These are
+  the current `species`: the app's prediction until a reviewer corrects it.
+- Needed: whether suspected counts as stephensi, should be merged with the
+  confirmed label, or should show only once reviewed. On prod (2026-10-15, all
+  time): Uganda 1 "Anopheles stephensi (suspected)" in 1 Session; Kenya 256
+  "Anopheles stephensi" in 75 Sessions.
+
 ## Data quality (for the program teams)
 
 - Projected Devices for Uganda reads 66 (Sep–Nov) and 84 (Dec on), but the

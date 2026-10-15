@@ -25,11 +25,11 @@ privilege never grants entry: prod has privilege-1 users in several Programs.
 _Avoid_: admin (collides with the admin token)
 
 **Program Filter**: A multi-select over every Program from `GET /programs`. A
-Stakeholder's page opens on all their Programs. For a Developer it defaults to all
-Programs except a **Hidden-by-Default** list (currently prod program 5, Johns
-Hopkins University, whose nature is unconfirmed); a hidden Program can still be
-selected. New Programs appear selected automatically. _Avoid_: all programs
-(means the default selection, not literally every Program)
+Stakeholder's page opens on all their Programs. For a Developer it defaults to
+all Programs except a **Hidden-by-Default** list (currently prod program 5,
+Johns Hopkins University, whose nature is unconfirmed); a hidden Program can
+still be selected. New Programs appear selected automatically. _Avoid_: all
+programs (means the default selection, not literally every Program)
 
 **Reporting Month**: The calendar month a Session belongs to, evaluated in the
 Program's timezone, so programs are comparable side by side. A Session with no
@@ -67,15 +67,15 @@ Reporting Months chosen from presets (This month, Last month, Last 3 / 6 / 12
 months, Year to date, All time), a single chosen Month (picked from a grid or
 stepped with arrows) or a custom from/to month pair (picking either end past the
 other moves both). Defaults to Last month for a Developer, the unit the team
-sheet uses, and Year to date for a Stakeholder. Presets
-are relative, so a bookmarked preset tracks the calendar. Rolling presets and
-Year to date end at the last complete month (Year to date in January is January
-alone). A period that includes the current month is **In Progress**: labelled as
-likely undercounted, because Sessions are uploaded after collection, and shown
-with no KPI comparison. The map, KPI tiles, summary table, Device Status and
-Session panel all show this period; there is no second month or range control.
-Counts are summed over the period, Active Devices and Unique Users are counted
-once each, and ratios are recomputed over the period, never averaged. KPI tiles
+sheet uses, and Year to date for a Stakeholder. Presets are relative, so a
+bookmarked preset tracks the calendar. Rolling presets and Year to date end at
+the last complete month (Year to date in January is January alone). A period
+that includes the current month is **In Progress**: labelled as likely
+undercounted, because Sessions are uploaded after collection, and shown with no
+KPI comparison. The map, KPI tiles, summary table, Device Status and Session
+panel all show this period; there is no second month or range control. Counts
+are summed over the period, Active Devices and Unique Users are counted once
+each, and ratios are recomputed over the period, never averaged. KPI tiles
 compare with the same-length period just before (none for All time or an In
 Progress period). _Avoid_: range, summary month, date range
 
@@ -218,6 +218,17 @@ for everything on the map when nothing is clicked; each value keeps its colour
 whatever is clicked, and the Sessions or devices behind the chart are listed
 under it. Expand chart view opens the same chart from the right with a bar per
 UTC day of the period, quiet days included. _Avoid_: layer filter
+
+**Stephensi Filter**: The Stakeholder map's "Show An. stephensi" switch (under
+Filters, kept in the URL), offered when a selected Program has stephensi or runs
+a model that detects it. It counts Specimens whose current species contains
+"stephensi" (Uganda's "Anopheles stephensi (suspected)", Kenya's "Anopheles
+stephensi"), from the same Counted Sessions as every other figure. A District
+with any gets a glowing dot in place of its scan marker, and the scans chart a
+magenta base per month (specimens against images, so close to scale, not exact).
+Clicking the dot, the Species breakdown's stephensi row or the chart's toggle
+shows stephensi only; any other selection returns to all species. Headline
+figures never change.
 
 **Record**: For data-quality metrics, one Specimen together with its Session.
 Every Specimen is a Record, with or without an Image; one with no Image has no
