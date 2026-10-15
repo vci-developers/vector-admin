@@ -3,7 +3,11 @@ import type {
     PeriodMetricsDto,
 } from '@/api/dashboard/validation/dashboard-schema';
 import { describe, expect, it } from 'vitest';
-import { buildSummaryGroups, summaryToTsv } from './summary-rows';
+import {
+    buildSummaryGroups,
+    SHEET_COLUMNS,
+    summaryToTsv,
+} from './summary-rows';
 
 const metrics: PeriodMetricsDto = {
     activeDevices: 4,
@@ -32,6 +36,27 @@ const metrics: PeriodMetricsDto = {
     dhis2UploadRate: null,
     timing: { count: 3, median: 20, p25: 15, p75: 25.25, mean: 20, sd: null },
 };
+
+describe('SHEET_COLUMNS counts', () => {
+    it('gives each percentage its numerator and denominator, and counts none', () => {
+        const counts = (key: string) =>
+            SHEET_COLUMNS.find(column => column.key === key)?.counts?.(metrics);
+
+        expect(counts('metadataCompleteness')).toEqual({
+            numerator: 456,
+            denominator: 1000,
+        });
+        expect(counts('geolocation')).toEqual({
+            numerator: 456,
+            denominator: 1000,
+        });
+        expect(counts('dhis2UploadRate')).toEqual({
+            numerator: 0,
+            denominator: 0,
+        });
+        expect(counts('images')).toBeUndefined();
+    });
+});
 
 describe('summaryToTsv', () => {
     it('writes values only in sheet order, locale-free, blanks where undefined', () => {
@@ -83,7 +108,6 @@ describe('buildSummaryGroups', () => {
                 to: '2026-01',
                 programs: [{ programId: 1, metrics, cycles: [5] }],
                 total: metrics,
-                previousTotal: null,
             },
             areas: [
                 { programId: 1, level: 'District', name: 'Gulu', metrics },

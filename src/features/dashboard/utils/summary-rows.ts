@@ -6,9 +6,11 @@ import type {
 import {
     FIELDS,
     METRICS,
+    ratioCounts,
     type FieldKey,
     type MetricFormat,
     type MetricKey,
+    type RatioCounts,
 } from './metric-definitions';
 import { programSeriesColor } from './series-colors';
 
@@ -19,6 +21,8 @@ export type TimingStat = (typeof TIMING_STATS)[number];
 export type SheetColumn = {
     format: MetricFormat;
     value: (metrics: PeriodMetricsDto) => number | null;
+    /** Percentages only: the counts behind the figure. */
+    counts?: (metrics: PeriodMetricsDto) => RatioCounts;
 } & (
     | { kind: 'metric'; key: MetricKey }
     | { kind: 'field'; key: FieldKey }
@@ -26,17 +30,24 @@ export type SheetColumn = {
 );
 
 export const SHEET_COLUMNS: SheetColumn[] = [
-    ...METRICS.map(({ key, format, value }): SheetColumn => ({
+    ...METRICS.map(({ key, format, value, calculation }): SheetColumn => ({
         kind: 'metric',
         key,
         format,
         value,
+        ...(format === 'percent' && calculation
+            ? { counts: m => ratioCounts(calculation(m)) }
+            : {}),
     })),
     ...FIELDS.map((key): SheetColumn => ({
         kind: 'field',
         key,
         format: 'percent',
         value: m => m.fieldCompleteness[key],
+        counts: m => ({
+            numerator: m.fieldPasses[key],
+            denominator: m.records,
+        }),
     })),
     ...TIMING_STATS.map((key): SheetColumn => ({
         kind: 'timing',

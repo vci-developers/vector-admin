@@ -73,6 +73,11 @@
     --series-8: #e34948;
     --series-other: #8a8f98;
     --chart-grid: #eceeec;
+
+    /* Internal view's take on the Stakeholder look (progress-view.module.css). */
+    --ink: #163d35;
+    --line: #dce7e1;
+    --elevation: 0 3px 6px rgb(20 55 43 / 2%), 0 14px 36px rgb(20 55 43 / 4%);
 }
 
 :root[data-theme='dark'] {
@@ -109,6 +114,81 @@
     --series-8: #e66767;
     --series-other: #6b7280;
     --chart-grid: #1f2a3c;
+
+    --ink: #e4f3ed;
+    --line: #2e443e;
+    --elevation: 0 12px 36px rgb(0 0 0 / 12%);
+}
+
+/* The internal page's greys turn the Stakeholder page's soft green: every
+   fill and line inside follows. Only that page's <main> has data-density. */
+[data-density] {
+    --muted: #edf5f1;
+    --border: var(--line);
+}
+:root[data-theme='dark'] [data-density] {
+    --muted: #172e2a;
+}
+
+/* macOS overlay scrollbars draw over content and widen on hover, covering
+   figures at the edge. A styled scrollbar takes its own fixed room instead
+   (Chromium, Safari); scrollbar-width/color would switch that off, so only
+   browsers without ::-webkit-scrollbar (Firefox) get them. */
+[data-density] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+[data-density] ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--ink) 22%, transparent) padding-box;
+}
+[data-density] ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+[data-density] ::-webkit-scrollbar-track,
+[data-density] ::-webkit-scrollbar-corner {
+    background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+    [data-density] * {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent)
+            transparent;
+    }
+}
+
+/* Internal view spacing, chosen per browser (DensityToggle) and set on the
+   Developer page's <main>. Only internal components read these. */
+:root {
+    --d-section: 24px;
+    --d-grid: 12px;
+    --d-pad-x: 20px;
+    --d-pad-y: 16px;
+    --d-gap: 12px;
+    --d-radius: 16px;
+    --d-control: 60px;
+    --d-top: 32px;
+}
+[data-density='compact'] {
+    --d-section: 12px;
+    --d-grid: 8px;
+    --d-pad-x: 12px;
+    --d-pad-y: 8px;
+    --d-gap: 6px;
+    --d-radius: 10px;
+    --d-control: 40px;
+    --d-top: 16px;
+}
+[data-density='spacious'] {
+    --d-section: 40px;
+    --d-grid: 16px;
+    --d-pad-x: 28px;
+    --d-pad-y: 24px;
+    --d-gap: 20px;
+    --d-radius: 20px;
+    --d-control: 64px;
+    --d-top: 40px;
 }
 
 @layer base {

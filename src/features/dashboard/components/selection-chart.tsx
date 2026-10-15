@@ -7,7 +7,7 @@ import {
 } from '@/features/dashboard/utils/build-selection-timeline';
 import { useFormatter, useTranslations } from 'next-intl';
 import { cn } from '@/utils/cn';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -22,6 +22,21 @@ import {
 import type { MouseHandlerDataParam } from 'recharts/types/synchronisation/types';
 
 const RADIUS = 4;
+/** Room per bar when the chart scrolls instead of squeezing. */
+const SCROLL_BAR_WIDTH = 14;
+const SCROLL_HEIGHT = 400;
+const X_AXIS_HEIGHT = 30;
+
+/** A round top for four even steps, so the fixed axis labels are whole. */
+function niceTop(maximum: number): number {
+    const raw = Math.max(1, maximum) / 4;
+    const magnitude = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+        .map(m => m * magnitude)
+        .filter(Number.isInteger)
+        .find(candidate => candidate >= raw)!;
+    return step * 4;
+}
 
 export const seriesColor = (series: TimelineSeries) =>
     series.kind === 'folded'
@@ -134,23 +149,26 @@ function ValueLegend({
                           granularity: timeline.granularity,
                       })}
             </p>
-            <ul
-                aria-label={t('chartLegend')}
-                className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-0.5"
-            >
+            {/* Rows like the Stakeholder page's species breakdown. */}
+            <ul aria-label={t('chartLegend')} className="flex flex-col">
                 {timeline.series.map(s => (
-                    <li key={s.key} className="contents">
+                    <li
+                        key={s.key}
+                        className="flex items-center gap-2 border-b border-(color:--line) py-1.5 last:border-b-0"
+                    >
                         <span
                             aria-hidden="true"
-                            className="size-2.5 rounded-[3px]"
+                            className="size-2.5 shrink-0 rounded-[3px]"
                             style={{ background: seriesColor(s) }}
                         />
-                        <span className="truncate">{label(s)}</span>
+                        <span className="flex-1 truncate font-medium text-(color:--ink)">
+                            {label(s)}
+                        </span>
                         <span
                             className={
                                 countOf(s.key) === 0
                                     ? 'text-muted-foreground/60 tabular-nums'
-                                    : 'tabular-nums'
+                                    : 'font-semibold text-(color:--ink) tabular-nums'
                             }
                         >
                             {formatter.number(countOf(s.key))}
@@ -314,12 +332,13 @@ function PieView({ timeline }: { timeline: SelectionTimeline }) {
 export default function SelectionChart({
     timeline,
     view,
-    tall = false,
+    scroll = false,
 }: {
     timeline: SelectionTimeline;
     view: ChartView;
-    /** Taller bars, for the expanded view. */
-    tall?: boolean;
+    /** Fixed-width bars that scroll sideways, opening at the latest; the
+     * y-axis stays put. For the expanded view. */
+    scroll?: boolean;
 }) {
     const t = useTranslations('MapSection');
     const formatter = useFormatter();
@@ -333,14 +352,38 @@ export default function SelectionChart({
                 : Number(state.activeTooltipIndex),
         );
     const onMouseLeave = () => setHovered(null);
+    const scroller = useRef<HTMLDivElement>(null);
+    // Overlay scrollbars stay hidden until used, so overflow gets a hint.
+    const [overflows, setOverflows] = useState(false);
+    useLayoutEffect(() => {
+        const el = scroller.current;
+        if (!el) return;
+        el.scrollLeft = el.scrollWidth;
+        setOverflows(el.scrollWidth > el.clientWidth);
+    }, [timeline]);
+    const { foldedBefore } = timeline;
+    const isFolded = (start: number) =>
+        foldedBefore !== null && start < foldedBefore;
     const years = new Set(
-        timeline.buckets.map(b => new Date(b.start).getUTCFullYear()),
+        timeline.buckets
+            .filter(b => !isFolded(b.start))
+            .map(b => new Date(b.start).getUTCFullYear()),
     );
     const quarterOf = (start: number) => ({
         quarter: Math.floor(new Date(start).getUTCMonth() / 3) + 1,
         year: new Date(start).getUTCFullYear(),
     });
     const tick = (start: number) =>
+        foldedBefore !== null && isFolded(start)
+            ? t('chartBefore', {
+                  date: formatter.dateTime(foldedBefore, {
+                      month: 'short',
+                      year: '2-digit',
+                      timeZone: 'UTC',
+                  }),
+              })
+            : spanTick(start);
+    const spanTick = (start: number) =>
         timeline.granularity === 'quarter'
             ? t('chartQuarterTick', {
                   ...quarterOf(start),
@@ -350,7 +393,12 @@ export default function SelectionChart({
                   start,
                   timeline.granularity === 'week' ||
                       timeline.granularity === 'day'
-                      ? { month: 'short', day: 'numeric', timeZone: 'UTC' }
+                      ? {
+                            month: 'short',
+                            day: 'numeric',
+                            ...(years.size > 1 ? { year: '2-digit' } : {}),
+                            timeZone: 'UTC',
+                        }
                       : {
                             month: 'short',
                             ...(years.size > 1 ? { year: '2-digit' } : {}),
@@ -358,22 +406,30 @@ export default function SelectionChart({
                         },
               );
     const bucketLabel = (bucket: TimelineBucket) =>
-        timeline.granularity === 'day'
-            ? formatter.dateTime(bucket.start, {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  timeZone: 'UTC',
-              })
-            : timeline.granularity === 'week'
-              ? t('chartWeekOf', { date: tick(bucket.start) })
-              : timeline.granularity === 'quarter'
-                ? t('chartQuarter', quarterOf(bucket.start))
-                : formatter.dateTime(bucket.start, {
+        foldedBefore !== null && isFolded(bucket.start)
+            ? t('chartBefore', {
+                  date: formatter.dateTime(foldedBefore, {
                       month: 'long',
                       year: 'numeric',
                       timeZone: 'UTC',
-                  });
+                  }),
+              })
+            : timeline.granularity === 'day'
+              ? formatter.dateTime(bucket.start, {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    timeZone: 'UTC',
+                })
+              : timeline.granularity === 'week'
+                ? t('chartWeekOf', { date: spanTick(bucket.start) })
+                : timeline.granularity === 'quarter'
+                  ? t('chartQuarter', quarterOf(bucket.start))
+                  : formatter.dateTime(bucket.start, {
+                        month: 'long',
+                        year: 'numeric',
+                        timeZone: 'UTC',
+                    });
 
     if (view === 'pie') return <PieView timeline={timeline} />;
 
@@ -387,11 +443,16 @@ export default function SelectionChart({
         return row;
     });
     const axisText = { fill: 'var(--muted-foreground)', fontSize: 11 };
+    const yTop = niceTop(Math.max(...timeline.buckets.map(b => b.total)));
+    const yTicks = [0, 1, 2, 3, 4].map(step => (yTop / 4) * step);
+    const yLabel = (value: number) =>
+        formatter.number(value, { notation: 'compact' });
     const common = [
         <CartesianGrid
             key="grid"
             vertical={false}
-            stroke="var(--chart-grid)"
+            stroke="var(--border)"
+            strokeDasharray="2 5"
         />,
         <XAxis
             key="x"
@@ -399,84 +460,121 @@ export default function SelectionChart({
             tickFormatter={tick}
             tick={axisText}
             tickLine={false}
-            axisLine={{ stroke: 'var(--chart-grid)' }}
+            axisLine={false}
+            tickMargin={8}
             interval="preserveStartEnd"
             minTickGap={12}
-            label={{
-                value: t(`chartAxisX.${timeline.granularity}`),
-                position: 'insideBottom',
-                offset: -12,
-                ...axisText,
-            }}
         />,
         <YAxis
             key="y"
             allowDecimals={false}
-            tickFormatter={value =>
-                formatter.number(value, { notation: 'compact' })
-            }
+            tickFormatter={yLabel}
             tick={axisText}
             tickLine={false}
             axisLine={false}
-            width={44}
-            label={{
-                value: t('chartAxisY'),
-                angle: -90,
-                position: 'insideLeft',
-                offset: 4,
-                style: { textAnchor: 'middle' },
-                ...axisText,
-            }}
+            width={36}
+            // Scrolling: drawn outside the scroller instead, on these ticks.
+            {...(scroll && { hide: true, domain: [0, yTop], ticks: yTicks })}
         />,
         <Tooltip
             key="tooltip"
-            cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
+            cursor={{ fill: 'var(--muted)', radius: 6 }}
             // The legend below carries the hover readout instead.
             content={() => null}
         />,
     ];
-    const margin = { top: 4, right: 8, bottom: 14, left: 4 };
+    const margin = { top: 4, right: 8, bottom: 0, left: scroll ? 0 : -4 };
+    const chart = (
+        <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+                data={rows}
+                margin={margin}
+                barCategoryGap="20%"
+                onMouseMove={onMouseMove}
+                onMouseLeave={onMouseLeave}
+            >
+                {common}
+                {timeline.series.map((s, index) => (
+                    <Bar
+                        key={s.key}
+                        dataKey={`s${index}`}
+                        stackId="specimens"
+                        fill={seriesColor(s)}
+                        maxBarSize={24}
+                        isAnimationActive={false}
+                        shape={(props: unknown) => (
+                            <Segment
+                                {...(props as SegmentProps)}
+                                index={index}
+                            />
+                        )}
+                    />
+                ))}
+            </BarChart>
+        </ResponsiveContainer>
+    );
+    const plotHeight = SCROLL_HEIGHT - margin.top - X_AXIS_HEIGHT;
 
     return (
         <div className="flex flex-col gap-2">
-            <p className="text-xs font-medium">
-                {t(`chartTitle.${timeline.granularity}`)}
-            </p>
+            {/* The axes carry no titles: the caption says what the bars are. */}
+            <div>
+                <p className="text-sm font-semibold text-(color:--ink)">
+                    {t(`chartTitle.${timeline.granularity}`)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                    {t('chartCaption', {
+                        granularity: timeline.granularity,
+                    })}
+                    {scroll && overflows && ` · ${t('chartScrollHint')}`}
+                </p>
+            </div>
             <div
-                className={tall ? 'h-80' : 'h-52'}
+                className={scroll ? 'flex' : 'h-52'}
+                style={scroll ? { height: SCROLL_HEIGHT } : undefined}
                 role="img"
                 aria-label={t('chartAria', {
                     total: timeline.total,
                     granularity: timeline.granularity,
                 })}
             >
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={rows}
-                        margin={margin}
-                        barCategoryGap="20%"
-                        onMouseMove={onMouseMove}
-                        onMouseLeave={onMouseLeave}
-                    >
-                        {common}
-                        {timeline.series.map((s, index) => (
-                            <Bar
-                                key={s.key}
-                                dataKey={`s${index}`}
-                                stackId="specimens"
-                                fill={seriesColor(s)}
-                                maxBarSize={24}
-                                isAnimationActive={false}
-                                shape={(props: unknown) => (
-                                    <Segment
-                                        {...(props as SegmentProps)}
-                                        index={index}
-                                    />
-                                )}
-                            />
-                        ))}
-                    </BarChart>
-                </ResponsiveContainer>
+                {scroll ? (
+                    <>
+                        <div
+                            aria-hidden="true"
+                            className="relative w-9 shrink-0 text-right text-[11px] text-(color:--muted-foreground) tabular-nums"
+                        >
+                            {yTicks.map(value => (
+                                <span
+                                    key={value}
+                                    className="absolute right-1.5 -translate-y-1/2"
+                                    style={{
+                                        top:
+                                            margin.top +
+                                            (1 - value / yTop) * plotHeight,
+                                    }}
+                                >
+                                    {yLabel(value)}
+                                </span>
+                            ))}
+                        </div>
+                        <div
+                            ref={scroller}
+                            className="min-w-0 flex-1 overflow-x-auto"
+                        >
+                            <div
+                                className="h-full"
+                                style={{
+                                    width: `max(100%, ${timeline.buckets.length * SCROLL_BAR_WIDTH}px)`,
+                                }}
+                            >
+                                {chart}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    chart
+                )}
             </div>
             <ValueLegend
                 timeline={timeline}

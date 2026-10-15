@@ -4,22 +4,28 @@ import type { PeriodMetricsDto } from '@/api/dashboard/validation/dashboard-sche
 import { Card } from '@/components/ui/card';
 import {
     METRICS,
+    ratioCounts,
     type MetricKey,
 } from '@/features/dashboard/utils/metric-definitions';
 import { cn } from '@/utils/cn';
-import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import {
+    Bug,
+    ClipboardCheck,
+    CloudUpload,
+    Gauge,
+    LogIn,
+    ScanLine,
+    Smartphone,
+    Users,
+    type LucideIcon,
+} from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import MetricInfo from './metric-info';
+import tones from './kpi-tiles.module.css';
 import MetricValue from './metric-value';
 
 type KpiTilesProps = {
     current: PeriodMetricsDto | null;
-    /** The change on the previous period under each figure; none when omitted. */
-    trend?: {
-        previous: PeriodMetricsDto | null;
-        /** e.g. "Oct" or "previous 3 months"; null when there is no previous period. */
-        label: string | null;
-    };
     incomplete: boolean;
     /** The tiles to show, in order; every metric when omitted. */
     keys?: MetricKey[];
@@ -82,19 +88,41 @@ function ProgramBreakdown({
  * width to the models tile's lines.
  */
 export const SUMMARY_ROW =
-    'grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-[repeat(3,minmax(0,0.7fr))_repeat(4,minmax(0,1fr))_minmax(0,1.25fr)]';
+    'grid grid-cols-2 gap-(--d-grid) md:grid-cols-4 xl:grid-cols-[repeat(3,minmax(0,0.7fr))_repeat(4,minmax(0,1fr))_minmax(0,1.25fr)]';
 
 /**
  * A tile in SUMMARY_ROW. Every tile shares the row's three lines (title,
  * figure, Program lines), so figures line up whatever sits under them: put
  * the figure in row 2 (`self-end`) and any per-Program lines in row 3.
  */
+// The Stakeholder headlines' icon chips; Scans and Specimens use theirs.
+const ICONS: Record<MetricKey, LucideIcon> = {
+    activeDevices: Smartphone,
+    images: ScanLine,
+    uniqueSpecimens: Bug,
+    imagesPerActiveDevice: Gauge,
+    uniqueUsers: Users,
+    logins: LogIn,
+    metadataCompleteness: ClipboardCheck,
+    dhis2UploadRate: CloudUpload,
+};
+
+function MetricIcon({
+    metric,
+    className,
+}: {
+    metric: MetricKey;
+    className: string;
+}) {
+    const Icon = ICONS[metric];
+    return <Icon className={className} aria-hidden="true" />;
+}
+
 export const SUMMARY_CELL =
-    'row-span-3 grid grid-rows-subgrid gap-x-0 gap-y-1 px-4 py-3';
+    'row-span-3 grid grid-rows-subgrid gap-x-0 gap-y-1 px-(--d-pad-x)';
 
 export default function KpiTiles({
     current,
-    trend,
     incomplete,
     keys,
     asCells = false,
@@ -110,52 +138,64 @@ export default function KpiTiles({
     return (
         <div
             className={
-                asCells ? 'contents' : 'grid grid-cols-2 gap-3 md:grid-cols-4'
+                asCells
+                    ? 'contents'
+                    : cn(
+                          'grid grid-cols-2 gap-(--d-grid) md:grid-cols-4',
+                          tones.cascade,
+                      )
             }
         >
             {shown.map(metric => {
                 const value = current ? metric.value(current) : null;
-                const before = trend?.previous
-                    ? metric.value(trend.previous)
-                    : null;
-                const previousLabel = trend?.label;
-                const delta =
-                    !incomplete && value !== null && before !== null
-                        ? value - before
+                const counts =
+                    current && metric.format === 'percent' && metric.calculation
+                        ? ratioCounts(metric.calculation(current))
                         : null;
-                const DeltaIcon =
-                    delta === null || delta === 0
-                        ? Minus
-                        : delta > 0
-                          ? ArrowUp
-                          : ArrowDown;
 
                 return (
                     <Card
                         key={metric.key}
-                        className={asCells ? SUMMARY_CELL : 'gap-1 px-4 py-3'}
+                        className={
+                            asCells ? SUMMARY_CELL : 'gap-1 px-(--d-pad-x)'
+                        }
                     >
-                        <p
-                            className={cn(
-                                'text-muted-foreground text-xs font-medium',
-                                // The icon follows the title's last word.
-                                asCells
-                                    ? 'text-pretty'
-                                    : 'flex items-center gap-1',
+                        <div className="flex items-start justify-between gap-2">
+                            <p
+                                className={cn(
+                                    asCells
+                                        ? 'text-muted-foreground text-xs font-medium text-pretty'
+                                        : 'text-sm font-semibold tracking-[-0.01em] text-pretty text-(color:--ink)',
+                                )}
+                            >
+                                {/* The no-break space keeps the icon on the
+                                    title's last word when it wraps. */}
+                                {t(`${metric.key}.title`)}
+                                {'\u00a0'}
+                                <span className="inline-flex align-[-2px]">
+                                    <MetricInfo
+                                        metric={metric.key}
+                                        metrics={
+                                            current && !incomplete
+                                                ? current
+                                                : undefined
+                                        }
+                                    />
+                                </span>
+                            </p>
+                            {!asCells && (
+                                <span className={tones.chip}>
+                                    <MetricIcon
+                                        metric={metric.key}
+                                        className="size-4"
+                                    />
+                                </span>
                             )}
-                        >
-                            {t(`${metric.key}.title`)}{' '}
-                            <MetricInfo
-                                metric={metric.key}
-                                metrics={
-                                    current && !incomplete ? current : undefined
-                                }
-                            />
-                        </p>
+                        </div>
                         <p
                             className={cn(
-                                'text-2xl font-semibold tabular-nums',
-                                asCells && 'self-end',
+                                'font-semibold tracking-[-0.045em] text-(color:--ink) tabular-nums',
+                                asCells ? 'self-end text-2xl' : 'text-3xl',
                             )}
                         >
                             {incomplete ? (
@@ -169,53 +209,24 @@ export default function KpiTiles({
                                 />
                             )}
                         </p>
+                        {!asCells && !incomplete && counts && (
+                            <p className="text-muted-foreground text-xs tabular-nums">
+                                {tKpi('ofRecords', {
+                                    numerator: formatter.number(
+                                        counts.numerator,
+                                    ),
+                                    denominator: formatter.number(
+                                        counts.denominator,
+                                    ),
+                                })}
+                            </p>
+                        )}
                         {/* Each Program's figure under the total. */}
                         {breakdown && breakdown.length > 1 && (
                             <ProgramBreakdown
                                 breakdown={breakdown}
                                 metric={metric}
                             />
-                        )}
-                        {trend && (
-                            <p className="text-muted-foreground flex items-center gap-1 text-xs">
-                                {delta !== null && previousLabel ? (
-                                    <>
-                                        <DeltaIcon
-                                            className="size-3"
-                                            aria-hidden="true"
-                                        />
-                                        {metric.format === 'percent'
-                                            ? tKpi('deltaPoints', {
-                                                  delta: formatter.number(
-                                                      delta * 100,
-                                                      {
-                                                          maximumFractionDigits: 0,
-                                                          signDisplay:
-                                                              'exceptZero',
-                                                      },
-                                                  ),
-                                                  month: previousLabel,
-                                              })
-                                            : tKpi('delta', {
-                                                  delta: formatter.number(
-                                                      delta,
-                                                      {
-                                                          maximumFractionDigits:
-                                                              metric.format ===
-                                                              'decimal'
-                                                                  ? 1
-                                                                  : 0,
-                                                          signDisplay:
-                                                              'exceptZero',
-                                                      },
-                                                  ),
-                                                  month: previousLabel,
-                                              })}
-                                    </>
-                                ) : (
-                                    <span aria-hidden="true">&nbsp;</span>
-                                )}
-                            </p>
                         )}
                     </Card>
                 );

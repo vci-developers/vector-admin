@@ -14,11 +14,14 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import { cn } from '@/utils/cn';
 import { CircleAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 type MapGapsProps = {
     gaps: ProgramMapGap[];
+    /** Placement counts for the map's layers, shown above any gaps. */
+    notes: string[];
     programs: Map<number, Program>;
     periodLabel: string;
     /** Called before filters change, e.g. to clear the map selection. */
@@ -26,18 +29,19 @@ type MapGapsProps = {
 };
 
 /**
- * A "!" on the map when a selected Program has nothing on it; opens to name
- * each one and why.
+ * A "!" on the map: the placement notes, and, in amber, each selected Program
+ * with nothing on the map and why.
  */
 export default function MapGaps({
     gaps,
+    notes,
     programs,
     periodLabel,
     onChange,
 }: MapGapsProps) {
     const t = useTranslations('MapSection');
     const { setFilters } = useMapFilters();
-    if (gaps.length === 0) return null;
+    if (gaps.length === 0 && notes.length === 0) return null;
 
     const specimenReason = (gap: SpecimenGap) =>
         gap.kind === 'noSessions'
@@ -62,9 +66,18 @@ export default function MapGaps({
                 <Button
                     variant="outline"
                     size="icon-sm"
-                    aria-label={t('gapsOpen', { count: gaps.length })}
-                    title={t('gapsTitle')}
-                    className="dark:bg-card/95 dark:hover:bg-accent text-amber-600 shadow-sm dark:text-amber-400"
+                    aria-label={
+                        gaps.length > 0
+                            ? t('gapsOpen', { count: gaps.length })
+                            : t('notesOpen')
+                    }
+                    title={gaps.length > 0 ? t('gapsTitle') : t('notesOpen')}
+                    className={cn(
+                        'dark:bg-card/95 dark:hover:bg-accent shadow-sm',
+                        gaps.length > 0
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-muted-foreground',
+                    )}
                 >
                     <CircleAlert />
                 </Button>
@@ -73,29 +86,39 @@ export default function MapGaps({
                 align="end"
                 className="flex w-80 flex-col gap-2 text-sm"
             >
-                <div>
-                    <p className="font-medium">{t('gapsTitle')}</p>
-                    <ul className="text-muted-foreground">
-                        {gaps.map(gap => {
-                            const program = programs.get(gap.programId);
-                            const reasons = [
-                                gap.specimens && specimenReason(gap.specimens),
-                                gap.devices && deviceReason(gap.devices),
-                            ].filter(Boolean);
-                            return (
-                                <li key={gap.programId}>
-                                    <span className="text-foreground">
-                                        {program
-                                            ? programTitle(program)
-                                            : gap.programId}
-                                    </span>
-                                    {': '}
-                                    {reasons.join(' · ')}
-                                </li>
-                            );
-                        })}
+                {notes.length > 0 && (
+                    <ul className="text-muted-foreground flex flex-col gap-1">
+                        {notes.map(note => (
+                            <li key={note}>{note}</li>
+                        ))}
                     </ul>
-                </div>
+                )}
+                {gaps.length > 0 && (
+                    <div className={cn(notes.length > 0 && 'border-t pt-2')}>
+                        <p className="font-medium">{t('gapsTitle')}</p>
+                        <ul className="text-muted-foreground">
+                            {gaps.map(gap => {
+                                const program = programs.get(gap.programId);
+                                const reasons = [
+                                    gap.specimens &&
+                                        specimenReason(gap.specimens),
+                                    gap.devices && deviceReason(gap.devices),
+                                ].filter(Boolean);
+                                return (
+                                    <li key={gap.programId}>
+                                        <span className="text-foreground">
+                                            {program
+                                                ? programTitle(program)
+                                                : gap.programId}
+                                        </span>
+                                        {': '}
+                                        {reasons.join(' · ')}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
                 {anyFiltered && (
                     <Button
                         variant="outline"

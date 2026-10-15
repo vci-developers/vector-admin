@@ -6,7 +6,6 @@ import type {
 } from '@/api/coverage/validation/coverage-schema';
 import type { Dashboard } from '@/api/dashboard/validation/dashboard-schema';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { useMapFilters } from '@/features/dashboard/hooks/use-map-filters';
 import type { DisplayPeriod } from '@/features/dashboard/hooks/use-period-label';
@@ -16,7 +15,13 @@ import {
     activeDevices,
     filterSessions,
 } from '@/features/dashboard/utils/filter-map-points';
+import { useAreaBoundaries } from '@/features/dashboard/hooks/use-area-boundaries';
 import { areaKey } from '@/features/dashboard/utils/build-area-marks';
+import {
+    areaSessionIds,
+    buildSpecimenShading,
+    type ShadedAreaRef,
+} from '@/features/dashboard/utils/build-specimen-shading';
 import { findMapGaps } from '@/features/dashboard/utils/find-map-gaps';
 import { scopeTitle } from '@/features/dashboard/utils/program-title';
 import { unitSessionIds } from '@/features/dashboard/utils/search-map';
@@ -59,7 +64,7 @@ export default function MapSection({
     const tDevices = useTranslations('Devices');
     const formatter = useFormatter();
     const [{ layers, exclude }] = useDashboardFilters();
-    const { specimenFilter } = useMapFilters();
+    const { filters: mapFilters, specimenFilter } = useMapFilters();
     const [selection, setSelection] = useState<MapSelection>(null);
     const [focus, setFocus] = useState<MapFocus>(null);
     // Closed, the empty-map note shrinks to an info button so it can be reread.
@@ -183,6 +188,29 @@ export default function MapSection({
     // Stakeholders get summaries: no Session's own record, no device lists.
     const isDeveloper = dashboard.viewer === 'developer';
     const fills = showCoverage && coverage?.ok ? coverage.data.fills : [];
+    const countryOf = useMemo(
+        () => new Map(dashboard.programs.map(p => [p.programId, p.country])),
+        [dashboard.programs],
+    );
+    const boundaries = useAreaBoundaries(
+        dashboard.selectedProgramIds.flatMap(id => countryOf.get(id) ?? []),
+    );
+    const shading = useMemo(
+        () =>
+            buildSpecimenShading({
+                areas: dashboard.areas,
+                // Every Session in the period, before the map filters: the
+                // shading agrees with the summary table.
+                sessions: [
+                    ...dashboard.specimenPoints.placed,
+                    ...dashboard.specimenPoints.unplaced,
+                ],
+                sitePaths: dashboard.sitePaths,
+                countryOf,
+                boundariesByCountry: boundaries,
+            }),
+        [dashboard, countryOf, boundaries],
+    );
     const selectedPrograms = dashboard.programs.filter(p =>
         dashboard.selectedProgramIds.includes(p.programId),
     );
@@ -200,6 +228,12 @@ export default function MapSection({
         status: fill.status,
         sessionIds: unitSessionIds(fill, view.sessions.placed),
     }));
+    const selectArea = (area: ShadedAreaRef) =>
+        setSelection({
+            layer: 'specimens',
+            ids: areaSessionIds(area, view.sessions.placed),
+            area,
+        });
     const selectUnit = (unit: SelectedUnit) =>
         setSelection({
             layer: 'specimens',
@@ -221,6 +255,28 @@ export default function MapSection({
             .length,
         unplaced: view.devices.unplaced.length,
     };
+    // Developers only: how the map placed what it shows, behind its "!".
+    const placementNotes = isDeveloper
+        ? [
+              showSpecimens &&
+                  !sitesLoading &&
+                  t('specimenStats', {
+                      gps: n(view.specimens.gps),
+                      site: n(view.specimens.site),
+                      unplaced: n(view.specimens.unplaced),
+                      unplacedSessions: n(view.specimens.unplacedSessions),
+                  }),
+              showDevices && tDevices('counts', deviceCounts),
+              showCoverage &&
+                  coverage?.ok &&
+                  coverage.data.unmatched.length > 0 &&
+                  t('coverageUnmatched', {
+                      units: coverage.data.unmatched
+                          .map(u => u.unit)
+                          .join(', '),
+                  }),
+          ].filter(note => typeof note === 'string')
+        : [];
     const locationNotes = new Map(
         view.devices.unplaced.map(d => [
             d.deviceId,
@@ -229,65 +285,26 @@ export default function MapSection({
     );
 
     return (
-        // Stakeholders get no heading or placement notes: the summary right
-        // above already names the period.
+        // No heading: the summary right above already names the period.
+        // Developers read the placement notes behind the map's "!".
         <section
-            aria-labelledby={isDeveloper ? 'map-heading' : undefined}
-            aria-label={isDeveloper ? undefined : t('label')}
-            className={cn('flex flex-col gap-4', !isDeveloper && 'lg:flex-1')}
+            aria-label={t('label')}
+            className={cn(
+                'flex flex-col gap-(--d-grid)',
+                !isDeveloper && 'lg:flex-1',
+            )}
         >
-            {(isDeveloper || coverageFailed) && (
-                <div>
-                    {isDeveloper && (
-                        <h2 id="map-heading" className="text-lg font-semibold">
-                            {t('heading', { period: period.label })}
-                        </h2>
-                    )}
-                    {isDeveloper && showSpecimens && sitesLoading && (
-                        <Skeleton height="sm" width="xl" className="my-1" />
-                    )}
-                    {isDeveloper && showSpecimens && !sitesLoading && (
-                        <p className="text-muted-foreground text-sm">
-                            {t('specimenStats', {
-                                gps: n(view.specimens.gps),
-                                site: n(view.specimens.site),
-                                unplaced: n(view.specimens.unplaced),
-                                unplacedSessions: n(
-                                    view.specimens.unplacedSessions,
-                                ),
-                            })}
-                        </p>
-                    )}
-                    {showDevices && isDeveloper && (
-                        <p className="text-muted-foreground text-sm">
-                            {tDevices('counts', deviceCounts)}
-                        </p>
-                    )}
-                    {isDeveloper &&
-                        showCoverage &&
-                        coverage?.ok &&
-                        coverage.data.unmatched.length > 0 && (
-                            <p className="text-muted-foreground text-sm">
-                                {t('coverageUnmatched', {
-                                    units: coverage.data.unmatched
-                                        .map(u => u.unit)
-                                        .join(', '),
-                                })}
-                            </p>
-                        )}
-                    {coverageFailed && (
-                        <p className="text-destructive text-sm">
-                            {t('coverageUnavailable')}
-                        </p>
-                    )}
-                </div>
+            {coverageFailed && (
+                <p className="text-destructive text-sm">
+                    {t('coverageUnavailable')}
+                </p>
             )}
 
             {/* Stakeholders: the row fills the rest of the window, never
                 under 24rem; Developers keep a fixed height above their lists. */}
             <div
                 className={cn(
-                    'grid gap-4 lg:grid-cols-4',
+                    'grid gap-(--d-grid) lg:grid-cols-4',
                     !isDeveloper &&
                         'lg:flex-1 lg:grid-rows-[minmax(24rem,1fr)]',
                 )}
@@ -301,6 +318,7 @@ export default function MapSection({
                 >
                     <SurveillanceMap
                         layers={layers}
+                        specimenShading={shading}
                         coverageFills={fills}
                         outlines={outlines}
                         specimenPoints={view.sessions.placed}
@@ -312,6 +330,7 @@ export default function MapSection({
                         selection={selection}
                         onSelect={setSelection}
                         onSelectUnit={selectUnit}
+                        onSelectArea={selectArea}
                         focus={focus}
                         showSessions={isDeveloper}
                         // Stakeholders see specimens per Area, not per Session.
@@ -364,12 +383,18 @@ export default function MapSection({
                         <div className="flex items-center gap-2">
                             <MapGaps
                                 gaps={view.gaps}
+                                notes={placementNotes}
                                 programs={view.programs}
                                 periodLabel={period.label}
                                 onChange={() => setSelection(null)}
                             />
                             <MapFilters
                                 facets={view.facets}
+                                unplacedDevices={
+                                    isDeveloper
+                                        ? view.devices.unplaced.length
+                                        : undefined
+                                }
                                 onChange={() => setSelection(null)}
                             />
                         </div>
@@ -397,11 +422,15 @@ export default function MapSection({
                             </button>
                         )}
                     </div>
-                    <MapLegend layers={layers} byArea={!isDeveloper} />
+                    <MapLegend
+                        layers={layers}
+                        byArea={!isDeveloper}
+                        shading={isDeveloper}
+                    />
                 </Card>
                 <Card
                     className={cn(
-                        'max-h-[34rem] gap-0 py-4 lg:h-[34rem]',
+                        'max-h-[34rem] gap-0 lg:h-[34rem]',
                         !isDeveloper &&
                             'lg:relative lg:h-auto lg:max-h-none lg:py-0',
                     )}
@@ -440,28 +469,17 @@ export default function MapSection({
                 </Card>
             </div>
 
-            {showDevices && isDeveloper && (
-                <div className="flex flex-col gap-4">
-                    {[
-                        { key: 'unplaced', devices: view.devices.unplaced },
-                        { key: 'neverUsed', devices: view.neverUsed },
-                    ].map(({ key, devices }) => (
-                        <DeviceListCard
-                            key={key}
-                            heading={tDevices(`${key}.heading`, {
-                                count: devices.length,
-                            })}
-                            description={tDevices(`${key}.description`)}
-                            emptyMessage={tDevices(`${key}.empty`)}
-                            devices={devices}
-                            programs={view.programs}
-                            locationNotes={
-                                key === 'unplaced' ? locationNotes : undefined
-                            }
-                            collapsible={key === 'neverUsed'}
-                        />
-                    ))}
-                </div>
+            {showDevices && isDeveloper && mapFilters.unplacedList && (
+                <DeviceListCard
+                    heading={tDevices('unplaced.heading', {
+                        count: view.devices.unplaced.length,
+                    })}
+                    description={tDevices('unplaced.description')}
+                    emptyMessage={tDevices('unplaced.empty')}
+                    devices={view.devices.unplaced}
+                    programs={view.programs}
+                    locationNotes={locationNotes}
+                />
             )}
         </section>
     );

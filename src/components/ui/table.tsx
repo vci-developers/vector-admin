@@ -21,7 +21,7 @@ function Table({
                 className={cn(
                     // Room for overlay scrollbars, which draw over content. A
                     // margin, not container padding, so sticky footers stay flush.
-                    'mb-2 w-full caption-bottom text-sm [&_tr>:first-child]:pl-3 [&_tr>:last-child]:pr-4',
+                    'mb-2 w-full caption-bottom text-sm [&_tr>:first-child]:pl-(--d-pad-x) [&_tr>:last-child]:pr-(--d-pad-x)',
                     className,
                 )}
                 {...props}
@@ -34,7 +34,10 @@ function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
     return (
         <thead
             data-slot="table-header"
-            className={cn('[&_tr]:border-b', className)}
+            className={cn(
+                '[&_tr]:border-b [&_tr]:hover:bg-transparent',
+                className,
+            )}
             {...props}
         />
     );
@@ -57,7 +60,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
             className={cn(
                 // Extra bottom room: a sticky footer sits under the overlay
                 // horizontal scrollbar while the table scrolls sideways.
-                'bg-muted/50 border-t font-medium [&_td]:pb-4 [&>tr]:last:border-b-0',
+                'border-t font-semibold text-(color:--ink) [&_td]:pb-4 [&>tr]:last:border-b-0',
                 className,
             )}
             {...props}
@@ -83,7 +86,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
         <th
             data-slot="table-head"
             className={cn(
-                'text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0',
+                'text-muted-foreground h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0',
                 className,
             )}
             {...props}

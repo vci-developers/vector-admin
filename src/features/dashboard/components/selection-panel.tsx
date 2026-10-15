@@ -30,6 +30,7 @@ import LocationPath from './location-path';
 import PanelTileFigures from './panel-tile-figures';
 import type { SummarySession } from './specimen-summary';
 import type { MapSelection } from './surveillance-map';
+import { PANEL_ACTION, SEGMENT, SEGMENTED } from './panel-header';
 
 type PanelSession = SummarySession & {
     collectedAt: number;
@@ -160,17 +161,21 @@ export default function SelectionPanel({
     );
 
     const unit = selection?.unit;
+    const area = selection?.area;
     const title = !selection
         ? scope.title
         : unit
           ? unit.unit
-          : selection.layer === 'specimens'
-            ? t('selectedSessions', { count: selection.ids.length })
-            : t('selectedDevices', { count: selection.ids.length });
-    // A unit names its Program even when nothing was collected there.
+          : area
+            ? area.name
+            : selection.layer === 'specimens'
+              ? t('selectedSessions', { count: selection.ids.length })
+              : t('selectedDevices', { count: selection.ids.length });
+    // A unit or area names its Program even when nothing was collected there.
+    const named = unit ?? area;
     const programLine = scope.single
         ? ''
-        : (unit ? [unit.programId] : selected.programIds)
+        : (named ? [named.programId] : selected.programIds)
               .map(id => programs.get(id))
               .filter((p): p is Program => Boolean(p))
               .map(programTitle)
@@ -178,7 +183,10 @@ export default function SelectionPanel({
 
     if (loading) {
         return (
-            <div aria-busy="true" className="flex flex-col gap-3 px-4">
+            <div
+                aria-busy="true"
+                className="flex flex-col gap-3 px-(--d-pad-x)"
+            >
                 <p role="status" className="sr-only">
                     {t('panelLoading')}
                 </p>
@@ -193,10 +201,25 @@ export default function SelectionPanel({
     }
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4">
-            <div className="flex items-start justify-between gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-(--d-pad-x)">
+            <div className="-mx-(--d-pad-x) flex items-start justify-between gap-2 border-b border-(color:--line) px-(--d-pad-x) pb-3">
                 <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">{title}</h3>
+                    {/* Back to the whole scope: its own line, so a long
+                        scope never squeezes the title. */}
+                    {selection && (
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            className="text-muted-foreground -ml-2 max-w-full"
+                            onClick={onClear}
+                        >
+                            <ArrowLeft />
+                            <span className="truncate">{scope.title}</span>
+                        </Button>
+                    )}
+                    <h3 className="text-xl leading-tight font-semibold tracking-[-0.035em] text-(color:--ink)">
+                        {title}
+                    </h3>
                     {unit && (
                         <p className="text-xs">
                             {t('unitSummary', {
@@ -245,23 +268,13 @@ export default function SelectionPanel({
                         </p>
                     )}
                 </div>
-                {selection && (
-                    <Button
-                        variant="ghost"
-                        size="xs"
-                        className="shrink-0"
-                        onClick={onClear}
-                    >
-                        <ArrowLeft />
-                        {scope.title}
-                    </Button>
-                )}
             </div>
 
             <ToggleGroup
                 type="single"
-                variant="outline"
                 size="sm"
+                spacing={1}
+                className={SEGMENTED}
                 value={dimension}
                 onValueChange={value => {
                     if (value) setDimension(value as TimelineDimension);
@@ -269,7 +282,7 @@ export default function SelectionPanel({
                 aria-label={t('chartStackBy')}
             >
                 {DIMENSIONS.map(d => (
-                    <ToggleGroupItem key={d} value={d} className="px-3 text-xs">
+                    <ToggleGroupItem key={d} value={d} className={SEGMENT}>
                         {t(`chartDimension.${d}`)}
                     </ToggleGroupItem>
                 ))}
@@ -293,8 +306,9 @@ export default function SelectionPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <ToggleGroup
                     type="single"
-                    variant="outline"
                     size="sm"
+                    spacing={1}
+                    className={SEGMENTED}
                     value={view}
                     onValueChange={value => {
                         if (value) setView(value as ChartView);
@@ -302,18 +316,14 @@ export default function SelectionPanel({
                     aria-label={t('chartView')}
                 >
                     {CHART_VIEWS.map(v => (
-                        <ToggleGroupItem
-                            key={v}
-                            value={v}
-                            className="px-3 text-xs"
-                        >
+                        <ToggleGroupItem key={v} value={v} className={SEGMENT}>
                             {t(`chartViews.${v}`)}
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>
                 <Button
                     variant="outline"
-                    size="xs"
+                    className={PANEL_ACTION}
                     disabled={timeline.total === 0}
                     onClick={() => setDaily(true)}
                 >

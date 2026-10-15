@@ -133,8 +133,6 @@ export const dashboardSchema = z.object({
         ),
         /** For Stakeholders, users and logins are always null. */
         total: periodMetricsSchema.nullable(),
-        /** Always null for Stakeholders. */
-        previousTotal: periodMetricsSchema.nullable(),
     }),
     /** Device Status over the period. */
     devices: z.array(deviceRowSchema),

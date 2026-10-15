@@ -96,7 +96,7 @@ export default function DailyChartSheet({
                         ))}
                     </ToggleGroup>
                     {timeline && timeline.total > 0 ? (
-                        <SelectionChart timeline={timeline} view="bar" tall />
+                        <SelectionChart timeline={timeline} view="bar" scroll />
                     ) : (
                         <p className="text-muted-foreground text-xs">
                             {t('chartEmpty')}

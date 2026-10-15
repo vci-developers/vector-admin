@@ -32,6 +32,18 @@ export type MetricCalculation = {
     denominator: CalculationTerm[];
 };
 
+/** A ratio's counts, each side summed: shown under a percentage. */
+export type RatioCounts = { numerator: number; denominator: number };
+
+export function ratioCounts({
+    numerator,
+    denominator,
+}: MetricCalculation): RatioCounts {
+    const sum = (terms: CalculationTerm[]) =>
+        terms.reduce((total, term) => total + term.value, 0);
+    return { numerator: sum(numerator), denominator: sum(denominator) };
+}
+
 export type MetricDefinition = {
     key: MetricKey;
     format: MetricFormat;

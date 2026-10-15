@@ -11,6 +11,8 @@ import {
 import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-filters';
 import { ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useId } from 'react';
+import styles from './internal-toolbar.module.css';
 
 const SESSION_TYPES = sessionTypeSchema.options;
 
@@ -19,6 +21,8 @@ export default function SessionFilter() {
     const t = useTranslations('Filters');
     const tTypes = useTranslations('SessionTypes');
     const [{ types, testSites }, setFilters] = useDashboardFilters();
+    const labelId = useId();
+    const valueId = useId();
 
     function toggle(type: (typeof SESSION_TYPES)[number]) {
         setFilters({
@@ -31,65 +35,89 @@ export default function SessionFilter() {
     }
 
     return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                    {types.length === 1
-                        ? tTypes(types[0])
-                        : t('sessionTypesSummary', { count: types.length })}
-                    {testSites && ` · ${t('withTestSite')}`}
-                    <ChevronDown />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-2">
-                <span
-                    id="session-filter-legend"
-                    className="text-muted-foreground block pb-1 pl-2 text-xs font-medium"
-                >
-                    {t('sessionTypes')}
-                </span>
-                <div
-                    role="group"
-                    aria-labelledby="session-filter-legend"
-                    className="flex flex-col"
-                >
-                    {SESSION_TYPES.map(type => (
-                        <label
-                            key={type}
-                            className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors select-none"
-                        >
-                            <Checkbox
-                                checked={types.includes(type)}
-                                onCheckedChange={() => toggle(type)}
-                            />
-                            {tTypes(type)}
-                        </label>
-                    ))}
-                </div>
-                <label className="hover:bg-muted mt-1 flex cursor-pointer items-start gap-2 rounded-md border-t px-2 py-1.5 pt-2 text-sm transition-colors select-none">
-                    <Checkbox
-                        className="mt-0.5"
-                        checked={testSites}
-                        onCheckedChange={checked =>
-                            setFilters({ testSites: checked === true })
-                        }
-                    />
-                    <span className="flex flex-col">
-                        {t('includeTestSite')}
-                        <span className="text-muted-foreground text-xs">
-                            {t('testSiteHint')}
+        <div className={styles.field}>
+            <span id={labelId} className={styles.label}>
+                {t('sessionTypes')}
+            </span>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <button
+                        type="button"
+                        aria-labelledby={`${labelId} ${valueId}`}
+                        className={styles.trigger}
+                    >
+                        <span id={valueId} className={styles.triggerValue}>
+                            <span className={styles.triggerTitle}>
+                                {types.length === 1
+                                    ? tTypes(types[0])
+                                    : t('sessionTypesSummary', {
+                                          count: types.length,
+                                      })}
+                            </span>
+                            <span className={styles.triggerSubtitle}>
+                                {testSites
+                                    ? t('testSiteIncluded')
+                                    : t('testSiteExcluded')}
+                            </span>
                         </span>
+                        <ChevronDown
+                            className="text-muted-foreground size-4 shrink-0"
+                            aria-hidden="true"
+                        />
+                    </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 p-2">
+                    <span
+                        id="session-filter-legend"
+                        className="text-muted-foreground block pb-1 pl-2 text-xs font-medium"
+                    >
+                        {t('sessionTypes')}
                     </span>
-                </label>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-1 w-full"
-                    onClick={() => setFilters({ types: null, testSites: null })}
-                >
-                    {t('resetSessions')}
-                </Button>
-            </PopoverContent>
-        </Popover>
+                    <div
+                        role="group"
+                        aria-labelledby="session-filter-legend"
+                        className="flex flex-col"
+                    >
+                        {SESSION_TYPES.map(type => (
+                            <label
+                                key={type}
+                                className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors select-none"
+                            >
+                                <Checkbox
+                                    checked={types.includes(type)}
+                                    onCheckedChange={() => toggle(type)}
+                                />
+                                {tTypes(type)}
+                            </label>
+                        ))}
+                    </div>
+                    <label className="hover:bg-muted mt-1 flex cursor-pointer items-start gap-2 rounded-md border-t px-2 py-1.5 pt-2 text-sm transition-colors select-none">
+                        <Checkbox
+                            className="mt-0.5"
+                            checked={testSites}
+                            onCheckedChange={checked =>
+                                setFilters({ testSites: checked === true })
+                            }
+                        />
+                        <span className="flex flex-col">
+                            {t('includeTestSite')}
+                            <span className="text-muted-foreground text-xs">
+                                {t('testSiteHint')}
+                            </span>
+                        </span>
+                    </label>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1 w-full"
+                        onClick={() =>
+                            setFilters({ types: null, testSites: null })
+                        }
+                    >
+                        {t('resetSessions')}
+                    </Button>
+                </PopoverContent>
+            </Popover>
+        </div>
     );
 }

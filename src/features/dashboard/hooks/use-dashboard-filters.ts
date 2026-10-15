@@ -3,7 +3,10 @@ import {
     ViewContext,
 } from '@/features/dashboard/components/dashboard-provider';
 import { RANGE_PRESETS } from '@/features/dashboard/utils/resolve-reporting-range';
-import { MAP_LAYERS } from '@/features/dashboard/components/map-constants';
+import {
+    DEFAULT_MAP_LAYERS,
+    MAP_LAYERS,
+} from '@/features/dashboard/components/map-constants';
 import { sessionTypeSchema } from '@/api/session/validation/session-schema';
 import {
     parseAsArrayOf,
@@ -28,9 +31,9 @@ const dashboardFilterParsers = {
     testSites: parseAsBoolean.withDefault(false),
     // Program whose Session panel is open
     sessions: parseAsInteger,
-    layers: parseAsArrayOf(parseAsStringLiteral(MAP_LAYERS)).withDefault([
-        ...MAP_LAYERS,
-    ]),
+    layers: parseAsArrayOf(parseAsStringLiteral(MAP_LAYERS)).withDefault(
+        DEFAULT_MAP_LAYERS,
+    ),
 };
 
 /**

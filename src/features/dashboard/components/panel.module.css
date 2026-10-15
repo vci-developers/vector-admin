@@ -1,0 +1,69 @@
+/* Internal panels, after the Stakeholder page's (progress-view.module.css):
+   a header with an icon chip, title and description over a hairline, then
+   content running edge to edge. */
+
+.panel {
+    gap: 0;
+    overflow: hidden;
+    padding-block: 0;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px 16px;
+    padding: calc(var(--d-pad-y) + 4px) var(--d-pad-x);
+    border-bottom: 1px solid var(--line);
+}
+
+.heading {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.chip {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--muted);
+    color: var(--primary);
+}
+
+.title {
+    color: var(--ink);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.035em;
+}
+
+.description {
+    margin-top: 2px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+:global([data-density='compact']) .chip {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+}
+:global([data-density='compact']) .title {
+    font-size: 17px;
+}

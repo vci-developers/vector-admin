@@ -3,6 +3,7 @@ import { cn } from '@/utils/cn';
 import { SUMMARY_CELL, SUMMARY_ROW } from './kpi-tiles';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ReactNode } from 'react';
+import toolbar from './internal-toolbar.module.css';
 
 /** Shaped like a loaded summary tile: title above, figure below. */
 export function TileSkeleton({ asCell = false }: { asCell?: boolean }) {
@@ -12,7 +13,7 @@ export function TileSkeleton({ asCell = false }: { asCell?: boolean }) {
                 asCell
                     ? // As tall as a loaded tile with a two-line title.
                       cn(SUMMARY_CELL, 'min-h-28')
-                    : 'gap-2 px-4 py-3'
+                    : 'gap-2 px-(--d-pad-x)'
             }
         >
             <Skeleton height="xs" className="w-3/4" />
@@ -29,12 +30,15 @@ export function TileSkeleton({ asCell = false }: { asCell?: boolean }) {
  */
 export default function DashboardSkeleton({
     message,
+    heading,
     map,
     coverageCards,
     activityCards,
     coverageCardsFirst,
 }: {
     message: string;
+    /** The internal page's heading, beside its filter card. */
+    heading?: ReactNode;
     map?: ReactNode;
     coverageCards?: ReactNode;
     /** Placeholders for the 8 activity cards: only for viewers who get them. */
@@ -50,29 +54,48 @@ export default function DashboardSkeleton({
         <div
             className={cn(
                 'flex flex-col',
-                coverageCardsFirst ? 'gap-4 lg:flex-1' : 'gap-8',
+                coverageCardsFirst ? 'gap-4 lg:flex-1' : 'gap-(--d-section)',
             )}
             aria-busy="true"
         >
             <p role="status" className="sr-only">
                 {message}
             </p>
-            {/* Same box as the real toolbar. Stakeholders: the summary
-                heading, then Program, Session and period filters on the
-                right; others: the filters on the left. */}
-            <div
-                className={cn(
-                    '-mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-3 sm:-mx-6 sm:px-6',
-                    coverageCardsFirst && 'justify-between',
-                )}
-            >
-                {coverageCardsFirst && <Skeleton height="md" width="xl" />}
-                <div className="flex items-center gap-2">
-                    <Skeleton height="lg" width="md" rounded="md" />
-                    <Skeleton height="lg" width="sm" rounded="md" />
-                    <Skeleton height="lg" width="lg" rounded="md" />
+            {heading ? (
+                // Same shapes as the internal toolbar: heading, then the
+                // Program, Session and period fields in one card.
+                <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+                    {heading}
+                    <div className={toolbar.filters}>
+                        {Array.from({ length: 3 }, (_, index) => (
+                            <div key={index} className={toolbar.field}>
+                                <Skeleton height="xs" width="sm" />
+                                <Skeleton
+                                    className="h-(--d-control)"
+                                    width="full"
+                                    rounded="md"
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                // Same box as the Stakeholder preview's toolbar: the summary
+                // heading, then Program, Session and period filters.
+                <div
+                    className={cn(
+                        '-mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-3 sm:-mx-6 sm:px-6',
+                        coverageCardsFirst && 'justify-between',
+                    )}
+                >
+                    {coverageCardsFirst && <Skeleton height="md" width="xl" />}
+                    <div className="flex items-center gap-2">
+                        <Skeleton height="lg" width="md" rounded="md" />
+                        <Skeleton height="lg" width="sm" rounded="md" />
+                        <Skeleton height="lg" width="lg" rounded="md" />
+                    </div>
+                </div>
+            )}
             {coverageCardsFirst && (
                 // The three headline tiles, the coverage tiles, then the
                 // deployed models; no heading, as on the loaded page.
@@ -95,22 +118,29 @@ export default function DashboardSkeleton({
                     </div>
                 </div>
             )}
+            {activityCards && (
+                // The summary line ("Uganda · October 2026"), then its tiles.
+                <div className="flex flex-col gap-(--d-grid)">
+                    <Skeleton height="md" width="lg" />
+                    <div className="grid grid-cols-2 gap-(--d-grid) md:grid-cols-4">
+                        {Array.from({ length: 8 }, (_, index) => (
+                            <Card key={index} className="gap-2 px-(--d-pad-x)">
+                                <Skeleton height="xs" width="sm" />
+                                <Skeleton height="lg" width="md" />
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
             <div
                 className={cn(
                     'flex flex-col gap-4',
                     coverageCardsFirst && 'lg:flex-1',
                 )}
             >
-                {/* Stakeholders' map has no heading. */}
-                {!coverageCardsFirst && (
-                    <div className="flex flex-col gap-2">
-                        <Skeleton height="md" width="lg" />
-                        <Skeleton height="sm" width="xl" />
-                    </div>
-                )}
                 <div
                     className={cn(
-                        'grid gap-4 lg:grid-cols-4',
+                        'grid gap-(--d-grid) lg:grid-cols-4',
                         coverageCardsFirst &&
                             'lg:flex-1 lg:grid-rows-[minmax(24rem,1fr)]',
                     )}
@@ -131,7 +161,7 @@ export default function DashboardSkeleton({
                     </Card>
                     <Card
                         className={cn(
-                            'gap-3 p-4 lg:h-[34rem]',
+                            'gap-3 px-(--d-pad-x) lg:h-[34rem]',
                             coverageCardsFirst &&
                                 'lg:h-auto lg:min-h-0 lg:overflow-hidden',
                         )}
@@ -154,17 +184,6 @@ export default function DashboardSkeleton({
                     </Card>
                 </div>
             </div>
-            {activityCards && (
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    {Array.from({ length: 8 }, (_, index) => (
-                        <Card key={index} className="gap-2 px-4 py-3">
-                            <Skeleton height="xs" width="sm" />
-                            <Skeleton height="lg" width="md" />
-                        </Card>
-                    ))}
-                </div>
-            )}
-            {!coverageCardsFirst && coverageCards}
         </div>
     );
 }

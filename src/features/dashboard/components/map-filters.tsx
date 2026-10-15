@@ -26,10 +26,12 @@ import { cn } from '@/utils/cn';
 import { ChevronDown, Info, SlidersHorizontal } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
-import { MAP_LAYERS, type MapLayer } from './map-constants';
+import { DEFAULT_MAP_LAYERS, MAP_LAYERS, type MapLayer } from './map-constants';
 
 type MapFiltersProps = {
     facets: SpecimenFacets;
+    /** Devices without a location; offers their list when given. */
+    unplacedDevices?: number;
     /** Called on every change, e.g. to clear the map selection. */
     onChange: () => void;
 };
@@ -175,14 +177,11 @@ function LayerSection({
     const t = useTranslations('MapFilters');
     const [{ layers }, setFilters] = useDashboardFilters();
     const isOn = layers.includes(layer);
-    // At least one layer stays on so the map is never blank.
-    const isLastOn = isOn && layers.length === 1;
     return (
         <section className="border-b pb-2 last:border-b-0">
             <FilterRow
                 label={<span className="font-medium">{t(layer)}</span>}
                 checked={isOn}
-                disabled={isLastOn}
                 onToggle={() => {
                     onChange();
                     void setFilters({
@@ -197,7 +196,11 @@ function LayerSection({
     );
 }
 
-export default function MapFilters({ facets, onChange }: MapFiltersProps) {
+export default function MapFilters({
+    facets,
+    unplacedDevices,
+    onChange,
+}: MapFiltersProps) {
     const t = useTranslations('MapFilters');
     const [{ layers }, setLayers] = useDashboardFilters();
     const { filters, setFilters: setMapFilters } = useMapFilters();
@@ -210,12 +213,13 @@ export default function MapFilters({ facets, onChange }: MapFiltersProps) {
         [...values].sort().join() === [...defaults].sort().join();
     const d = MAP_FILTER_DEFAULTS;
     const changedCount = [
-        layers.length < MAP_LAYERS.length,
+        !sameAs(layers, DEFAULT_MAP_LAYERS),
         !sameAs(filters.hideSpecies, d.hideSpecies),
         filters.nonMosquito !== d.nonMosquito,
         !sameAs(filters.hideSex, d.hideSex),
         !sameAs(filters.hideAbdomen, d.hideAbdomen),
         filters.zeroCatch !== d.zeroCatch,
+        filters.unplacedList !== d.unplacedList,
     ].filter(Boolean).length;
 
     return (
@@ -298,6 +302,18 @@ export default function MapFilters({ facets, onChange }: MapFiltersProps) {
                             <p className="text-muted-foreground py-1 text-xs">
                                 {t('devicesHint')}
                             </p>
+                            {unplacedDevices !== undefined && (
+                                <FilterRow
+                                    label={t('unplacedList')}
+                                    count={unplacedDevices}
+                                    checked={filters.unplacedList}
+                                    onToggle={() =>
+                                        set({
+                                            unplacedList: !filters.unplacedList,
+                                        })
+                                    }
+                                />
+                            )}
                         </LayerSection>
                         <LayerSection layer="coverage" onChange={onChange} />
                     </div>

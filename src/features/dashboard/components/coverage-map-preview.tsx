@@ -41,6 +41,7 @@ export default function CoverageMapPreview({
                 selection={null}
                 onSelect={() => {}}
                 onSelectUnit={() => {}}
+                onSelectArea={() => {}}
                 focus={null}
                 showSessions={false}
                 byArea={false}

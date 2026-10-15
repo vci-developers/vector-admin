@@ -12,20 +12,34 @@ import {
 } from '@/features/dashboard/utils/resolve-reporting-range';
 import type { ViewAs } from '@/lib/auth-session/viewer';
 import { cn } from '@/utils/cn';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import CoverageMapPreview from './coverage-map-preview';
 import CoverageTiles from './coverage-tiles';
 import DashboardSkeleton from './dashboard-skeleton';
-import InProgressInfo from './in-progress-info';
 import MapSection from './map-section';
 import PeriodSummary from './period-summary';
 import ProgramFilter from './program-filter';
 import PeriodPicker from './period-picker';
 import RefreshControl from './refresh-control';
 import SessionFilter from './session-filter';
+import SummaryDetails from './summary-details';
 import UsersSection from './users-section';
+import styles from './internal-toolbar.module.css';
+
+function InternalHeading({ children }: { children?: ReactNode }) {
+    const t = useTranslations('Dashboard');
+    return (
+        <div className="flex shrink-0 flex-col gap-2">
+            <div>
+                <p className={styles.eyebrow}>{t('eyebrow')}</p>
+                <h1 className={styles.heading}>{t('heading')}</h1>
+            </div>
+            {children}
+        </div>
+    );
+}
 
 function currentMonthKey(now: Date) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -38,7 +52,7 @@ export default function DashboardView({
     view: ViewAs;
 }) {
     const t = useTranslations('Dashboard');
-    const tSummary = useTranslations('Summary');
+    const tFilters = useTranslations('Filters');
     const periodLabel = usePeriodLabel();
     const [filters] = useDashboardFilters();
     const { range, currentMonth } = useMemo(() => {
@@ -76,6 +90,7 @@ export default function DashboardView({
         return (
             <DashboardSkeleton
                 message={t('loading')}
+                heading={<InternalHeading />}
                 // A Stakeholder never gets the activity cards.
                 activityCards={view === 'developer'}
                 coverageCardsFirst={view === 'stakeholder'}
@@ -149,43 +164,11 @@ export default function DashboardView({
         <div
             className={cn(
                 'flex flex-col',
-                isDeveloper ? 'gap-8' : 'gap-4 lg:flex-1',
+                isDeveloper ? 'gap-(--d-section)' : 'gap-4 lg:flex-1',
             )}
         >
-            {/* Above the tables' sticky headers (up to z-20), below popovers
-                and the session sheet (z-50). */}
-            <div className="bg-background/95 z-30 -mx-4 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur sm:sticky sm:top-0 sm:-mx-6 sm:px-6">
-                {/* Stakeholders' summary heading lives here, left of the
-                    filters, so the tiles start right below. */}
-                {!isDeveloper && (
-                    <div className="flex items-center gap-2">
-                        <h2
-                            id="summary-heading"
-                            className="text-lg font-semibold"
-                        >
-                            {tSummary('heading', { period: period.label })}
-                        </h2>
-                        {period.inProgress && <InProgressInfo to={period.to} />}
-                    </div>
-                )}
-                <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
-                    <ProgramFilter programs={dashboard.programs} />
-                    <SessionFilter />
-                    <PeriodPicker range={range} currentMonth={currentMonth} />
-                    {isUpdating && (
-                        <span
-                            role="status"
-                            className="text-muted-foreground flex items-center gap-1.5 text-sm"
-                        >
-                            <Loader2
-                                className="size-3.5 animate-spin"
-                                aria-hidden="true"
-                            />
-                            {t('updating')}
-                        </span>
-                    )}
-                </div>
-                {isDeveloper && (
+            <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+                <InternalHeading>
                     <RefreshControl
                         lastUpdatedAt={dashboard.lastUpdatedAt}
                         programIds={dashboard.selectedProgramIds}
@@ -194,14 +177,29 @@ export default function DashboardView({
                             dashboardQuery.isFetching &&
                             !dashboardQuery.isPlaceholderData
                         }
+                        isUpdating={isUpdating}
                     />
-                )}
+                </InternalHeading>
+                <div className={styles.filters}>
+                    <ProgramFilter programs={dashboard.programs} />
+                    <SessionFilter />
+                    <div className={styles.field}>
+                        <span className={styles.label}>
+                            {tFilters('reportingPeriod')}
+                        </span>
+                        <PeriodPicker
+                            range={range}
+                            currentMonth={currentMonth}
+                            className={styles.periodFilter}
+                        />
+                    </div>
+                </div>
             </div>
             <div
                 aria-busy={isUpdating}
                 className={cn(
                     'flex flex-col transition-opacity',
-                    isDeveloper ? 'gap-8' : 'gap-4 lg:flex-1',
+                    isDeveloper ? 'gap-(--d-section)' : 'gap-4 lg:flex-1',
                     isUpdating && 'opacity-50',
                 )}
             >
@@ -223,9 +221,9 @@ export default function DashboardView({
                     </p>
                 ) : (
                     <>
-                        {/* Stakeholders read the summary tiles first; the
-                            map is the drill-down. */}
-                        {!isDeveloper && summary}
+                        {/* The summary tiles come first; the map is the
+                            drill-down. */}
+                        {summary}
                         <MapSection
                             key={`${from}:${to}`}
                             dashboard={dashboard}
@@ -233,7 +231,12 @@ export default function DashboardView({
                             outlines={outlines}
                             period={period}
                         />
-                        {isDeveloper && summary}
+                        {isDeveloper && (
+                            <SummaryDetails
+                                dashboard={dashboard}
+                                period={period}
+                            />
+                        )}
                         {isDeveloper && (
                             <UsersSection
                                 dashboard={dashboard}

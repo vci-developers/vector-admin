@@ -4,9 +4,13 @@ import DashboardLoading from '@/features/dashboard/components/dashboard-loading'
 import DashboardProvider from '@/features/dashboard/components/dashboard-provider';
 import DashboardView from '@/features/dashboard/components/dashboard-view';
 import ProgressLoading from '@/features/dashboard/components/progress-loading';
+import {
+    DENSITY_COOKIE,
+    parseDensity,
+} from '@/features/dashboard/utils/density';
 import { getViewAs } from '@/lib/auth-session/with-viewer';
 import { cn } from '@/utils/cn';
-import { getTranslations } from 'next-intl/server';
+import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 
 export default function DashboardPage() {
@@ -18,24 +22,25 @@ export default function DashboardPage() {
 }
 
 async function AuthenticatedDashboard() {
-    const t = await getTranslations('Dashboard');
-    const [viewAs, selection] = await Promise.all([
+    const [viewAs, selection, cookieStore] = await Promise.all([
         // null for anyone but a Developer: only they can preview.
         getViewAs(),
         getDashboardProgramSelection(),
+        cookies(),
     ]);
+    const density = parseDensity(cookieStore.get(DENSITY_COOKIE)?.value);
     return (
         <div className="flex min-h-dvh flex-col">
-            <AppHeader viewAs={viewAs} />
+            <AppHeader viewAs={viewAs} density={density} />
             <main
+                // Only the internal page has a density setting.
+                data-density={viewAs === 'developer' ? density : undefined}
                 className={cn(
                     'flex w-full flex-1 flex-col px-4 pb-8 sm:px-6 lg:px-10',
-                    viewAs === 'developer' && 'mx-auto max-w-[1600px]',
+                    viewAs === 'developer' &&
+                        'mx-auto max-w-[1600px] pt-(--d-top)',
                 )}
             >
-                {viewAs === 'developer' && (
-                    <h1 className="sr-only">{t('heading')}</h1>
-                )}
                 <Suspense fallback={<ProgressLoading />}>
                     {/* Anyone who isn't a Developer is a Stakeholder here;
                         the data routes forbid everyone else. */}

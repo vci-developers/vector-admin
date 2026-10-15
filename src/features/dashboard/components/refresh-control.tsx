@@ -10,12 +10,15 @@ type RefreshControlProps = {
     lastUpdatedAt: number | null;
     programIds: number[];
     isRefetching: boolean;
+    /** A filter change is loading: the button says so instead of Refresh. */
+    isUpdating: boolean;
 };
 
 export default function RefreshControl({
     lastUpdatedAt,
     programIds,
     isRefetching,
+    isUpdating,
 }: RefreshControlProps) {
     const t = useTranslations('Refresh');
     const formatter = useFormatter();
@@ -48,10 +51,18 @@ export default function RefreshControl({
                 variant="outline"
                 size="sm"
                 onClick={() => refresh.mutate(programIds)}
-                disabled={isBusy || programIds.length === 0}
+                disabled={isBusy || isUpdating || programIds.length === 0}
             >
-                <RefreshCw className={cn(isBusy && 'animate-spin')} />
-                {isBusy ? t('refreshing') : t('refresh')}
+                <RefreshCw
+                    className={cn((isBusy || isUpdating) && 'animate-spin')}
+                />
+                <span role="status">
+                    {isBusy
+                        ? t('refreshing')
+                        : isUpdating
+                          ? t('updating')
+                          : t('refresh')}
+                </span>
             </Button>
         </div>
     );

@@ -30,7 +30,7 @@ const isUserMetric = (
 ): metric is (typeof USER_METRICS)[number] =>
     (USER_METRICS as readonly string[]).includes(metric);
 
-const TILE_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-4';
+const TILE_GRID = 'grid grid-cols-2 gap-(--d-grid) md:grid-cols-4';
 
 function ProgramLines({
     lines,
@@ -57,7 +57,7 @@ function ProgramLines({
                     asCell && 'self-end',
                 )}
             >
-                <span className="text-2xl font-semibold">
+                <span className="text-2xl font-semibold tracking-[-0.035em] text-(color:--ink)">
                     <MetricValue
                         value={ratio?.value ?? null}
                         format="percent"
@@ -186,7 +186,7 @@ export default function CoverageTiles({
                         <Card
                             key={metric}
                             className={
-                                asCells ? SUMMARY_CELL : 'gap-1 px-4 py-3'
+                                asCells ? SUMMARY_CELL : 'gap-1 px-(--d-pad-x)'
                             }
                         >
                             <p

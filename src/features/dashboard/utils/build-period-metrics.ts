@@ -14,13 +14,7 @@ import {
     type RequiredField,
 } from './check-record-fields';
 import { sessionBucketTime } from './counted-sessions';
-import {
-    addMonths,
-    monthKeyOf,
-    monthsInRange,
-    programTimeZone,
-    type MonthKey,
-} from './month-key';
+import { monthKeyOf, programTimeZone, type MonthKey } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
 
 export type PeriodCounts = {
@@ -72,8 +66,6 @@ export type DashboardMetrics = {
     to: MonthKey;
     programs: ProgramPeriodMetrics[];
     total: PeriodMetrics;
-    /** The same-length period just before; null for All time. */
-    previousTotal: PeriodMetrics | null;
 };
 
 export type ProgramData = { program: Program; snapshot: ProgramSnapshot };
@@ -313,20 +305,9 @@ export function buildPeriodMetrics(
         cycles: overlappingCycles(programData.snapshot, period),
     }));
 
-    const length = monthsInRange(period.from, period.to).length;
-    const previous = range.from
-        ? {
-              from: addMonths(period.from, -length),
-              to: addMonths(period.from, -1),
-          }
-        : null;
-
     return {
         ...period,
         programs: programMetrics,
         total: withRatios(totalFor(programs, period), loginsTracked(period)),
-        previousTotal: previous
-            ? withRatios(totalFor(programs, previous), loginsTracked(previous))
-            : null,
     };
 }

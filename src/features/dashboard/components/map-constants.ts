@@ -2,6 +2,9 @@
 // the server render.
 export const MAP_LAYERS = ['specimens', 'devices', 'coverage'] as const;
 export type MapLayer = (typeof MAP_LAYERS)[number];
+// Every layer is asked for: by default the map is the specimen shading alone,
+// which is always there.
+export const DEFAULT_MAP_LAYERS: MapLayer[] = [];
 /** The layers drawn as clickable points; Coverage is fills only. */
 export type PointLayer = Exclude<MapLayer, 'coverage'>;
 
@@ -13,7 +16,8 @@ export const ZERO_CATCH_COLOR = '#b91c1c';
 // Coverage Status: three distinct hues the points don't use (specimens are
 // red, devices green), so a fill never reads as catch size or device status.
 export const COVERAGE_STYLES = {
-    Active: { color: '#2563eb', fillOpacity: 0.3, weight: 2 },
+    // The Stakeholder map's green for areas reporting.
+    Active: { color: '#168367', fillOpacity: 0.3, weight: 2 },
     Targeted: {
         color: '#d97706',
         fillOpacity: 0.25,

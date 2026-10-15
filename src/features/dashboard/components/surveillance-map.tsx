@@ -56,6 +56,12 @@ import {
 import LocationPath from './location-path';
 import { DeviceDetails, SessionDetails } from './map-point-details';
 import SpecimenSummary, { type SummarySession } from './specimen-summary';
+import styles from './surveillance-map.module.css';
+import type {
+    ShadedAreaRef,
+    SpecimenShade,
+} from '@/features/dashboard/utils/build-specimen-shading';
+import { PROGRESS_SCAN_FILL_OPACITY } from '@/features/dashboard/utils/progress-map-colors';
 
 /** A Coverage Unit picked on the map or in search, with its status. */
 export type SelectedUnit = CoverageUnitRef & { status: CoverageStatus };
@@ -65,6 +71,8 @@ export type MapSelection = {
     layer: PointLayer;
     ids: number[];
     unit?: SelectedUnit;
+    /** A shaded area, clicked: the Sessions inside it. */
+    area?: ShadedAreaRef;
 } | null;
 /** Points to zoom to; a new `seq` zooms again, even to the same points. */
 export type MapFocus = {
@@ -77,6 +85,8 @@ export type MapFocus = {
 
 type SurveillanceMapProps = {
     layers: MapLayer[];
+    /** Areas shaded green by specimens, whatever layers are on. */
+    specimenShading?: SpecimenShade[];
     coverageFills: CoverageFillDto[];
     /** The selected Programs' countries, outlined whatever layers are on. */
     outlines: CountryOutlineDto[];
@@ -92,6 +102,7 @@ type SurveillanceMapProps = {
     selection: MapSelection;
     onSelect: (selection: MapSelection) => void;
     onSelectUnit: (unit: SelectedUnit) => void;
+    onSelectArea: (area: ShadedAreaRef) => void;
     focus: MapFocus;
     /** false for Stakeholders: summaries only, no Session's own details. */
     showSessions: boolean;
@@ -219,6 +230,21 @@ function areaIcon(
     });
 }
 const compact = new Intl.NumberFormat('en', { notation: 'compact' });
+
+/** Each area's bounding-box corners, as [lat, lon]. */
+function cornersOf(
+    geometries: { coordinates: number[][][][] }[],
+): [number, number][] {
+    return geometries.flatMap(geometry => {
+        const positions = geometry.coordinates.flat(2);
+        const lats = positions.map(([, lat]) => lat);
+        const lons = positions.map(([lon]) => lon);
+        return [
+            [Math.min(...lats), Math.min(...lons)],
+            [Math.max(...lats), Math.max(...lons)],
+        ] as [number, number][];
+    });
+}
 
 function FitToPoints({
     points,
@@ -639,7 +665,7 @@ const unitLabel = (name: string, drop: number) =>
     L.divIcon({
         className: '',
         iconSize: [0, 0],
-        html: `<span style="position:absolute;top:${drop}px;transform:translate(-50%,-50%);white-space:nowrap;font:600 12px/1 var(--font-geist-sans),sans-serif;color:#0f172a;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff">${escapeHtml(name)}</span>`,
+        html: `<span style="position:absolute;top:${drop}px;transform:translate(-50%,-50%);white-space:nowrap;font:600 12px/1 var(--font-geist-sans),sans-serif;color:var(--map-label);text-shadow:0 0 3px var(--map-halo),0 0 3px var(--map-halo),0 0 2px var(--map-halo)">${escapeHtml(name)}</span>`,
     });
 
 /**
@@ -786,6 +812,7 @@ function CoverageFills({
 
 export default function SurveillanceMap({
     layers,
+    specimenShading = [],
     coverageFills,
     outlines,
     specimenPoints,
@@ -797,6 +824,7 @@ export default function SurveillanceMap({
     selection,
     onSelect,
     onSelectUnit,
+    onSelectArea,
     focus,
     showSessions,
     byArea,
@@ -983,22 +1011,19 @@ export default function SurveillanceMap({
         );
     }
 
-    // Fill corners count towards the fit, so a coverage-only map still zooms in.
+    // Area corners count towards the fit, so a map of shading or coverage
+    // alone still zooms in.
     const coverageCorners = useMemo(
-        () =>
-            coverageFills.flatMap(fill => {
-                const positions = fill.geometry.coordinates.flat(2);
-                const lats = positions.map(([, lat]) => lat);
-                const lons = positions.map(([lon]) => lon);
-                return [
-                    [Math.min(...lats), Math.min(...lons)],
-                    [Math.max(...lats), Math.max(...lons)],
-                ] as [number, number][];
-            }),
+        () => cornersOf(coverageFills.map(fill => fill.geometry)),
         [coverageFills],
+    );
+    const shadingCorners = useMemo(
+        () => cornersOf(specimenShading.map(shade => shade.geometry)),
+        [specimenShading],
     );
 
     const fitPoints: [number, number][] = [
+        ...shadingCorners,
         ...(showCoverage ? coverageCorners : []),
         ...(showSpecimens
             ? specimenPoints.map(
@@ -1028,13 +1053,53 @@ export default function SurveillanceMap({
             center={[0, 20]}
             zoom={2}
             scrollWheelZoom
-            className="h-full w-full"
+            className={styles.canvas}
         >
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <CountryFocus outlines={outlines} />
+            {/* Under coverage and the marks, which take their own clicks. */}
+            <Pane name="shading" style={{ zIndex: 350 }}>
+                {specimenShading.map(shade => {
+                    const isSelected =
+                        selection?.area?.programId === shade.programId &&
+                        selection.area.name === shade.name;
+                    const base = isSelected
+                        ? { color: '#075341', weight: 3 }
+                        : { color: '#fff', weight: 1 };
+                    return (
+                        <GeoJSON
+                            key={`${shade.key}:${shade.fillColor}:${isSelected}`}
+                            data={shade.geometry}
+                            // A click selects the area; it must not reach the
+                            // map, which clears the selection.
+                            bubblingMouseEvents={false}
+                            style={{
+                                ...base,
+                                fillColor: shade.fillColor,
+                                fillOpacity: PROGRESS_SCAN_FILL_OPACITY,
+                            }}
+                            eventHandlers={{
+                                mouseover: event =>
+                                    (event.target as L.GeoJSON).setStyle({
+                                        color: '#075341',
+                                        weight: 3,
+                                    }),
+                                mouseout: event =>
+                                    (event.target as L.GeoJSON).setStyle(base),
+                                click: () =>
+                                    onSelectArea({
+                                        programId: shade.programId,
+                                        name: shade.name,
+                                        depth: shade.depth,
+                                    }),
+                            }}
+                        />
+                    );
+                })}
+            </Pane>
             {showCoverage && (
                 <CoverageFills
                     fills={coverageFills}
