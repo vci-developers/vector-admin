@@ -7,7 +7,7 @@ import {
 } from '@/features/dashboard/utils/build-selection-timeline';
 import { useFormatter, useTranslations } from 'next-intl';
 import { cn } from '@/utils/cn';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -431,88 +431,99 @@ export default function SelectionChart({
                         timeZone: 'UTC',
                     });
 
-    if (view === 'pie') return <PieView timeline={timeline} />;
-
-    const rows: Row[] = timeline.buckets.map(bucket => {
-        const row: Row = { bucket, top: -1, start: bucket.start };
-        timeline.series.forEach((s, index) => {
-            const count = bucket.counts[s.key] ?? 0;
-            row[`s${index}`] = count;
-            if (count > 0) row.top = index;
-        });
-        return row;
-    });
-    const axisText = { fill: 'var(--muted-foreground)', fontSize: 11 };
-    const yTop = niceTop(Math.max(...timeline.buckets.map(b => b.total)));
-    const yTicks = [0, 1, 2, 3, 4].map(step => (yTop / 4) * step);
     const yLabel = (value: number) =>
         formatter.number(value, { notation: 'compact' });
-    const common = [
-        <CartesianGrid
-            key="grid"
-            vertical={false}
-            stroke="var(--border)"
-            strokeDasharray="2 5"
-        />,
-        <XAxis
-            key="x"
-            dataKey="start"
-            tickFormatter={tick}
-            tick={axisText}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            interval="preserveStartEnd"
-            minTickGap={12}
-        />,
-        <YAxis
-            key="y"
-            allowDecimals={false}
-            tickFormatter={yLabel}
-            tick={axisText}
-            tickLine={false}
-            axisLine={false}
-            width={36}
-            // Scrolling: drawn outside the scroller instead, on these ticks.
-            {...(scroll && { hide: true, domain: [0, yTop], ticks: yTicks })}
-        />,
-        <Tooltip
-            key="tooltip"
-            cursor={{ fill: 'var(--muted)', radius: 6 }}
-            // The legend below carries the hover readout instead.
-            content={() => null}
-        />,
-    ];
+    const yTop = niceTop(Math.max(...timeline.buckets.map(b => b.total)));
+    const yTicks = [0, 1, 2, 3, 4].map(step => (yTop / 4) * step);
     const margin = { top: 4, right: 8, bottom: 0, left: scroll ? 0 : -4 };
-    const chart = (
-        <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-                data={rows}
-                margin={margin}
-                barCategoryGap="20%"
-                onMouseMove={onMouseMove}
-                onMouseLeave={onMouseLeave}
-            >
-                {common}
-                {timeline.series.map((s, index) => (
-                    <Bar
-                        key={s.key}
-                        dataKey={`s${index}`}
-                        stackId="specimens"
-                        fill={seriesColor(s)}
-                        maxBarSize={24}
-                        isAnimationActive={false}
-                        shape={(props: unknown) => (
-                            <Segment
-                                {...(props as SegmentProps)}
-                                index={index}
-                            />
-                        )}
-                    />
-                ))}
-            </BarChart>
-        </ResponsiveContainer>
-    );
+    // Built once per timeline: hovering only updates the legend, so the
+    // expanded view's hundreds of bars are not redrawn on every mouse move.
+    const chart = useMemo(() => {
+        if (view === 'pie') return null;
+        const rows: Row[] = timeline.buckets.map(bucket => {
+            const row: Row = { bucket, top: -1, start: bucket.start };
+            timeline.series.forEach((s, index) => {
+                const count = bucket.counts[s.key] ?? 0;
+                row[`s${index}`] = count;
+                if (count > 0) row.top = index;
+            });
+            return row;
+        });
+        const axisText = { fill: 'var(--muted-foreground)', fontSize: 11 };
+        const common = [
+            <CartesianGrid
+                key="grid"
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="2 5"
+            />,
+            <XAxis
+                key="x"
+                dataKey="start"
+                tickFormatter={tick}
+                tick={axisText}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                interval="preserveStartEnd"
+                minTickGap={12}
+            />,
+            <YAxis
+                key="y"
+                allowDecimals={false}
+                tickFormatter={yLabel}
+                tick={axisText}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+                // Scrolling: drawn outside the scroller instead, on these ticks.
+                {...(scroll && {
+                    hide: true,
+                    domain: [0, yTop],
+                    ticks: yTicks,
+                })}
+            />,
+            <Tooltip
+                key="tooltip"
+                cursor={{ fill: 'var(--muted)', radius: 6 }}
+                // The legend below carries the hover readout instead.
+                content={() => null}
+            />,
+        ];
+        return (
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                    data={rows}
+                    margin={margin}
+                    barCategoryGap="20%"
+                    onMouseMove={onMouseMove}
+                    onMouseLeave={onMouseLeave}
+                >
+                    {common}
+                    {timeline.series.map((s, index) => (
+                        <Bar
+                            key={s.key}
+                            dataKey={`s${index}`}
+                            stackId="specimens"
+                            fill={seriesColor(s)}
+                            maxBarSize={24}
+                            isAnimationActive={false}
+                            shape={(props: unknown) => (
+                                <Segment
+                                    {...(props as SegmentProps)}
+                                    index={index}
+                                />
+                            )}
+                        />
+                    ))}
+                </BarChart>
+            </ResponsiveContainer>
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [timeline, view, scroll, t, formatter]);
+
+    if (view === 'pie') return <PieView timeline={timeline} />;
+
     const plotHeight = SCROLL_HEIGHT - margin.top - X_AXIS_HEIGHT;
 
     return (
