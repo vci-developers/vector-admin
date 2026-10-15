@@ -67,7 +67,7 @@ describe('monthly chart initial sizing', () => {
             const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
             const months = Array.from({ length: count }, (_, index) => ({
                 month: `${2024 + Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`,
-                uniqueScans: index % 4 === 0 ? 0 : (index + 1) * 100,
+                count: index % 4 === 0 ? 0 : (index + 1) * 100,
             }));
             const markup = renderToStaticMarkup(
                 jsx(NextIntlClientProvider, {
