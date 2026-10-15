@@ -1094,7 +1094,6 @@ export default function SurveillanceMap({
                                         programId: shade.programId,
                                         name: shade.name,
                                         depth: shade.depth,
-                                        sessionIds: shade.sessionIds,
                                     }),
                             }}
                         />

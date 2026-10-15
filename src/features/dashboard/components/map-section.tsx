@@ -22,7 +22,6 @@ import {
     buildSpecimenShading,
     type ShadedAreaRef,
 } from '@/features/dashboard/utils/build-specimen-shading';
-import { buildHexShading } from '@/features/dashboard/utils/build-hex-shading';
 import { findMapGaps } from '@/features/dashboard/utils/find-map-gaps';
 import { scopeTitle } from '@/features/dashboard/utils/program-title';
 import { unitSessionIds } from '@/features/dashboard/utils/search-map';
@@ -198,26 +197,19 @@ export default function MapSection({
     );
     const shading = useMemo(
         () =>
-            mapFilters.hex
-                ? buildHexShading(
-                      dashboard.specimenPoints.placed.map(session => ({
-                          ...session,
-                          location: dashboard.sitePaths[session.siteId] ?? [],
-                      })),
-                  )
-                : buildSpecimenShading({
-                      areas: dashboard.areas,
-                      // Every Session in the period, before the map filters: the
-                      // shading agrees with the summary table.
-                      sessions: [
-                          ...dashboard.specimenPoints.placed,
-                          ...dashboard.specimenPoints.unplaced,
-                      ],
-                      sitePaths: dashboard.sitePaths,
-                      countryOf,
-                      boundariesByCountry: boundaries,
-                  }),
-        [dashboard, countryOf, boundaries, mapFilters.hex],
+            buildSpecimenShading({
+                areas: dashboard.areas,
+                // Every Session in the period, before the map filters: the
+                // shading agrees with the summary table.
+                sessions: [
+                    ...dashboard.specimenPoints.placed,
+                    ...dashboard.specimenPoints.unplaced,
+                ],
+                sitePaths: dashboard.sitePaths,
+                countryOf,
+                boundariesByCountry: boundaries,
+            }),
+        [dashboard, countryOf, boundaries],
     );
     const selectedPrograms = dashboard.programs.filter(p =>
         dashboard.selectedProgramIds.includes(p.programId),
@@ -239,7 +231,7 @@ export default function MapSection({
     const selectArea = (area: ShadedAreaRef) =>
         setSelection({
             layer: 'specimens',
-            ids: area.sessionIds ?? areaSessionIds(area, view.sessions.placed),
+            ids: areaSessionIds(area, view.sessions.placed),
             area,
         });
     const selectUnit = (unit: SelectedUnit) =>
