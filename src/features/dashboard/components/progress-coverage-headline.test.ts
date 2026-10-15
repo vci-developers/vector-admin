@@ -1,5 +1,8 @@
 import type { Program } from '@/api/program/validation/program-schema';
-import type { ProgressLocationCoverage } from '@/api/progress/validation/progress-schema';
+import type {
+    ProgressLocationCoverage,
+    ProgressSentinelSites,
+} from '@/api/progress/validation/progress-schema';
 import { NextIntlClientProvider } from 'next-intl';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -18,7 +21,10 @@ const programs: Program[] = [
     { programId: 7, name: 'Uganda partner reporting', country: 'Uganda' },
 ];
 
-function renderCoverage(coverage: readonly ProgressLocationCoverage[]) {
+function renderCoverage(
+    coverage: readonly ProgressLocationCoverage[],
+    sentinelSites: readonly ProgressSentinelSites[] = [],
+) {
     return renderToStaticMarkup(
         jsx(NextIntlClientProvider, {
             locale: 'en',
@@ -26,6 +32,7 @@ function renderCoverage(coverage: readonly ProgressLocationCoverage[]) {
             messages: {},
             children: createElement(ProgressCoverageHeadline, {
                 coverage,
+                sentinelSites,
                 programs,
                 expanded: true,
                 onToggle: () => {},
@@ -43,6 +50,22 @@ function coverageFigures(markup: string): string[] {
 }
 
 describe('progress coverage headline', () => {
+    it('shows sentinel sites under the households, in total and per Program', () => {
+        const text = renderCoverage(
+            [
+                { programId: 1, unit: 'household', count: 250 },
+                { programId: 4, unit: 'household', count: 9 },
+            ],
+            [
+                { programId: 1, count: 33 },
+                { programId: 4, count: 1 },
+            ],
+        ).replace(/<[^>]+>/g, ' ');
+        expect(text).toMatch(/active households\s+34 sentinel sites/);
+        expect(text).toMatch(/250\s+households\s+33 sentinel sites/);
+        expect(text).toMatch(/9\s+households\s+1 sentinel site\b/);
+    });
+
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {
         const coverage = Object.freeze([
             Object.freeze({
@@ -149,6 +172,7 @@ describe('progress coverage headline', () => {
                     null,
                     createElement(ProgressCoverageHeadline, {
                         coverage,
+                        sentinelSites: [],
                         programs,
                         expanded: true,
                         onToggle: () => {},
@@ -270,6 +294,7 @@ describe('progress coverage headline', () => {
                         { programId: 1, unit: 'household', count: 206 },
                         { programId: 3, unit: 'household', count: 4 },
                     ],
+                    sentinelSites: [],
                     programs,
                     expanded: false,
                     onToggle: () => {},

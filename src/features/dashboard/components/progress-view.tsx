@@ -374,6 +374,11 @@ export default function ProgressView() {
                                     ? selected.coverageByProgram
                                     : result.data.coverageByProgram
                             }
+                            sentinelSites={
+                                selected
+                                    ? selected.sentinelSitesByProgram
+                                    : result.data.sentinelSitesByProgram
+                            }
                             programs={result.data.programs}
                             expanded={tilesExpanded}
                             onToggle={toggleTiles}

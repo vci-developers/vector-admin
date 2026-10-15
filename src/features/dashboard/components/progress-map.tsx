@@ -15,7 +15,11 @@ import {
     progressScanFillColor,
     PROGRESS_SCAN_FILL_OPACITY,
 } from '@/features/dashboard/utils/progress-map-colors';
-import { formatProgressLocations } from '@/features/dashboard/utils/format-progress-locations';
+import {
+    formatProgressLocations,
+    formatSentinelSites,
+    totalSentinelSites,
+} from '@/features/dashboard/utils/format-progress-locations';
 import {
     progressBoundaryAttribution,
     type ProgressBoundarySource,
@@ -147,6 +151,16 @@ const AREA_CACHE = new Map<
 
 const escapeHtml = (value: string) =>
     value.replace(/[&<>"']/g, character => `&#${character.charCodeAt(0)};`);
+
+/** "3 sentinel sites" under the households, or nothing when unknown. */
+function sentinelSitesLine(rows: ProgressDistrict['sentinelSitesByProgram']) {
+    const total = totalSentinelSites(rows);
+    return total === null ? null : (
+        <span className={styles.tooltipLocations}>
+            {formatSentinelSites(total, count => number.format(count))}
+        </span>
+    );
+}
 
 function districtLabel(district: ProgressDistrict) {
     return `${district.name}, ${district.country}: ${number.format(district.uniqueScans)} scans. Active reporting coverage: ${formatProgressLocations(district.coverageByProgram, count => number.format(count))}`;
@@ -324,6 +338,9 @@ function ReportingDistrictAreas({
                                             count => number.format(count),
                                         )}
                                     </span>
+                                    {sentinelSitesLine(
+                                        district.sentinelSitesByProgram,
+                                    )}
                                     {stephensiCount !== undefined && (
                                         <span
                                             className={styles.tooltipStephensi}
@@ -629,6 +646,9 @@ function StephensiSpots({
                                         count => number.format(count),
                                     )}
                                 </span>
+                                {sentinelSitesLine(
+                                    district.sentinelSitesByProgram,
+                                )}
                                 <span className={styles.tooltipStephensi}>
                                     {number.format(specimens)}{' '}
                                     <i>An. stephensi</i>
@@ -1234,6 +1254,15 @@ function ReportingActivity({
                                         count => number.format(count),
                                     )}
                                 </span>
+                                {sentinelSitesLine(
+                                    // A country or cluster adds up its Districts.
+                                    'name' in shown
+                                        ? shown.sentinelSitesByProgram
+                                        : node.sourceDistricts.flatMap(
+                                              district =>
+                                                  district.sentinelSitesByProgram,
+                                          ),
+                                )}
                                 {stephensiTotal > 0 && (
                                     <span className={styles.tooltipStephensi}>
                                         {number.format(stephensiTotal)}{' '}
