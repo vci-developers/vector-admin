@@ -55,9 +55,7 @@ export default function ProgressSpeciesBreakdown({
                                 <p
                                     className={cn(
                                         styles.contributionArea,
-                                        row.name
-                                            ? 'italic'
-                                            : 'text-muted-foreground',
+                                        !row.name && 'text-muted-foreground',
                                     )}
                                 >
                                     {row.name ?? 'Calibration specimens'}
