@@ -133,7 +133,7 @@ averaged; a Device counts once). With several Programs a Total row follows.
 Columns, in order: Active Devices, Images, Unique Specimens, Images per Active
 Device, Unique Users and Logins (Program rows only: users log in to a Program,
 not a Site), Metadata Completeness, DHIS2 Upload Rate, % species ID, % capture
-date, % location, % operator ID, then Time between images as ID events logged
+date, % location, % operator name, then Time between images as ID events logged
 (blank until recorded), events excluded, median, 25th pct, 75th pct, mean and
 SD in seconds. Copy is values only, no header or name: a
 button per row, or tick rows and Copy selected. A Device that moved between
@@ -247,7 +247,7 @@ September 2026, too few to change a shown percentage.) Its **Required Metadata
 Fields** are species identification (the Specimen's), capture date (Session
 `collectionDate`), **location** (the Session's Site sits under an Area and is
 not the Test Site; failing that, the Session's GPS is inside the Program
-Country) and operator ID (Session `collectorName`). Operator ID is free text
+Country) and operator name (Session `collectorName`). Operator name is free text
 with no link to a user, so "present" means only that a name was entered.
 **Metadata Completeness** = share of Records with all four fields present and
 valid; **Field Completeness** = the same share per field. _Avoid_: submission,

@@ -195,7 +195,7 @@
         "species": "Species ID",
         "captureDate": "Capture date",
         "geolocation": "Location",
-        "operatorId": "Operator ID"
+        "operatorId": "Operator name"
     },
     "Devices": {
         "counts": "{total} registered · {active} active · {inactive} inactive · {neverUsed} never used · {bySite} placed by site · {unplaced} without a location",

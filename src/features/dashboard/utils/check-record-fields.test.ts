@@ -102,7 +102,7 @@ describe('checkRecordFields', () => {
         expect(at({ latitude: null }, undefined)).toBe(false);
     });
 
-    it('fails operator ID for a whitespace-only collectorName', () => {
+    it('fails operator name for a whitespace-only collectorName', () => {
         expect(
             checkRecordFields(
                 specimen,
