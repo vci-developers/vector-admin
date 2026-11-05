@@ -126,7 +126,12 @@ above the House. They read against the same rule's plan, not the workbook's
 Projected Devices: 3 phones per District, 6 in the phone-per-VHT ones, summed
 over the Active Districts (Sep: 8 × 3 + 3 × 6 = 42; the workbook says 66, which
 matches Expected Users, 2 VHTs × 3 villages × 11). Uganda Sep: 35 of 42 on the
-map and panel; the tiles are unchanged. Hard-coded for Uganda.
+map and panel; the tiles are unchanged. Hard-coded for Uganda. The Stakeholder page's
+Devices tile uses the same counts over the Reporting Period, against the plan
+for its last month: from September 2026 Uganda's rule, before that the workbook.
+Other Programs read Projected Devices, the latest row at or before that month;
+the workbook has no devices per place for them, so each Sentinel Site with data
+is one active device, never above that plan.
 
 **Team-sheet view**: The summary table, built to paste into the team's sheet
 ("Monthly Entry: VectorVerify log metrics", one row per District per month). Per

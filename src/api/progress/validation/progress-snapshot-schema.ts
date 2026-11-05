@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
-// Donor figures do not need collector identities, devices, image predictions,
-// or review states. Nullable collector names and legacy empty types therefore
-// cannot invalidate otherwise usable reporting data.
+// Donor figures do not need devices, image predictions or review states.
+// Nullable collector names and legacy empty types therefore cannot invalidate
+// otherwise usable reporting data.
 export const progressSessionSchema = z.object({
     sessionId: z.number(),
     siteId: z.number(),
     // Used only by the Excel's internal metrics; never sent in the progress DTO.
     deviceId: z.number().nullish(),
+    // Only tells Uganda's VHTs apart for the device count; never in the DTO.
+    collectorName: z.string().nullish().catch(null),
     type: z
         .string()
         .nullish()

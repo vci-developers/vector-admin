@@ -29,7 +29,7 @@ export type ProgressProgramData = {
 };
 type Position = NonNullable<ProgressDistrict['position']>;
 
-const UNKNOWN_DISTRICT = 'District not recorded';
+export const UNKNOWN_DISTRICT = 'District not recorded';
 const UNKNOWN_KEY = 'unknown';
 
 const normalize = (value: string) =>

@@ -9,6 +9,7 @@ import { buildProgressReport } from './build-progress-report';
 
 const GENERATED_AT = Date.UTC(2026, 9, 9, 16);
 const progress: ProgressDashboard = {
+    devices: [],
     programs: [
         { programId: 7, name: 'Uganda reporting', country: 'Uganda' },
         { programId: 9, name: 'Excluded program', country: 'Ghana' },
@@ -171,6 +172,7 @@ describe('buildProgressReport', () => {
         };
         const period = { from: '2026-08', to: '2026-09' };
         const dashboard: ProgressDashboard = {
+            devices: [],
             ...buildProgress([data], period),
             programs: [data.program],
             selectedProgramIds: [7],

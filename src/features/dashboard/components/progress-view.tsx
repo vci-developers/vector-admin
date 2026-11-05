@@ -40,6 +40,7 @@ import dynamic from 'next/dynamic';
 import { parseAsBoolean, parseAsString, useQueryState } from 'nuqs';
 import { use, useEffect, useMemo, useState } from 'react';
 import PeriodPicker from './period-picker';
+import ProgramBreakdown from './program-breakdown';
 import ProgressAreaPicker from './progress-area-picker';
 import ProgressCoverageHeadline from './progress-coverage-headline';
 import ProgressLoading from './progress-loading';
@@ -50,6 +51,7 @@ import ProgressSpeciesToggle from './progress-species-toggle';
 import ProgressStephensiPlaces from './progress-stephensi-places';
 import ProgressMapFilters from './progress-map-filters';
 import ProgressCountHeadline from './progress-count-headline';
+import ProgressDevicesTile from './progress-devices-tile';
 import ProgressStatTile from './progress-stat-tile';
 import styles from './progress-view.module.css';
 
@@ -105,6 +107,8 @@ export default function ProgressView() {
     // The tiles share rows, so they open and close together.
     const [tilesExpanded, setTilesExpanded] = useState(false);
     const toggleTiles = () => setTilesExpanded(open => !open);
+    const [statsExpanded, setStatsExpanded] = useState(false);
+    const toggleStats = () => setStatsExpanded(open => !open);
     const coverage = useGetCoverage(filters.exclude).data;
     const upcoming = useMemo(
         () =>
@@ -157,6 +161,11 @@ export default function ProgressView() {
         new Set(chosenPrograms.map(program => program.country)),
     );
     const shownCountries = selected ? [selected.country] : chosenCountries;
+    const shownPrograms = selected
+        ? chosenPrograms.filter(program =>
+              selected.programIds.includes(program.programId),
+          )
+        : chosenPrograms;
     const scope =
         selected?.name ??
         (chosenCountries.length === 1
@@ -378,6 +387,32 @@ export default function ProgressView() {
                             detail={
                                 shownCountries.join(', ') || 'Choose a program'
                             }
+                            expanded={statsExpanded}
+                            onToggle={toggleStats}
+                        >
+                            {shownPrograms.length > 1 && (
+                                <ProgramBreakdown
+                                    rows={shownPrograms}
+                                    programs={
+                                        new Map(
+                                            shownPrograms.map(program => [
+                                                program.programId,
+                                                program,
+                                            ]),
+                                        )
+                                    }
+                                    label="Programs by country"
+                                    tone="coverage"
+                                    figure={() => null}
+                                />
+                            )}
+                        </ProgressStatTile>
+                        <ProgressDevicesTile
+                            devices={result.data.devices}
+                            selected={selected ?? null}
+                            programs={result.data.programs}
+                            expanded={statsExpanded}
+                            onToggle={toggleStats}
                         />
                     </div>
                     <div className={styles.headlineCards}>

@@ -98,6 +98,23 @@
     gap: 12px;
 }
 
+.statTiles .breakdown {
+    align-self: stretch;
+}
+
+.deviceFigure {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.deviceFigurePlan {
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+
 @media (min-width: 640px) {
     .statTiles {
         grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -86,6 +86,26 @@ export const progressStephensiSchema = z.object({
 
 export type ProgressStephensi = z.infer<typeof progressStephensiSchema>;
 
+/** Counts only: who collected never leaves the server. */
+export const progressProgramDevicesSchema = z.object({
+    programId: z.number(),
+    /** Its Areas added up; never above `planned`. */
+    active: countSchema,
+    /** For the period's last month; null where none is known. */
+    planned: countSchema.nullable(),
+    areas: z.array(
+        z.object({
+            name: z.string(),
+            active: countSchema,
+            planned: countSchema.nullable(),
+        }),
+    ),
+});
+
+export type ProgressProgramDevices = z.infer<
+    typeof progressProgramDevicesSchema
+>;
+
 export const progressDistrictSchema = z.object({
     key: z.string(),
     /** First contributing program for compatibility; use programIds for attribution. */
@@ -122,6 +142,7 @@ export const progressDashboardSchema = z.object({
     uniqueSpecimens: countSchema.nullable(),
     species: z.array(progressSpeciesSchema),
     stephensi: z.array(progressStephensiSchema),
+    devices: z.array(progressProgramDevicesSchema),
     districts: z.array(progressDistrictSchema),
     monthly: z.array(progressMonthSchema),
     /** Oldest API snapshot in this response. */
