@@ -305,9 +305,7 @@
 
 .coverageCountry,
 .scanCountry {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     color: var(--progress-ink);
     font-size: 14px;
     line-height: 1.4;
@@ -327,9 +325,7 @@
 
 .programName {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .coverageProgram {
@@ -348,7 +344,8 @@
 /* Numbers then labels, the same widths on every line. */
 .coverageFigures {
     display: grid;
-    grid-template-columns: 44px 78px;
+    /* Wide enough for the longest unit, "reporting locations". */
+    grid-template-columns: 44px 104px;
     column-gap: 6px;
     row-gap: 1px;
     align-items: baseline;
@@ -363,8 +360,6 @@
 }
 
 .coverageUnit {
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--muted-foreground);
     font-size: 11.5px;
