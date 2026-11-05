@@ -259,16 +259,6 @@
     border-top: 1px solid var(--progress-line);
 }
 
-.breakdownHeading {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 8px;
-    color: var(--muted-foreground);
-    font-size: 10.5px;
-    line-height: 1.25;
-    font-weight: 500;
-}
-
 .breakdownHint {
     display: flex;
     align-items: center;
@@ -292,8 +282,12 @@
 /* Parts of the subtotal above, so they read smaller than it. */
 .countryPrograms .coverageCount,
 .countryPrograms .scanCount {
-    font-size: 14px;
+    font-size: 16px;
     letter-spacing: -0.02em;
+}
+
+.countryPrograms .coverageLocations {
+    font-size: 13px;
 }
 
 .countryPrograms .coverageProgram,
@@ -315,7 +309,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--progress-ink);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.4;
     font-weight: 600;
 }
@@ -327,7 +321,7 @@
     align-items: baseline;
     gap: 4px;
     margin-top: 4px;
-    font-size: 10.5px;
+    font-size: 12px;
     line-height: 1.4;
 }
 
@@ -351,35 +345,49 @@
     line-height: 1.5;
 }
 
-/* The same two columns on every line, so the numbers stack up. */
+/* Numbers then labels, the same widths on every line. */
 .coverageFigures {
     display: grid;
-    grid-template-columns: repeat(2, 56px);
-    align-items: end;
-    justify-items: end;
-    text-align: right;
+    grid-template-columns: 44px 78px;
+    column-gap: 6px;
+    row-gap: 1px;
+    align-items: baseline;
 }
 
-/* Three tiles share a narrow row here; keep room for the names. */
+/* Narrow tiles: the figures go under the name, which keeps its room. */
 @media (min-width: 768px) and (max-width: 1023px) {
-    .coverageFigures {
-        grid-template-columns: repeat(2, 44px);
+    .coverageRow {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
     }
 }
 
-.coverageCount {
+.coverageUnit {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted-foreground);
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
+.coverageLocations {
+    justify-self: end;
     color: var(--progress-ink);
-    font-size: 18px;
+    font-size: 14px;
+    line-height: 1.3;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.coverageCount {
+    justify-self: end;
+    color: var(--progress-ink);
+    font-size: 20px;
     line-height: 1.15;
     font-weight: 600;
     letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
-}
-
-.coverageUnavailable {
-    color: var(--muted-foreground);
-    font-weight: 500;
-    letter-spacing: 0;
 }
 
 .headlineFeatured {

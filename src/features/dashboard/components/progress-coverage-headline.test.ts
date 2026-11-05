@@ -47,17 +47,16 @@ function renderCoverage(
     ).replace(/<!--.*?-->/g, '');
 }
 
-/** Each line's location count beside the unit named with its Program. */
+/** Each line's location figure, leaving out its sentinel sites. */
 function coverageFigures(markup: string): string[] {
-    const units = [...markup.matchAll(/ · ([^<"]+)</g)].map(match => match[1]);
-    const counts = [
+    return [
         ...markup.matchAll(
-            /<div[^>]*><span[^>]*>[^<]*<\/span><span[^>]*>([^<]*)<\/span><\/div>/g,
+            /<span[^>]*>([^<]*)<\/span><span[^>]*>([^<]*)<\/span>/g,
         ),
     ]
-        .map(match => match[1])
-        .filter(count => count !== 'Locations');
-    return counts.map((count, index) => `${count} ${units[index]}`);
+        .map(match => `${match[1]} ${match[2]}`)
+        .filter(figure => /^\S+ [a-z ]+$/.test(figure))
+        .filter(figure => !figure.includes('sentinel'));
 }
 
 describe('progress coverage headline', () => {
@@ -75,9 +74,8 @@ describe('progress coverage headline', () => {
         expect(text).toMatch(
             /34\s+active sentinel sites\s+259 active households/,
         );
-        expect(text.match(/Sentinel sites/g)).toHaveLength(1);
-        expect(text).toMatch(/33\s+250/);
-        expect(text).toMatch(/1\s+9/);
+        expect(text).toMatch(/33\s+sentinel sites\s+250\s+households/);
+        expect(text).toMatch(/1\s+sentinel site\s+9\s+households/);
     });
 
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {

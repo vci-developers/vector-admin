@@ -5,7 +5,6 @@ import type {
 } from '@/api/progress/validation/progress-schema';
 import {
     locationTotalUnit,
-    progressLocationUnitLabel,
     sentinelSiteLabel,
     sumAvailableCounts,
     totalProgressLocations,
@@ -45,30 +44,33 @@ export default function ProgressCoverageHeadline({
         programs.map(program => [program.programId, program]),
     );
     const singleProgram = programById.get(coverage[0]?.programId);
-    const cell = (count: number | null) => (
+    const figureCount = (count: number | null, className: string) => (
         <span
-            className={cn(
-                styles.coverageCount,
-                count === null && styles.coverageUnavailable,
-            )}
+            className={className}
             title={count === null ? 'Unavailable' : undefined}
         >
             {count === null ? '—' : formatter.number(count)}
         </span>
     );
-    // Sentinel sites lead: they are counted the same way in every Program.
-    const figure = (rows: readonly ProgressLocationCoverage[]) => (
-        <div className={styles.coverageFigures}>
-            {cell(
-                sumAvailableCounts(
-                    rows.map(
-                        row => sentinelByProgram.get(row.programId) ?? null,
-                    ),
-                ),
-            )}
-            {cell(totalProgressLocations(rows))}
-        </div>
-    );
+    // Numbers in one column and labels in the next, so every line stacks up.
+    const figure = (rows: readonly ProgressLocationCoverage[]) => {
+        const sentinel = sumAvailableCounts(
+            rows.map(row => sentinelByProgram.get(row.programId) ?? null),
+        );
+        const count = totalProgressLocations(rows);
+        return (
+            <div className={styles.coverageFigures}>
+                {figureCount(sentinel, styles.coverageCount)}
+                <span className={styles.coverageUnit}>
+                    {sentinelSiteLabel(sentinel)}
+                </span>
+                {figureCount(count, styles.coverageLocations)}
+                <span className={styles.coverageUnit}>
+                    {locationTotalUnit(rows, count)}
+                </span>
+            </div>
+        );
+    };
 
     return (
         // The tile is the click target; its chevron button serves keyboards.
@@ -112,15 +114,6 @@ export default function ProgressCoverageHeadline({
                             programs={programById}
                             label="Coverage by program"
                             tone="coverage"
-                            figureHeading={
-                                <div className={styles.coverageFigures}>
-                                    <span>Sentinel sites</span>
-                                    <span>Locations</span>
-                                </div>
-                            }
-                            programNote={row =>
-                                progressLocationUnitLabel(row.unit, row.count)
-                            }
                             figure={figure}
                         />
                     ) : singleProgram ? (

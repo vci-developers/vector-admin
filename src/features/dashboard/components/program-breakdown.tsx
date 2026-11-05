@@ -35,18 +35,12 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     programs,
     label,
     tone,
-    figureHeading,
-    programNote,
     figure,
 }: {
     rows: readonly Row[];
     programs: ReadonlyMap<number, Program>;
     label: string;
     tone: keyof typeof rowStyles;
-    /** Names the figures once, rather than on every line. */
-    figureHeading?: ReactNode;
-    /** Beside a Program's name, e.g. its reporting unit. */
-    programNote?: (row: Row) => string;
     /** The figure for one Program, or for all of a country's Programs. */
     figure: (rows: readonly Row[]) => ReactNode;
 }) {
@@ -69,9 +63,7 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     const classes = rowStyles[tone];
 
     const programName = (row: Row) => {
-        const name = [programs.get(row.programId)?.name, programNote?.(row)]
-            .filter(Boolean)
-            .join(' · ');
+        const name = programs.get(row.programId)?.name;
         return (
             <p className={classes.program}>
                 <span className={styles.programName} title={name}>
@@ -87,9 +79,6 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
             // Using the scrollbar shouldn't close the tile around it.
             onClick={scrollable ? event => event.stopPropagation() : undefined}
         >
-            {figureHeading && (
-                <div className={styles.breakdownHeading}>{figureHeading}</div>
-            )}
             <ul
                 ref={list}
                 aria-label={label}
