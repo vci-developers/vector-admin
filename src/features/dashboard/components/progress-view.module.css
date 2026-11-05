@@ -276,6 +276,18 @@
     border-left: 2px solid var(--progress-line);
 }
 
+/* Parts of the subtotal above, so they read smaller than it. */
+.countryPrograms .coverageCount:not(.coverageUnavailable),
+.countryPrograms .scanCount {
+    font-size: 15px;
+    letter-spacing: -0.02em;
+}
+
+.countryPrograms .coverageProgram,
+.countryPrograms .scanProgram {
+    margin-top: 0;
+}
+
 .coverageRow,
 .scanRow {
     display: grid;
