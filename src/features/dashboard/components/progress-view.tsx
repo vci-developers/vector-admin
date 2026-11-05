@@ -29,6 +29,7 @@ import {
     AlertCircle,
     Bug,
     Download,
+    Globe,
     Loader2,
     MapPin,
     ScanLine,
@@ -49,6 +50,7 @@ import ProgressSpeciesToggle from './progress-species-toggle';
 import ProgressStephensiPlaces from './progress-stephensi-places';
 import ProgressMapFilters from './progress-map-filters';
 import ProgressCountHeadline from './progress-count-headline';
+import ProgressStatTile from './progress-stat-tile';
 import styles from './progress-view.module.css';
 
 const ProgressMap = dynamic(() => import('./progress-map'), {
@@ -154,6 +156,7 @@ export default function ProgressView() {
     const chosenCountries = Array.from(
         new Set(chosenPrograms.map(program => program.country)),
     );
+    const shownCountries = selected ? [selected.country] : chosenCountries;
     const scope =
         selected?.name ??
         (chosenCountries.length === 1
@@ -367,6 +370,16 @@ export default function ProgressView() {
                             reporting data.
                         </p>
                     )}
+                    <div className={styles.statTiles}>
+                        <ProgressStatTile
+                            title="Countries"
+                            icon={Globe}
+                            value={shownCountries.length}
+                            detail={
+                                shownCountries.join(', ') || 'Choose a program'
+                            }
+                        />
+                    </div>
                     <div className={styles.headlineCards}>
                         <ProgressCoverageHeadline
                             coverage={

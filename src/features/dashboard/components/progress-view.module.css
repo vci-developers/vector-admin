@@ -92,6 +92,19 @@
     gap: 12px;
 }
 
+.statTiles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+@media (min-width: 640px) {
+    .statTiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+}
+
 .headline {
     position: relative;
     display: flex;
