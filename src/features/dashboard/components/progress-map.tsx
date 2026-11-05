@@ -152,7 +152,7 @@ const AREA_CACHE = new Map<
 const escapeHtml = (value: string) =>
     value.replace(/[&<>"']/g, character => `&#${character.charCodeAt(0)};`);
 
-/** "3 sentinel sites" under the households, or nothing when unknown. */
+/** "3 sentinel sites" above the households, or nothing when unknown. */
 function sentinelSitesLine(rows: ProgressDistrict['sentinelSitesByProgram']) {
     const total = totalSentinelSites(rows);
     return total === null ? null : (
@@ -332,15 +332,15 @@ function ReportingDistrictAreas({
                                         {number.format(district.uniqueScans)}{' '}
                                         scans
                                     </span>
+                                    {sentinelSitesLine(
+                                        district.sentinelSitesByProgram,
+                                    )}
                                     <span className={styles.tooltipLocations}>
                                         {formatProgressLocations(
                                             district.coverageByProgram,
                                             count => number.format(count),
                                         )}
                                     </span>
-                                    {sentinelSitesLine(
-                                        district.sentinelSitesByProgram,
-                                    )}
                                     {stephensiCount !== undefined && (
                                         <span
                                             className={styles.tooltipStephensi}
@@ -640,15 +640,15 @@ function StephensiSpots({
                                 <span className={styles.tooltipScans}>
                                     {number.format(district.uniqueScans)} scans
                                 </span>
+                                {sentinelSitesLine(
+                                    district.sentinelSitesByProgram,
+                                )}
                                 <span className={styles.tooltipLocations}>
                                     {formatProgressLocations(
                                         district.coverageByProgram,
                                         count => number.format(count),
                                     )}
                                 </span>
-                                {sentinelSitesLine(
-                                    district.sentinelSitesByProgram,
-                                )}
                                 <span className={styles.tooltipStephensi}>
                                     {number.format(specimens)}{' '}
                                     <i>An. stephensi</i>
@@ -1248,12 +1248,6 @@ function ReportingActivity({
                                 <span className={styles.tooltipScans}>
                                     {number.format(shown.uniqueScans)} scans
                                 </span>
-                                <span className={styles.tooltipLocations}>
-                                    {formatProgressLocations(
-                                        shown.coverageByProgram,
-                                        count => number.format(count),
-                                    )}
-                                </span>
                                 {sentinelSitesLine(
                                     // A country or cluster adds up its Districts.
                                     'name' in shown
@@ -1263,6 +1257,12 @@ function ReportingActivity({
                                                   district.sentinelSitesByProgram,
                                           ),
                                 )}
+                                <span className={styles.tooltipLocations}>
+                                    {formatProgressLocations(
+                                        shown.coverageByProgram,
+                                        count => number.format(count),
+                                    )}
+                                </span>
                                 {stephensiTotal > 0 && (
                                     <span className={styles.tooltipStephensi}>
                                         {number.format(stephensiTotal)}{' '}
