@@ -56,18 +56,13 @@ export default function ProgressCoverageHeadline({
                     <p className={styles.coverageFigure}>
                         <span className={styles.coverageCount}>
                             {formatter.number(sentinel)}
-                        </span>{' '}
-                        <span className={styles.coverageUnit}>
-                            {sentinelSiteLabel(sentinel)}
                         </span>
                     </p>
                 )}
                 <p className={styles.coverageFigure}>
                     <span
                         className={cn(
-                            sentinel === null
-                                ? styles.coverageCount
-                                : styles.coverageUnit,
+                            styles.coverageUnit,
                             count === null && styles.coverageUnavailable,
                         )}
                     >
@@ -125,6 +120,7 @@ export default function ProgressCoverageHeadline({
                             programs={programById}
                             label="Coverage by program"
                             tone="coverage"
+                            figureHeading="Sentinel sites"
                             figure={figure}
                         />
                     ) : singleProgram ? (

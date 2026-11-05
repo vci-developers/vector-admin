@@ -35,12 +35,15 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     programs,
     label,
     tone,
+    figureHeading,
     figure,
 }: {
     rows: readonly Row[];
     programs: ReadonlyMap<number, Program>;
     label: string;
     tone: keyof typeof rowStyles;
+    /** Names the figures once, rather than on every line. */
+    figureHeading?: string;
     /** The figure for one Program, or for all of a country's Programs. */
     figure: (rows: readonly Row[]) => ReactNode;
 }) {
@@ -79,6 +82,9 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
             // Using the scrollbar shouldn't close the tile around it.
             onClick={scrollable ? event => event.stopPropagation() : undefined}
         >
+            {figureHeading && (
+                <p className={styles.breakdownHeading}>{figureHeading}</p>
+            )}
             <ul
                 ref={list}
                 aria-label={label}

@@ -52,9 +52,7 @@ function coverageFigures(markup: string): string[] {
         ...markup.matchAll(
             /<p[^>]*><span[^>]*>([^<]*)<\/span> <span[^>]*>([^<]*)<\/span><\/p>/g,
         ),
-    ]
-        .map(match => `${match[1]} ${match[2]}`)
-        .filter(figure => !figure.includes('sentinel'));
+    ].map(match => `${match[1]} ${match[2]}`);
 }
 
 describe('progress coverage headline', () => {
@@ -72,8 +70,9 @@ describe('progress coverage headline', () => {
         expect(text).toMatch(
             /34\s+active sentinel sites\s+259 active households/,
         );
-        expect(text).toMatch(/33\s+sentinel sites\s+250\s+households/);
-        expect(text).toMatch(/1\s+sentinel site\s+9\s+households/);
+        expect(text.match(/Sentinel sites/g)).toHaveLength(1);
+        expect(text).toMatch(/33\s+250\s+households/);
+        expect(text).toMatch(/1\s+9\s+households/);
     });
 
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {

@@ -256,6 +256,15 @@
     border-top: 1px solid var(--progress-line);
 }
 
+.breakdownHeading {
+    margin-bottom: 8px;
+    color: var(--muted-foreground);
+    font-size: 10.5px;
+    line-height: 1.4;
+    font-weight: 500;
+    text-align: right;
+}
+
 .breakdownHint {
     display: flex;
     align-items: center;
