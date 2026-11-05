@@ -241,6 +241,9 @@
     align-content: start;
     gap: 10px;
     max-height: 300px;
+    /* Floating scrollbars take no space, so lend them the tile's padding. */
+    margin-right: -18px;
+    padding-right: 18px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, currentcolor 35%, transparent)
@@ -257,12 +260,13 @@
 }
 
 .breakdownHeading {
+    display: flex;
+    justify-content: flex-end;
     margin-bottom: 8px;
     color: var(--muted-foreground);
     font-size: 10.5px;
-    line-height: 1.4;
+    line-height: 1.25;
     font-weight: 500;
-    text-align: right;
 }
 
 .breakdownHint {
@@ -286,9 +290,9 @@
 }
 
 /* Parts of the subtotal above, so they read smaller than it. */
-.countryPrograms .coverageCount:not(.coverageUnavailable),
+.countryPrograms .coverageCount,
 .countryPrograms .scanCount {
-    font-size: 15px;
+    font-size: 14px;
     letter-spacing: -0.02em;
 }
 
@@ -347,16 +351,25 @@
     line-height: 1.5;
 }
 
-.coverageFigure {
-    display: flex;
-    align-items: baseline;
-    justify-content: flex-end;
-    gap: 6px;
+/* The same two columns on every line, so the numbers stack up. */
+.coverageFigures {
+    display: grid;
+    grid-template-columns: repeat(2, 56px);
+    align-items: end;
+    justify-items: end;
+    text-align: right;
+}
+
+/* Three tiles share a narrow row here; keep room for the names. */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .coverageFigures {
+        grid-template-columns: repeat(2, 44px);
+    }
 }
 
 .coverageCount {
     color: var(--progress-ink);
-    font-size: 22px;
+    font-size: 18px;
     line-height: 1.15;
     font-weight: 600;
     letter-spacing: -0.035em;
@@ -365,17 +378,8 @@
 
 .coverageUnavailable {
     color: var(--muted-foreground);
-    font-size: 11px;
     font-weight: 500;
     letter-spacing: 0;
-}
-
-.coverageUnit {
-    flex-shrink: 0;
-    color: var(--muted-foreground);
-    font-size: 11px;
-    line-height: 1.4;
-    white-space: nowrap;
 }
 
 .headlineFeatured {
@@ -751,22 +755,8 @@
         font-size: 10px;
     }
 
-    .coverageFigure {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 3px;
-    }
-
-    .coverageUnit {
-        font-size: 10px;
-    }
-
     .coverageCount {
         font-size: clamp(0.95rem, 4.6vw, 1.25rem);
-    }
-
-    .coverageUnavailable {
-        font-size: 10px;
     }
 
     .panel {

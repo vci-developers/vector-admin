@@ -36,6 +36,7 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     label,
     tone,
     figureHeading,
+    programNote,
     figure,
 }: {
     rows: readonly Row[];
@@ -43,7 +44,9 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     label: string;
     tone: keyof typeof rowStyles;
     /** Names the figures once, rather than on every line. */
-    figureHeading?: string;
+    figureHeading?: ReactNode;
+    /** Beside a Program's name, e.g. its reporting unit. */
+    programNote?: (row: Row) => string;
     /** The figure for one Program, or for all of a country's Programs. */
     figure: (rows: readonly Row[]) => ReactNode;
 }) {
@@ -66,7 +69,9 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
     const classes = rowStyles[tone];
 
     const programName = (row: Row) => {
-        const name = programs.get(row.programId)?.name;
+        const name = [programs.get(row.programId)?.name, programNote?.(row)]
+            .filter(Boolean)
+            .join(' · ');
         return (
             <p className={classes.program}>
                 <span className={styles.programName} title={name}>
@@ -83,7 +88,7 @@ export default function ProgramBreakdown<Row extends { programId: number }>({
             onClick={scrollable ? event => event.stopPropagation() : undefined}
         >
             {figureHeading && (
-                <p className={styles.breakdownHeading}>{figureHeading}</p>
+                <div className={styles.breakdownHeading}>{figureHeading}</div>
             )}
             <ul
                 ref={list}

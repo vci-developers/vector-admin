@@ -5,6 +5,7 @@ import type {
 } from '@/api/progress/validation/progress-schema';
 import {
     locationTotalUnit,
+    progressLocationUnitLabel,
     sentinelSiteLabel,
     sumAvailableCounts,
     totalProgressLocations,
@@ -44,39 +45,30 @@ export default function ProgressCoverageHeadline({
         programs.map(program => [program.programId, program]),
     );
     const singleProgram = programById.get(coverage[0]?.programId);
+    const cell = (count: number | null) => (
+        <span
+            className={cn(
+                styles.coverageCount,
+                count === null && styles.coverageUnavailable,
+            )}
+            title={count === null ? 'Unavailable' : undefined}
+        >
+            {count === null ? '—' : formatter.number(count)}
+        </span>
+    );
     // Sentinel sites lead: they are counted the same way in every Program.
-    const figure = (rows: readonly ProgressLocationCoverage[]) => {
-        const sentinel = sumAvailableCounts(
-            rows.map(row => sentinelByProgram.get(row.programId) ?? null),
-        );
-        const count = totalProgressLocations(rows);
-        return (
-            <div className="text-right">
-                {sentinel !== null && (
-                    <p className={styles.coverageFigure}>
-                        <span className={styles.coverageCount}>
-                            {formatter.number(sentinel)}
-                        </span>
-                    </p>
-                )}
-                <p className={styles.coverageFigure}>
-                    <span
-                        className={cn(
-                            styles.coverageUnit,
-                            count === null && styles.coverageUnavailable,
-                        )}
-                    >
-                        {count === null
-                            ? 'Unavailable'
-                            : formatter.number(count)}
-                    </span>{' '}
-                    <span className={styles.coverageUnit}>
-                        {locationTotalUnit(rows, count)}
-                    </span>
-                </p>
-            </div>
-        );
-    };
+    const figure = (rows: readonly ProgressLocationCoverage[]) => (
+        <div className={styles.coverageFigures}>
+            {cell(
+                sumAvailableCounts(
+                    rows.map(
+                        row => sentinelByProgram.get(row.programId) ?? null,
+                    ),
+                ),
+            )}
+            {cell(totalProgressLocations(rows))}
+        </div>
+    );
 
     return (
         // The tile is the click target; its chevron button serves keyboards.
@@ -120,7 +112,15 @@ export default function ProgressCoverageHeadline({
                             programs={programById}
                             label="Coverage by program"
                             tone="coverage"
-                            figureHeading="Sentinel sites"
+                            figureHeading={
+                                <div className={styles.coverageFigures}>
+                                    <span>Sentinel sites</span>
+                                    <span>Locations</span>
+                                </div>
+                            }
+                            programNote={row =>
+                                progressLocationUnitLabel(row.unit, row.count)
+                            }
                             figure={figure}
                         />
                     ) : singleProgram ? (

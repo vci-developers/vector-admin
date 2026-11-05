@@ -47,12 +47,17 @@ function renderCoverage(
     ).replace(/<!--.*?-->/g, '');
 }
 
+/** Each line's location count beside the unit named with its Program. */
 function coverageFigures(markup: string): string[] {
-    return [
+    const units = [...markup.matchAll(/ · ([^<"]+)</g)].map(match => match[1]);
+    const counts = [
         ...markup.matchAll(
-            /<p[^>]*><span[^>]*>([^<]*)<\/span> <span[^>]*>([^<]*)<\/span><\/p>/g,
+            /<div[^>]*><span[^>]*>[^<]*<\/span><span[^>]*>([^<]*)<\/span><\/div>/g,
         ),
-    ].map(match => `${match[1]} ${match[2]}`);
+    ]
+        .map(match => match[1])
+        .filter(count => count !== 'Locations');
+    return counts.map((count, index) => `${count} ${units[index]}`);
 }
 
 describe('progress coverage headline', () => {
@@ -71,8 +76,8 @@ describe('progress coverage headline', () => {
             /34\s+active sentinel sites\s+259 active households/,
         );
         expect(text.match(/Sentinel sites/g)).toHaveLength(1);
-        expect(text).toMatch(/33\s+250\s+households/);
-        expect(text).toMatch(/1\s+9\s+households/);
+        expect(text).toMatch(/33\s+250/);
+        expect(text).toMatch(/1\s+9/);
     });
 
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {
@@ -156,11 +161,11 @@ describe('progress coverage headline', () => {
             { programId: 3, unit: 'household', count: null },
         ]);
 
-        expect(markup).not.toContain('>—</span>');
+        expect(markup).not.toMatch(/headlineValue[^>]*>—/);
         expect(markup).toContain('active households');
         expect(markup.match(/>4<\/span>/g)).toHaveLength(3);
         expect(markup).toContain('Coverage unavailable for some programs');
-        expect(markup).toContain('>Unavailable</span>');
+        expect(markup).toContain('title="Unavailable"');
         expect(markup).toContain('Uganda reporting');
         expect(markup).toContain('Ghana reporting');
     });
@@ -224,9 +229,6 @@ describe('progress coverage headline', () => {
             '0 households',
             '1 health district',
         ]);
-        expect(cards[0]).not.toContain('· households');
-        expect(cards[0]).not.toContain('· municipalities');
-        expect(cards[0]).not.toContain('· health district');
         expect(cards[0]).not.toContain('active households');
         expect(cards[1]).toContain('>926</span>');
         expect(cards[1]).toContain('total scans');
@@ -260,14 +262,14 @@ describe('progress coverage headline', () => {
             { programId: 6, unit: 'health-district', count: 1 },
         ]);
 
-        expect(markup).not.toContain('>—</span>');
+        expect(markup).not.toMatch(/headlineValue[^>]*>—/);
         expect(markup).toContain('active reporting location');
         expect(markup).toContain('>0</span>');
         expect(markup).toContain('>1</span>');
-        expect(markup).toContain('>Unavailable</span>');
+        expect(markup).toContain('title="Unavailable"');
         expect(coverageFigures(markup)).toEqual([
             '0 households',
-            'Unavailable municipalities',
+            '— municipalities',
             '1 health district',
         ]);
     });
