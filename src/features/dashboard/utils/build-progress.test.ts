@@ -464,9 +464,9 @@ describe('buildProgress', () => {
             { from: '2026-02', to: '2026-03' },
         );
 
-        expect(data.reportingLocations).toBeNull();
+        expect(data.reportingLocations).toBe(3);
         expect(data.coverageByProgram).toEqual([
-            { programId: 7, unit: 'household', count: null },
+            { programId: 7, unit: 'household', count: 3 },
         ]);
         expect(data.uniqueScans).toBe(4);
         expect(data.monthly).toEqual([
@@ -876,7 +876,7 @@ describe('buildProgress', () => {
         ]);
     });
 
-    it('marks Ghana household coverage incomplete for an active Sentinel Site parent while retaining all scans', () => {
+    it('counts Ghana households without an active Sentinel Site parent, retaining all scans', () => {
         const parent: Site = {
             siteId: 1,
             name: 'School',
@@ -907,10 +907,10 @@ describe('buildProgress', () => {
             { from: '2026-02', to: '2026-02' },
         );
         expect(data.coverageByProgram).toEqual([
-            { programId: 3, unit: 'household', count: null },
+            { programId: 3, unit: 'household', count: 1 },
         ]);
-        expect(data.reportingLocations).toBeNull();
-        expect(data.districts[0].reportingLocations).toBeNull();
+        expect(data.reportingLocations).toBe(1);
+        expect(data.districts[0].reportingLocations).toBe(1);
         expect(data.uniqueScans).toBe(2);
     });
 

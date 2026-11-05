@@ -33,7 +33,7 @@ export default function ProgressCoverageHeadline({
     const units = groupProgressLocationsByUnit(coverage);
     const sharedUnit = units.length === 1 ? units[0] : null;
     // A location uses its program's reporting level, retained in the breakdown.
-    // Never present a partial location sum as complete coverage.
+    // A Program without a count is left out of the total and marked below.
     const total = totalProgressLocations(coverage);
     const totalUnit = sharedUnit
         ? progressLocationUnitLabel(sharedUnit.unit, total)
@@ -179,7 +179,7 @@ export default function ProgressCoverageHeadline({
                         </p>
                     ) : null}
                     <p className={styles.headlineDescription}>
-                        {coverage.length > 0 && total === null
+                        {coverage.some(entry => entry.count === null)
                             ? 'Coverage unavailable for some programs. Available counts are shown in the breakdown.'
                             : 'Locations reporting during the selected period.'}
                     </p>

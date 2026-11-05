@@ -140,15 +140,16 @@ describe('progress coverage headline', () => {
         expect(markup).toContain('>3</span>');
     });
 
-    it('keeps a missing shared-unit total unavailable while retaining real zero and unavailable rows', () => {
+    it('totals the available shared-unit counts while retaining the unavailable row', () => {
         const markup = renderCoverage([
-            { programId: 1, unit: 'household', count: 0 },
+            { programId: 1, unit: 'household', count: 4 },
             { programId: 3, unit: 'household', count: null },
         ]);
 
-        expect(markup).toContain('>—</span>');
-        expect(markup).toContain('households unavailable');
-        expect(markup).toContain('>0</span>');
+        expect(markup).not.toContain('>—</span>');
+        expect(markup).toContain('active households');
+        expect(markup.match(/>4<\/span>/g)).toHaveLength(2);
+        expect(markup).toContain('Coverage unavailable for some programs');
         expect(markup).toContain('>Unavailable</span>');
         expect(markup).toContain('Uganda reporting');
         expect(markup).toContain('Ghana reporting');
@@ -242,15 +243,15 @@ describe('progress coverage headline', () => {
         }
     });
 
-    it('keeps incomplete mixed coverage unavailable instead of showing a partial total', () => {
+    it('totals incomplete mixed coverage from the programs that have a count', () => {
         const markup = renderCoverage([
             { programId: 1, unit: 'household', count: 0 },
             { programId: 2, unit: 'municipality', count: null },
             { programId: 6, unit: 'health-district', count: 1 },
         ]);
 
-        expect(markup).toContain('>—</span>');
-        expect(markup).toContain('reporting locations unavailable');
+        expect(markup).not.toContain('>—</span>');
+        expect(markup).toContain('active reporting location');
         expect(markup).toContain('>0</span>');
         expect(markup).toContain('>1</span>');
         expect(markup).toContain('>Unavailable</span>');
@@ -259,6 +260,16 @@ describe('progress coverage headline', () => {
             'Unavailable municipalities',
             '1 health district',
         ]);
+    });
+
+    it('keeps the total unavailable when no program has a count', () => {
+        const markup = renderCoverage([
+            { programId: 1, unit: 'household', count: null },
+            { programId: 3, unit: 'household', count: null },
+        ]);
+
+        expect(markup).toContain('>—</span>');
+        expect(markup).toContain('households unavailable');
     });
 
     it('distinguishes zero mixed coverage, a single reporting location and no program selection', () => {

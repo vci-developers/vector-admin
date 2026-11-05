@@ -11,13 +11,15 @@ const labels: Record<ProgressLocationCoverage['unit'], [string, string]> = {
     'collection-site': ['collection site', 'collection sites'],
 };
 
-/** Sum program counts only under the generic reporting-location label. */
+/** Sum the counts that exist; null only when there are none to add. */
 export function totalProgressLocations(
     coverage: readonly ProgressLocationCoverage[],
 ): number | null {
-    if (coverage.length === 0 || coverage.some(entry => entry.count === null))
-        return null;
-    return coverage.reduce((sum, entry) => sum + (entry.count ?? 0), 0);
+    const counts = coverage.flatMap(({ count }) =>
+        count === null ? [] : [count],
+    );
+    if (counts.length === 0) return null;
+    return counts.reduce((sum, count) => sum + count, 0);
 }
 
 /** Display the reviewed reporting unit without treating different units as equal. */

@@ -113,7 +113,11 @@ function coverageOf(group: CoverageAccumulator): ProgressLocationCoverage {
     return {
         programId: group.programId,
         unit: group.unit,
-        count: group.incomplete ? null : group.locations.size,
+        // A Site with no usable place is left out; it doesn't blank the rest.
+        count:
+            group.incomplete && group.locations.size === 0
+                ? null
+                : group.locations.size,
     };
 }
 
