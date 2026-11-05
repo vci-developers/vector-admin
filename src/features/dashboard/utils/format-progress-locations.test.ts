@@ -113,7 +113,7 @@ describe('progressLocationUnitLabel', () => {
 });
 
 describe('totalSentinelSites', () => {
-    it('adds Programs and is unknown when one failed to load', () => {
+    it('adds the Programs that loaded and is unknown when none did', () => {
         expect(
             totalSentinelSites([
                 { programId: 1, count: 9 },
@@ -125,7 +125,9 @@ describe('totalSentinelSites', () => {
                 { programId: 1, count: 9 },
                 { programId: 4, count: null },
             ]),
-        ).toBeNull();
+        ).toBe(9);
+        expect(totalSentinelSites([{ programId: 4, count: null }])).toBeNull();
+        expect(totalSentinelSites([])).toBeNull();
     });
 });
 

@@ -99,8 +99,11 @@ path, so a Sentinel Site with Sessions at it and at its households counts once.
 Houses are counted beside it where they exist ("3 sentinel sites · 12 houses").
 Named for now; collection frequency is not part of it (in Uganda 18 of 33
 villages had Surveillance Sessions every month Apr–Sep 2026, 9 only once). The
-Stakeholder view shows them under households on the Geographic Coverage card (in
-total and per Program) and in every map tooltip. _Avoid_: Site (the VectorCam
+Stakeholder view leads the Geographic Coverage card with them, above households
+(in total, per country and per Program), and shows them in every map tooltip.
+Totals add the Programs and places that can be counted and leave the rest out; a
+Program reads Unavailable only if it failed to load or none of its Sites could
+be placed. _Avoid_: Site (the VectorCam
 record: a house in Uganda), collection site
 
 **Area**: A Program's top-level place: a District for Uganda and other legacy

@@ -21,9 +21,15 @@ const programs: Program[] = [
     { programId: 7, name: 'Uganda partner reporting', country: 'Uganda' },
 ];
 
+/** Each Program's Sentinel Sites, matching its coverage count by default. */
+const sentinelFor = (
+    coverage: readonly ProgressLocationCoverage[],
+): ProgressSentinelSites[] =>
+    coverage.map(({ programId, count }) => ({ programId, count }));
+
 function renderCoverage(
     coverage: readonly ProgressLocationCoverage[],
-    sentinelSites: readonly ProgressSentinelSites[] = [],
+    sentinelSites: readonly ProgressSentinelSites[] = sentinelFor(coverage),
 ) {
     return renderToStaticMarkup(
         jsx(NextIntlClientProvider, {
@@ -46,11 +52,13 @@ function coverageFigures(markup: string): string[] {
         ...markup.matchAll(
             /<p[^>]*><span[^>]*>([^<]*)<\/span> <span[^>]*>([^<]*)<\/span><\/p>/g,
         ),
-    ].map(match => `${match[1]} ${match[2]}`);
+    ]
+        .map(match => `${match[1]} ${match[2]}`)
+        .filter(figure => !figure.includes('sentinel'));
 }
 
 describe('progress coverage headline', () => {
-    it('shows sentinel sites under the households, in total and per Program', () => {
+    it('shows sentinel sites above the households, in total and per Program', () => {
         const text = renderCoverage(
             [
                 { programId: 1, unit: 'household', count: 250 },
@@ -61,9 +69,11 @@ describe('progress coverage headline', () => {
                 { programId: 4, count: 1 },
             ],
         ).replace(/<[^>]+>/g, ' ');
-        expect(text).toMatch(/active households\s+34 sentinel sites/);
-        expect(text).toMatch(/250\s+households\s+33 sentinel sites/);
-        expect(text).toMatch(/9\s+households\s+1 sentinel site\b/);
+        expect(text).toMatch(
+            /34\s+active sentinel sites\s+259 active households/,
+        );
+        expect(text).toMatch(/33\s+sentinel sites\s+250\s+households/);
+        expect(text).toMatch(/1\s+sentinel site\s+9\s+households/);
     });
 
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {
@@ -107,14 +117,15 @@ describe('progress coverage headline', () => {
         expect(coverage.map(entry => entry.count)).toEqual([250, 153, 30]);
     });
 
-    it('keeps separate programs in the same country visible below their combined total', () => {
+    it('nests separate programs in the same country under its subtotal', () => {
         const markup = renderCoverage([
             { programId: 1, unit: 'household', count: 2 },
             { programId: 7, unit: 'household', count: 3 },
         ]);
 
         expect(markup).toContain('>5</span>');
-        expect(markup.match(/>Uganda<\/p>/g)).toHaveLength(2);
+        expect(markup.match(/>Uganda<\/p>/g)).toHaveLength(1);
+        expect(markup).toContain('2 programs');
         expect(markup).toContain('Uganda reporting');
         expect(markup).toContain('Uganda partner reporting');
         expect(markup).toContain('>2</span>');
@@ -148,7 +159,7 @@ describe('progress coverage headline', () => {
 
         expect(markup).not.toContain('>—</span>');
         expect(markup).toContain('active households');
-        expect(markup.match(/>4<\/span>/g)).toHaveLength(2);
+        expect(markup.match(/>4<\/span>/g)).toHaveLength(3);
         expect(markup).toContain('Coverage unavailable for some programs');
         expect(markup).toContain('>Unavailable</span>');
         expect(markup).toContain('Uganda reporting');
@@ -173,7 +184,7 @@ describe('progress coverage headline', () => {
                     null,
                     createElement(ProgressCoverageHeadline, {
                         coverage,
-                        sentinelSites: [],
+                        sentinelSites: sentinelFor(coverage),
                         programs,
                         expanded: true,
                         onToggle: () => {},
@@ -305,7 +316,10 @@ describe('progress coverage headline', () => {
                         { programId: 1, unit: 'household', count: 206 },
                         { programId: 3, unit: 'household', count: 4 },
                     ],
-                    sentinelSites: [],
+                    sentinelSites: [
+                        { programId: 1, count: 206 },
+                        { programId: 3, count: 4 },
+                    ],
                     programs,
                     expanded: false,
                     onToggle: () => {},

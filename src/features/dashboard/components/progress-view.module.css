@@ -213,15 +213,54 @@
     line-height: 1.5;
 }
 
-.coverageRows,
-.scanBreakdown {
-    display: grid;
+.breakdown {
     grid-row: 3;
     align-self: start;
-    gap: 10px;
+    min-width: 0;
     margin-top: 16px;
     padding-top: 12px;
     border-top: 1px solid var(--progress-line);
+}
+
+/* About four countries, so a cut-off line hints at the rest. */
+.breakdownList {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentcolor 35%, transparent)
+        transparent;
+}
+
+.breakdownList[data-more] {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+}
+
+.breakdownList > li + li {
+    padding-top: 10px;
+    border-top: 1px solid var(--progress-line);
+}
+
+.breakdownHint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 6px;
+    color: var(--muted-foreground);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+/* A country's several Programs, under its subtotal. */
+.countryPrograms {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--progress-line);
 }
 
 .coverageRow,
@@ -230,12 +269,6 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
-}
-
-.coverageRow + .coverageRow,
-.scanRow + .scanRow {
-    padding-top: 10px;
-    border-top: 1px solid var(--progress-line);
 }
 
 .coverageCountry,
@@ -351,12 +384,17 @@
     color: #c0d8ce;
 }
 
-.headlineFeatured .scanBreakdown {
+.headlineFeatured .breakdown {
     border-color: rgb(203 235 220 / 15%);
 }
 
-.headlineFeatured .scanRow + .scanRow {
+.headlineFeatured .breakdownList > li + li,
+.headlineFeatured .countryPrograms {
     border-color: rgb(203 235 220 / 12%);
+}
+
+.headlineFeatured .breakdownHint {
+    color: #c0d8ce;
 }
 
 .headlineFeatured .scanCountry {
