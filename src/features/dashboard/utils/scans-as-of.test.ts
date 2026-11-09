@@ -18,6 +18,7 @@ const district = {
         { month: '2026-02', uniqueScans: 0 },
         { month: '2026-03', uniqueScans: 7 },
     ],
+    reportingMonths: ['2026-01', '2026-03'],
     speciesMonthly: [
         {
             month: '2026-01',
@@ -91,6 +92,7 @@ describe('timelineFigures', () => {
             { month: '2026-03', uniqueScans: 1 },
         ],
         speciesMonthly: [],
+        reportingMonths: ['2026-03'],
     } as ProgressDistrict;
 
     it('counts only what has reported by the month', () => {
@@ -108,6 +110,20 @@ describe('timelineFigures', () => {
         const figures = timelineFigures([district, late], period, '2026-03');
         expect(figures.months.map(row => row.scans)).toEqual([2, 0, 8]);
         expect(figures).toMatchObject({ added: 8, areas: 2, countries: 2 });
+    });
+
+    it('counts an upload with no images, as the tiles do', () => {
+        const practice = {
+            ...late,
+            key: 'burundi:mpanda',
+            name: 'Mpanda',
+            country: 'Burundi',
+            monthly: period.map(month => ({ month, uniqueScans: 0 })),
+            reportingMonths: ['2026-02'],
+        };
+        expect(
+            timelineFigures([district, practice], period, '2026-02'),
+        ).toMatchObject({ added: 0, areas: 2, countries: 2 });
     });
 
     it('leaves an unrecorded area out of the areas, not the countries', () => {

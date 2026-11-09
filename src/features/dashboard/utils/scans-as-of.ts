@@ -80,8 +80,9 @@ export function timelineFigures(
             0,
         ),
     }));
+    // Any upload counts, as on the tiles: practice, or one with no images.
     const reporting = districts.filter(district =>
-        district.monthly.some(row => row.month <= month && row.uniqueScans > 0),
+        district.reportingMonths.some(key => key <= month),
     );
     return {
         months,

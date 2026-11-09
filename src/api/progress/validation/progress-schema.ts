@@ -121,6 +121,8 @@ export const progressDistrictSchema = z.object({
         }),
     ),
     monthly: z.array(progressMonthSchema),
+    /** Months with any upload, practice and image-less ones included. */
+    reportingMonths: z.array(monthKeySchema),
     position: z
         .object({ latitude: z.number(), longitude: z.number() })
         .nullable(),

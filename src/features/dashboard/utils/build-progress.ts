@@ -326,6 +326,7 @@ export function buildProgress(
                     uniqueSpecimens: 0,
                     species: [],
                     speciesMonthly: [],
+                    reportingMonths: [],
                     speciesCounts: new Map(),
                     speciesByMonth: new Map(),
                     monthly,
@@ -381,6 +382,8 @@ export function buildProgress(
             );
             district.uniqueScans += count;
             district.months.get(session.month)!.uniqueScans += count;
+            if (!district.reportingMonths.includes(session.month))
+                district.reportingMonths.push(session.month);
             monthTotals.get(session.month)!.uniqueScans += count;
             uniqueScans += count;
             const specimens = specimensBySession.get(session.sessionId) ?? 0;
@@ -465,6 +468,7 @@ export function buildProgress(
                 }))
                 .sort((a, b) => a.month.localeCompare(b.month)),
             monthly: district.monthly,
+            reportingMonths: district.reportingMonths.toSorted(),
             latestReceivedAt: district.latestReceivedAt,
             coverageByProgram,
             scansByProgram: [...district.scans]

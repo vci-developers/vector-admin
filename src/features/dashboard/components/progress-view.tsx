@@ -171,12 +171,41 @@ export default function ProgressView() {
     const chosenCountries = Array.from(
         new Set(chosenPrograms.map(program => program.country)),
     );
-    const shownCountries = selected ? [selected.country] : chosenCountries;
+    // Countries and Programs that uploaded in the period, not just picked,
+    // practice included as everywhere else: scans, or a site visited (as
+    // Geographic Coverage counts). One that failed to load may have, so stays.
+    const visitedSites = new Map(
+        (dashboard?.sentinelSitesByProgram ?? []).map(row => [
+            row.programId,
+            row.count,
+        ]),
+    );
+    const notReporting = new Set(
+        (dashboard?.scansByProgram ?? [])
+            .filter(
+                row =>
+                    row.scans === 0 &&
+                    (visitedSites.get(row.programId) ?? 0) === 0,
+            )
+            .map(row => row.programId),
+    );
+    const reportingPrograms = chosenPrograms.filter(
+        program => !notReporting.has(program.programId),
+    );
+    const shownCountries = selected
+        ? [selected.country]
+        : Array.from(
+              new Set(reportingPrograms.map(program => program.country)),
+          );
+    // Picked but silent in the period: listed last, greyed out.
+    const silentPrograms = chosenPrograms.filter(program =>
+        notReporting.has(program.programId),
+    );
     const shownPrograms = selected
-        ? chosenPrograms.filter(program =>
+        ? reportingPrograms.filter(program =>
               selected.programIds.includes(program.programId),
           )
-        : chosenPrograms;
+        : [...reportingPrograms, ...silentPrograms];
     const scope =
         selected?.name ??
         (chosenCountries.length === 1
@@ -444,7 +473,10 @@ export default function ProgressView() {
                             icon={Globe}
                             value={shownCountries.length}
                             detail={
-                                shownCountries.join(', ') || 'Choose a program'
+                                shownCountries.join(', ') ||
+                                (shownPrograms.length > 0
+                                    ? 'no data in this period'
+                                    : 'Choose a program')
                             }
                             expanded={statsExpanded}
                             onToggle={toggleStats}
@@ -462,7 +494,20 @@ export default function ProgressView() {
                                     }
                                     label="Programs by country"
                                     tone="coverage"
-                                    figure={() => null}
+                                    muted={program =>
+                                        notReporting.has(program.programId)
+                                    }
+                                    figure={rows =>
+                                        rows.every(row =>
+                                            notReporting.has(row.programId),
+                                        ) ? (
+                                            <span
+                                                className={styles.noPeriodData}
+                                            >
+                                                No data in this period
+                                            </span>
+                                        ) : null
+                                    }
                                 />
                             )}
                         </ProgressStatTile>
