@@ -15,7 +15,7 @@ import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
 import { countSentinelSites } from './count-sentinel-sites';
 import { siteLocationPath } from './site-location-path';
-import { isStephensi } from './stephensi-totals';
+import { isStephensi, STEPHENSI_LABEL } from './stephensi-totals';
 import {
     mergeLocationCoverage,
     progressLocationIdentity,
@@ -214,7 +214,10 @@ export function prepareProgressData(
             // Groups split by sex and abdomen too; only species is reported.
             const species: SpeciesCounts = new Map();
             for (const group of counts.groups) {
-                const name = group.species?.trim() || null;
+                const label = group.species?.trim() || null;
+                // Stakeholders see one An. stephensi, suspected or not.
+                const name =
+                    label && isStephensi(label) ? STEPHENSI_LABEL : label;
                 species.set(name, (species.get(name) ?? 0) + group.count);
             }
             speciesBySession.set(counts.sessionId, species);

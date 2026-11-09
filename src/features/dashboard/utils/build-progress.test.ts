@@ -182,7 +182,7 @@ describe('buildProgress', () => {
         ]);
     });
 
-    it('counts An. stephensi per Program, label and District', () => {
+    it('counts An. stephensi per Program and District, merging its labels', () => {
         const data = buildProgress(
             [
                 program({
@@ -216,25 +216,12 @@ describe('buildProgress', () => {
             ],
             { from: '2026-02', to: '2026-03' },
         );
+        // Every label, suspected or not, is one An. stephensi.
         expect(data.stephensi).toEqual([
             {
                 programId: 7,
-                species: 'An. Stephensi',
-                specimens: 1,
-                latestMonth: '2026-02',
-                districts: [
-                    {
-                        key: 'uganda:gulu',
-                        name: 'Gulu',
-                        specimens: 1,
-                        monthly: [{ month: '2026-02', specimens: 1 }],
-                    },
-                ],
-            },
-            {
-                programId: 7,
-                species: 'An. stephensi (suspected)',
-                specimens: 4,
+                species: 'Anopheles stephensi',
+                specimens: 5,
                 latestMonth: '2026-03',
                 districts: [
                     {
@@ -246,8 +233,8 @@ describe('buildProgress', () => {
                     {
                         key: 'uganda:gulu',
                         name: 'Gulu',
-                        specimens: 1,
-                        monthly: [{ month: '2026-02', specimens: 1 }],
+                        specimens: 2,
+                        monthly: [{ month: '2026-02', specimens: 2 }],
                     },
                 ],
             },

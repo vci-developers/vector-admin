@@ -5,6 +5,9 @@ export function isStephensi(species: string): boolean {
     return /stephensi/i.test(species);
 }
 
+/** The one name Stakeholders see for every stephensi label. */
+export const STEPHENSI_LABEL = 'Anopheles stephensi';
+
 /** Specimens per month across every label, for one District or all of them. */
 export function sumStephensiMonths(
     months: readonly string[],
