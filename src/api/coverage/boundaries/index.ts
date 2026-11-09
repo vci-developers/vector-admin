@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 import countries from './countries.json';
 import kenya from './kenya.json';
+import places from './places.json';
 import uganda from './uganda.json';
 
 // Written by scripts/fetch-boundaries.mjs; one file per Program Country.
@@ -57,4 +58,25 @@ export function countryOutline(country: string): MultiPolygon | null {
             .outlines.map(o => [o.country, o.geometry]),
     );
     return outlines.get(country) ?? null;
+}
+
+// Hand-curated points for areas with no usable boundary (see places.json).
+const placeFileSchema = z.object({
+    places: z.array(
+        z.object({
+            country: z.string(),
+            name: z.string(),
+            latitude: z.number(),
+            longitude: z.number(),
+        }),
+    ),
+});
+
+/** A Program Country's committed points, placed where no shape exists. */
+export function placesForCountry(
+    country: string,
+): { name: string; latitude: number; longitude: number }[] {
+    return placeFileSchema
+        .parse(places)
+        .places.filter(place => place.country === country);
 }

@@ -5,7 +5,10 @@ import {
     progressSnapshotTag,
 } from '@/api/admin/load-progress-snapshot';
 import { loadPrograms, PROGRAMS_TAG } from '@/api/admin/load-programs';
-import { boundariesForCountry } from '@/api/coverage/boundaries';
+import {
+    boundariesForCountry,
+    placesForCountry,
+} from '@/api/coverage/boundaries';
 import { loadCoverage } from '@/api/coverage/load-coverage';
 import type { Program } from '@/api/program/validation/program-schema';
 import type {
@@ -36,7 +39,7 @@ import {
 type ProgressRange = Pick<GetProgressQuery, 'from' | 'to'>;
 type ProgressSummary = Omit<ProgressDashboard, 'programs'>;
 const SCAN_COUNT_VERSION =
-    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v4-species-months-v1-one-stephensi-v1-reporting-months-v1';
+    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v4-species-months-v1-one-stephensi-v1-places-v1-reporting-months-v1';
 
 export async function getProgress(
     query: GetProgressQuery,
@@ -150,6 +153,15 @@ async function buildSelectedProgress(
                     { latitude: point.at[0], longitude: point.at[1] },
                 );
         }
+        for (const place of placesForCountry(program.country))
+            anchors.set(
+                progressDistrictKey(
+                    program.country,
+                    place.name,
+                    program.programId,
+                ),
+                { latitude: place.latitude, longitude: place.longitude },
+            );
     }
 
     const aggregate = buildProgress(loaded, range, anchors);

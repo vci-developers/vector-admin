@@ -1,0 +1,13 @@
+{
+    "source": "OpenStreetMap place nodes, © OpenStreetMap contributors (ODbL). For areas with no usable boundary: Burundi's sites use the 2025 provinces and communes, which no public boundary set draws yet.",
+    "retrievedDate": "2026-11-09",
+    "places": [
+        {
+            "country": "Burundi",
+            "name": "Mpanda",
+            "osmNode": 1345888970,
+            "latitude": -3.1692813,
+            "longitude": 29.404712
+        }
+    ]
+}
