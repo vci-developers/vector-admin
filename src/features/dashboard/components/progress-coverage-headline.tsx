@@ -52,7 +52,7 @@ export default function ProgressCoverageHeadline({
             {count === null ? '—' : formatter.number(count)}
         </span>
     );
-    // Numbers in one column and labels in the next, so every line stacks up.
+    // Two lines, each right-aligned as a whole: sentinel sites, then places.
     const figure = (rows: readonly ProgressLocationCoverage[]) => {
         const sentinel = sumAvailableCounts(
             rows.map(row => sentinelByProgram.get(row.programId) ?? null),
@@ -60,14 +60,18 @@ export default function ProgressCoverageHeadline({
         const count = totalProgressLocations(rows);
         return (
             <div className={styles.coverageFigures}>
-                {figureCount(sentinel, styles.coverageCount)}
-                <span className={styles.coverageUnit}>
-                    {sentinelSiteLabel(sentinel)}
-                </span>
-                {figureCount(count, styles.coverageLocations)}
-                <span className={styles.coverageUnit}>
-                    {locationTotalUnit(rows, count)}
-                </span>
+                <p className={styles.coverageFigureLine}>
+                    {figureCount(sentinel, styles.coverageCount)}
+                    <span className={styles.coverageUnit}>
+                        {sentinelSiteLabel(sentinel)}
+                    </span>
+                </p>
+                <p className={styles.coverageFigureLine}>
+                    {figureCount(count, styles.coverageLocations)}
+                    <span className={styles.coverageUnit}>
+                        {locationTotalUnit(rows, count)}
+                    </span>
+                </p>
             </div>
         );
     };
