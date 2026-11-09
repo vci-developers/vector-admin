@@ -56,6 +56,7 @@ function district(
         uniqueScans: 5,
         uniqueSpecimens: 0,
         species: [],
+        speciesMonthly: [],
         sentinelSitesByProgram: [],
         scansByProgram: [
             {

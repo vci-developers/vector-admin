@@ -106,14 +106,88 @@
 }
 
 .districtArea {
+    /* Colours fade over one timeline month, so they never pause; shapes appear and
+       leave faster, as when a country gives way to its Districts. Fades, so kept
+       under Reduce Motion. */
     transition:
-        fill 150ms ease,
-        fill-opacity 150ms ease,
+        fill 900ms linear,
+        fill-opacity 350ms ease,
         stroke-width 150ms ease;
 }
 
-.districtArea:focus-visible {
+.timelinePulse span {
+    position: absolute;
+    top: calc(var(--size) / -2);
+    left: calc(var(--size) / -2);
+    width: var(--size);
+    height: var(--size);
+    border: 2px solid #168577;
+    border-radius: 50%;
+    background: rgb(22 133 119 / 22%);
+    animation: timeline-pulse 900ms ease-out forwards;
+}
+
+@keyframes timeline-pulse {
+    from {
+        opacity: 0.9;
+        transform: scale(0.2);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .timelinePulse span {
+        display: none;
+    }
+}
+
+.canvas[data-rewinding='true'] .districtArea {
+    transition-duration: 250ms, 250ms, 150ms;
+    transition-timing-function: ease-out;
+}
+
+/* A soft pink patch while the timeline is open; its strength is set per month. */
+.stephensiHeat span {
+    position: absolute;
+    top: -28px;
+    left: -28px;
+    width: 56px;
+    height: 56px;
+}
+
+.stephensiHeat i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        rgb(181 23 111 / 90%) 0%,
+        rgb(181 23 111 / 50%) 38%,
+        rgb(181 23 111 / 0%) 70%
+    );
+    opacity: var(--heat-opacity, 0);
+    transform: scale(var(--heat-scale, 0.3));
+    transition:
+        opacity 900ms linear,
+        transform 900ms linear;
+}
+
+.canvas[data-rewinding='true'] .stephensiHeat i {
+    transition-duration: 250ms;
+}
+
+/* A focused shape's outline is its rectangular box; the stroke marks it instead. */
+.canvas :global(path.leaflet-interactive):focus,
+.canvas :global(path.leaflet-interactive):focus-visible {
     outline: none;
+}
+
+.districtArea:focus-visible {
     stroke: #075341;
     stroke-width: 3px;
 }
@@ -228,6 +302,7 @@
     box-shadow: 0 3px 14px rgb(26 75 61 / 8%);
     white-space: nowrap;
     transition:
+        opacity 120ms ease,
         border-color 160ms ease,
         box-shadow 160ms ease;
 }
@@ -274,6 +349,19 @@
     box-shadow: 0 4px 18px rgb(26 75 61 / 13%);
 }
 
+/* While the timeline is open the map shows only colours and country names. */
+.canvas[data-timeline='true'] .countryCard,
+.canvas[data-timeline='true'] .cardLeader,
+.canvas[data-timeline='true'] .mark .activitySpot {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.canvas[data-timeline='true'] .districtLabel,
+.canvas[data-timeline='true'] .labelLeaders {
+    visibility: hidden;
+}
+
 .countryLabel span {
     position: absolute;
     transform: translate(-50%, -50%);
@@ -284,6 +372,17 @@
     text-align: center;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+/* Sits on shaded countries on the timeline, so it needs more contrast. */
+.canvas[data-timeline='true'] .countryLabel span {
+    color: #12362b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-shadow:
+        0 0 2px rgb(255 255 255 / 90%),
+        0 0 5px rgb(255 255 255 / 80%);
 }
 
 .labelLeaders {
@@ -556,9 +655,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .core,
-    .clusterCore,
-    .countryCard,
-    .districtArea {
+    .clusterCore {
         transition: none;
     }
 }

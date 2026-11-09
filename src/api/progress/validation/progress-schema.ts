@@ -120,6 +120,13 @@ export const progressDistrictSchema = z.object({
     uniqueScans: countSchema,
     uniqueSpecimens: countSchema,
     species: z.array(progressSpeciesSchema),
+    /** `species` by month, for the timeline; only months with specimens. */
+    speciesMonthly: z.array(
+        z.object({
+            month: monthKeySchema,
+            species: z.array(progressSpeciesSchema),
+        }),
+    ),
     monthly: z.array(progressMonthSchema),
     position: z
         .object({ latitude: z.number(), longitude: z.number() })

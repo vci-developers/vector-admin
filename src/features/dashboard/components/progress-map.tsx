@@ -102,6 +102,10 @@ type ContinuousPinchMap = L.Map & {
         zoom: number,
         bounds: L.LatLngBounds | undefined,
     ) => L.LatLng;
+    _getBoundsCenterZoom: (
+        bounds: L.LatLngBounds,
+        options: L.FitBoundsOptions,
+    ) => { center: L.LatLng; zoom: number };
     _animatingZoom?: boolean;
 };
 
@@ -162,22 +166,282 @@ function sentinelSitesLine(rows: ProgressDistrict['sentinelSitesByProgram']) {
     );
 }
 
+/** Households and the like; none while the map shows part of the period. */
+function coverageLine(rows: ProgressDistrict['coverageByProgram']) {
+    return rows.length === 0 ? null : (
+        <span className={styles.tooltipLocations}>
+            {formatProgressLocations(rows, count => number.format(count))}
+        </span>
+    );
+}
+
+function coverageSentence(rows: ProgressDistrict['coverageByProgram']) {
+    return rows.length === 0
+        ? ''
+        : ` Active reporting coverage: ${formatProgressLocations(rows, count => number.format(count))}.`;
+}
+
 function districtLabel(district: ProgressDistrict) {
-    return `${district.name}, ${district.country}: ${number.format(district.uniqueScans)} scans. Active reporting coverage: ${formatProgressLocations(district.coverageByProgram, count => number.format(count))}`;
+    return `${district.name}, ${district.country}: ${number.format(district.uniqueScans)} scans.${coverageSentence(district.coverageByProgram)}`;
+}
+
+type TimelinePulse = { month: string; scans: ReadonlyMap<string, number> };
+
+/** One ripple per marker with scans this month, larger for more scans. */
+function TimelinePulses({
+    nodes,
+    pulses,
+}: {
+    nodes: readonly {
+        key: string;
+        position: { latitude: number; longitude: number };
+        sourceDistricts: readonly { key: string }[];
+    }[];
+    pulses: TimelinePulse;
+}) {
+    const ripples = useMemo(() => {
+        const scanned = nodes.flatMap(node => {
+            const scans = node.sourceDistricts.reduce(
+                (sum, row) => sum + (pulses.scans.get(row.key) ?? 0),
+                0,
+            );
+            return scans > 0 ? [{ node, scans }] : [];
+        });
+        const most = Math.max(1, ...scanned.map(row => row.scans));
+        return scanned.map(({ node, scans }) => ({
+            node,
+            icon: L.divIcon({
+                className: styles.timelinePulse,
+                iconSize: [0, 0],
+                html: `<span style="--size:${Math.round(44 + 76 * Math.sqrt(scans / most))}px"></span>`,
+            }),
+        }));
+    }, [nodes, pulses]);
+
+    return (
+        <Pane
+            name="progressTimelinePulses"
+            style={{ zIndex: 640, pointerEvents: 'none' }}
+        >
+            {ripples.map(({ node, icon }) => (
+                <Marker
+                    key={`${pulses.month}:${node.key}`}
+                    position={[node.position.latitude, node.position.longitude]}
+                    icon={icon}
+                    interactive={false}
+                    keyboard={false}
+                />
+            ))}
+        </Pane>
+    );
+}
+
+/**
+ * Each country that is a single marker at this zoom, shaded whole against the
+ * top country's scans for the period. Zooming in hands over to its Districts.
+ */
+function CountryFills({
+    countries,
+    nodes,
+    scansAsOf,
+    onExplore,
+}: {
+    countries: CountryGeometry[];
+    nodes: readonly ProgressMapNode[];
+    scansAsOf?: ReadonlyMap<string, number>;
+    onExplore: (node: ProgressMapNode) => void;
+}) {
+    const most = Math.max(1, ...nodes.map(node => node.uniqueScans));
+    return (
+        <Pane name="progressCountryFills" style={{ zIndex: 420 }}>
+            {countries.map(country => {
+                const node = nodes.find(row => row.country === country.country);
+                const scans =
+                    node?.sourceDistricts.reduce(
+                        (sum, row) =>
+                            sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
+                        0,
+                    ) ?? 0;
+                return (
+                    <GeoJSON
+                        key={country.country}
+                        data={country.geometry}
+                        ref={group => {
+                            // Once zoomed in, the Districts below take over.
+                            group?.eachLayer(layer => {
+                                const shape = (layer as L.Path).getElement();
+                                if (shape instanceof SVGElement)
+                                    shape.style.pointerEvents = node
+                                        ? 'auto'
+                                        : 'none';
+                            });
+                        }}
+                        eventHandlers={{
+                            click: () => {
+                                if (node) onExplore(node);
+                            },
+                        }}
+                        style={{
+                            className: styles.districtArea,
+                            stroke: false,
+                            fillColor: progressScanFillColor(
+                                scans,
+                                most,
+                                scansAsOf !== undefined,
+                            ),
+                            fillOpacity:
+                                scans > 0 ? PROGRESS_SCAN_FILL_OPACITY : 0,
+                            bubblingMouseEvents: false,
+                        }}
+                    >
+                        {/* Stays bound: Leaflet's focus handler needs it. */}
+                        <Tooltip
+                            pane="tooltipPane"
+                            sticky
+                            direction="top"
+                            className={styles.tooltip}
+                            opacity={1}
+                        >
+                            <div className={styles.tooltipContent}>
+                                <span className={styles.tooltipName}>
+                                    {country.country}
+                                </span>
+                                <span className={styles.tooltipScans}>
+                                    {number.format(scans)} scans
+                                    {scansAsOf ? ' so far' : ''}
+                                </span>
+                            </div>
+                        </Tooltip>
+                    </GeoJSON>
+                );
+            })}
+        </Pane>
+    );
+}
+
+type StephensiHeatData = {
+    /** Specimens so far by District key, from the timeline. */
+    counts: ReadonlyMap<string, number>;
+    /** Specimens over the whole period, which sets the strongest patch. */
+    totals: ReadonlyMap<string, number>;
+};
+
+/** Half the patch's full size in the stylesheet. */
+const HEAT_RADIUS = 28;
+
+/**
+ * One soft patch, cut off at its country's border. It stays mounted so its
+ * strength can fade between months.
+ */
+function StephensiHeatSpot({
+    latitude,
+    longitude,
+    strength,
+    country,
+}: {
+    latitude: number;
+    longitude: number;
+    strength: number;
+    country?: CountryGeometry;
+}) {
+    const map = useMap();
+    const { zoom } = useViewport();
+    const marker = useRef<L.Marker>(null);
+    const [icon] = useState(() =>
+        L.divIcon({
+            className: styles.stephensiHeat,
+            iconSize: [0, 0],
+            html: '<span><i></i></span>',
+        }),
+    );
+    useEffect(() => {
+        const patch = marker.current?.getElement()?.firstElementChild;
+        if (!(patch instanceof HTMLElement)) return;
+        patch.style.setProperty(
+            '--heat-opacity',
+            String(strength === 0 ? 0 : 0.35 + 0.5 * strength),
+        );
+        patch.style.setProperty('--heat-scale', String(0.35 + 0.65 * strength));
+    }, [strength]);
+    // The border's distance from the patch changes only with the zoom.
+    useEffect(() => {
+        const patch = marker.current?.getElement()?.firstElementChild;
+        if (!(patch instanceof HTMLElement) || !country) return;
+        const anchor = map.latLngToLayerPoint([latitude, longitude]);
+        const rings = country.geometry.coordinates.flat().map(ring => {
+            const points = ring.map(([lng, lat]) => {
+                const { x, y } = map
+                    .latLngToLayerPoint([lat, lng])
+                    .subtract(anchor);
+                return `${(x + HEAT_RADIUS).toFixed(1)} ${(y + HEAT_RADIUS).toFixed(1)}`;
+            });
+            return `M${points.join('L')}Z`;
+        });
+        patch.style.clipPath = `path(evenodd, '${rings.join('')}')`;
+    }, [map, zoom, latitude, longitude, country]);
+    return (
+        <Marker
+            ref={marker}
+            position={[latitude, longitude]}
+            icon={icon}
+            interactive={false}
+            keyboard={false}
+        />
+    );
+}
+
+/** Stands in for the An. stephensi dots while the timeline is open. */
+function StephensiHeat({
+    districts,
+    countries,
+    heat,
+}: {
+    districts: ProgressDistrict[];
+    countries: CountryGeometry[];
+    heat: StephensiHeatData;
+}) {
+    const most = Math.max(1, ...heat.totals.values());
+    return (
+        <Pane
+            name="progressStephensiHeat"
+            style={{ zIndex: 440, pointerEvents: 'none' }}
+        >
+            {districts.flatMap(({ key, position, country }) =>
+                position && heat.totals.has(key) ? (
+                    <StephensiHeatSpot
+                        key={key}
+                        latitude={position.latitude}
+                        longitude={position.longitude}
+                        strength={Math.sqrt((heat.counts.get(key) ?? 0) / most)}
+                        country={countries.find(row => row.country === country)}
+                    />
+                ) : (
+                    []
+                ),
+            )}
+        </Pane>
+    );
 }
 
 function districtStyle(
     district: ProgressDistrict,
     maximum: number,
     selected: boolean,
+    scansAsOf?: ReadonlyMap<string, number>,
 ): L.PathOptions {
+    const scans = scansAsOf?.get(district.key) ?? district.uniqueScans;
     return {
         className: styles.districtArea,
         color: selected ? '#075341' : '#168367',
         weight: selected ? 2.7 : 1.35,
         opacity: selected ? 1 : 0.9,
-        fillColor: progressScanFillColor(district.uniqueScans, maximum),
-        fillOpacity: PROGRESS_SCAN_FILL_OPACITY,
+        fillColor: progressScanFillColor(
+            scans,
+            maximum,
+            scansAsOf !== undefined,
+        ),
+        // On the timeline, a place not reporting yet is only an outline.
+        fillOpacity: scansAsOf && scans === 0 ? 0 : PROGRESS_SCAN_FILL_OPACITY,
         bubblingMouseEvents: false,
     };
 }
@@ -218,6 +482,7 @@ function ReportingDistrictAreas({
     fills,
     attributions,
     detailDistrictKeys,
+    overviewCountries,
     selectedKey,
     onSelect,
     hoveredKey,
@@ -225,10 +490,13 @@ function ReportingDistrictAreas({
     areaLayers,
     stephensi,
     stephensiKey,
+    scansAsOf,
 }: {
     fills: ProgressDistrictFill[];
     attributions: ReadonlyMap<string, string>;
     detailDistrictKeys: ReadonlySet<string>;
+    /** Shown whole at this zoom, so their Districts stay hidden. */
+    overviewCountries: ReadonlySet<string>;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
     hoveredKey: string | null;
@@ -237,6 +505,7 @@ function ReportingDistrictAreas({
     stephensi?: ReadonlyMap<string, number>;
     /** The area outlined in the stephensi colour: its dot hovered or its view open. */
     stephensiKey: string | null;
+    scansAsOf?: ReadonlyMap<string, number>;
 }) {
     const maximum = Math.max(
         1,
@@ -248,24 +517,30 @@ function ReportingDistrictAreas({
                 const selected = district.key === selectedKey;
                 const interactive = detailDistrictKeys.has(district.key);
                 const showSelection = selected && interactive;
-                const baseStyle = districtStyle(district, maximum, selected);
+                const baseStyle = districtStyle(
+                    district,
+                    maximum,
+                    selected,
+                    scansAsOf,
+                );
                 // The area, its name tag and its marker share one hover.
-                const style =
-                    district.key === stephensiKey
+                const style = overviewCountries.has(district.country)
+                    ? { ...baseStyle, opacity: 0, fillOpacity: 0 }
+                    : district.key === stephensiKey
+                      ? {
+                            ...baseStyle,
+                            color: STEPHENSI_STROKE,
+                            weight: 3,
+                            opacity: 1,
+                        }
+                      : district.key === hoveredKey && !selected
                         ? {
                               ...baseStyle,
-                              color: STEPHENSI_STROKE,
-                              weight: 3,
+                              color: '#063b30',
+                              weight: 2.6,
                               opacity: 1,
                           }
-                        : district.key === hoveredKey && !selected
-                          ? {
-                                ...baseStyle,
-                                color: '#063b30',
-                                weight: 2.6,
-                                opacity: 1,
-                            }
-                          : baseStyle;
+                        : baseStyle;
                 const stephensiCount = stephensi?.get(district.key);
                 const activate = () => onSelect(selected ? null : district.key);
                 return (
@@ -329,18 +604,20 @@ function ReportingDistrictAreas({
                                         {district.name}
                                     </span>
                                     <span className={styles.tooltipScans}>
-                                        {number.format(district.uniqueScans)}{' '}
+                                        {number.format(
+                                            scansAsOf?.get(district.key) ??
+                                                district.uniqueScans,
+                                        )}{' '}
                                         scans
                                     </span>
-                                    {sentinelSitesLine(
-                                        district.sentinelSitesByProgram,
-                                    )}
-                                    <span className={styles.tooltipLocations}>
-                                        {formatProgressLocations(
-                                            district.coverageByProgram,
-                                            count => number.format(count),
+                                    {!scansAsOf &&
+                                        sentinelSitesLine(
+                                            district.sentinelSitesByProgram,
                                         )}
-                                    </span>
+                                    {!scansAsOf &&
+                                        coverageLine(
+                                            district.coverageByProgram,
+                                        )}
                                     {stephensiCount !== undefined && (
                                         <span
                                             className={styles.tooltipStephensi}
@@ -643,12 +920,7 @@ function StephensiSpots({
                                 {sentinelSitesLine(
                                     district.sentinelSitesByProgram,
                                 )}
-                                <span className={styles.tooltipLocations}>
-                                    {formatProgressLocations(
-                                        district.coverageByProgram,
-                                        count => number.format(count),
-                                    )}
-                                </span>
+                                {coverageLine(district.coverageByProgram)}
                                 <span className={styles.tooltipStephensi}>
                                     {number.format(specimens)}{' '}
                                     <i>An. stephensi</i>
@@ -679,6 +951,9 @@ function ReportingActivity({
     upcomingLayers,
     stephensi,
     stephensiKey,
+    scansAsOf,
+    pulses,
+    timelineOpen,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
@@ -690,6 +965,9 @@ function ReportingActivity({
     upcomingLayers: Map<string, L.GeoJSON>;
     stephensi?: ReadonlyMap<string, number>;
     stephensiKey: string | null;
+    scansAsOf?: ReadonlyMap<string, number>;
+    pulses?: TimelinePulse;
+    timelineOpen: boolean;
 }) {
     const map = useMap();
     const viewport = useViewport();
@@ -768,6 +1046,8 @@ function ReportingActivity({
         ];
     }, [allNodes, districts, filledKeys, viewport, map]);
     const maximum = Math.max(1, ...nodes.map(node => node.uniqueScans));
+    const countryNodes = nodes.filter(node => node.kind === 'country');
+    const overviewCountries = new Set(countryNodes.map(node => node.country));
     const selectedDistrict = districts.find(row => row.key === selectedKey);
     const cards = useMemo(
         () =>
@@ -799,6 +1079,24 @@ function ReportingActivity({
                 ],
             ),
         [nodes, viewport.width, viewport.height],
+    );
+    // A new icon rebuilds its marker, so the timeline's months reuse these.
+    const icons = useMemo(
+        () =>
+            new Map(
+                nodes.map(node => {
+                    const icon = (selected: boolean) =>
+                        activityIcon(
+                            node,
+                            maximum,
+                            selected,
+                            viewport.width,
+                            cards.get(node.key),
+                        );
+                    return [node.key, [icon(false), icon(true)]];
+                }),
+            ),
+        [nodes, maximum, viewport.width, cards],
     );
 
     function explore(node: ProgressMapNode) {
@@ -953,6 +1251,7 @@ function ReportingActivity({
             });
         const countryLabels = countries.flatMap(country => {
             if (
+                !timelineOpen &&
                 nodes.some(
                     node =>
                         node.country === country.country &&
@@ -970,7 +1269,9 @@ function ReportingActivity({
                 width: country.country.length * 9 + 12,
                 height: 20,
             };
-            return onScreen(box) && placeLabels([box], obstacles).has(box.key)
+            // On the timeline, the tags that would block a name are hidden.
+            return onScreen(box) &&
+                (timelineOpen || placeLabels([box], obstacles).has(box.key))
                 ? [{ country: country.country, position: point.at, box }]
                 : [];
         });
@@ -1110,6 +1411,7 @@ function ReportingActivity({
             }),
         };
     }, [
+        timelineOpen,
         nodes,
         allNodes,
         detailDistrictKeys,
@@ -1131,6 +1433,7 @@ function ReportingActivity({
                 fills={fills}
                 attributions={attributions}
                 detailDistrictKeys={detailDistrictKeys}
+                overviewCountries={overviewCountries}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
                 hoveredKey={hoveredKey}
@@ -1138,6 +1441,7 @@ function ReportingActivity({
                 areaLayers={areaLayers}
                 stephensi={stephensi}
                 stephensiKey={stephensiKey}
+                scansAsOf={scansAsOf}
             />
             {nodes.map(node => {
                 const selected = node.districtKeys.includes(selectedKey ?? '');
@@ -1146,14 +1450,18 @@ function ReportingActivity({
                 if (node.kind === 'district' && stephensi?.has(district.key))
                     return null;
                 const zoomLabel = `Zoom to ${node.kind === 'country' ? node.country : `${node.sourceDistricts.length} nearby`} reporting areas.`;
-                const label =
-                    node.kind === 'district'
-                        ? districtLabel(district)
-                        : node.kind !== 'country' &&
-                            selected &&
-                            selectedDistrict
-                          ? `${districtLabel(selectedDistrict)}. ${zoomLabel}`
-                          : `${zoomLabel} ${number.format(node.uniqueScans)} mapped scans. Active reporting coverage: ${formatProgressLocations(node.coverageByProgram, count => number.format(count))}.`;
+                const nodeScans = node.sourceDistricts.reduce(
+                    (sum, row) =>
+                        sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
+                    0,
+                );
+                const label = scansAsOf
+                    ? `${node.kind === 'district' ? district.name : zoomLabel} ${number.format(nodeScans)} scans so far.`
+                    : node.kind === 'district'
+                      ? districtLabel(district)
+                      : node.kind !== 'country' && selected && selectedDistrict
+                        ? `${districtLabel(selectedDistrict)}. ${zoomLabel}`
+                        : `${zoomLabel} ${number.format(node.uniqueScans)} mapped scans.${coverageSentence(node.coverageByProgram)}`;
                 const activate = () => {
                     if (node.kind === 'district')
                         onSelect(selected ? null : district.key);
@@ -1181,13 +1489,7 @@ function ReportingActivity({
                             node.position.latitude,
                             node.position.longitude,
                         ]}
-                        icon={activityIcon(
-                            node,
-                            maximum,
-                            selected,
-                            viewport.width,
-                            cards.get(node.key),
-                        )}
+                        icon={icons.get(node.key)![selected ? 1 : 0]}
                         title={label}
                         keyboard
                         bubblingMouseEvents={false}
@@ -1246,23 +1548,25 @@ function ReportingActivity({
                                           : `${node.sourceDistricts.length} nearby areas`}
                                 </span>
                                 <span className={styles.tooltipScans}>
-                                    {number.format(shown.uniqueScans)} scans
+                                    {number.format(
+                                        scansAsOf
+                                            ? nodeScans
+                                            : shown.uniqueScans,
+                                    )}{' '}
+                                    scans
                                 </span>
-                                {sentinelSitesLine(
-                                    // A country or cluster adds up its Districts.
-                                    'name' in shown
-                                        ? shown.sentinelSitesByProgram
-                                        : node.sourceDistricts.flatMap(
-                                              district =>
-                                                  district.sentinelSitesByProgram,
-                                          ),
-                                )}
-                                <span className={styles.tooltipLocations}>
-                                    {formatProgressLocations(
-                                        shown.coverageByProgram,
-                                        count => number.format(count),
+                                {!scansAsOf &&
+                                    sentinelSitesLine(
+                                        // A country or cluster adds up its Districts.
+                                        'name' in shown
+                                            ? shown.sentinelSitesByProgram
+                                            : node.sourceDistricts.flatMap(
+                                                  district =>
+                                                      district.sentinelSitesByProgram,
+                                              ),
                                     )}
-                                </span>
+                                {!scansAsOf &&
+                                    coverageLine(shown.coverageByProgram)}
                                 {stephensiTotal > 0 && (
                                     <span className={styles.tooltipStephensi}>
                                         {number.format(stephensiTotal)}{' '}
@@ -1281,6 +1585,13 @@ function ReportingActivity({
                     </Marker>
                 );
             })}
+            <CountryFills
+                countries={countries}
+                nodes={countryNodes}
+                scansAsOf={scansAsOf}
+                onExplore={explore}
+            />
+            {pulses && <TimelinePulses nodes={nodes} pulses={pulses} />}
             <Pane
                 name="progressCountryLabels"
                 style={{ zIndex: 450, pointerEvents: 'none' }}
@@ -1448,6 +1759,11 @@ function countryFrame(country: CountryGeometry): L.LatLngTuple[] {
         : [];
 }
 
+/** What the timeline bar and its gaps take from the bottom of the map. */
+const TIMELINE_CLEARANCE = 84;
+/** Matches the quick colour reset in the stylesheet. */
+const REWIND_MS = 300;
+
 /** Keep navigation near the displayed geography without refitting on pan/zoom. */
 function ReportingNavigation({
     districts,
@@ -1587,13 +1903,74 @@ function ReportingFootprint({
     countries,
     fills,
     selectedKey,
+    playing,
+    timelineOpen,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
     fills: ProgressDistrictFill[];
     selectedKey: string | null;
+    /** The timeline is running: frame every country as tightly as fits. */
+    playing: boolean;
+    timelineOpen: boolean;
 }) {
     const map = useMap();
+    const wasPlaying = useRef(false);
+    // Tags give way to the colours and country names on the timeline.
+    useEffect(() => {
+        map.getContainer().dataset.timeline = String(timelineOpen);
+    }, [map, timelineOpen]);
+    useEffect(() => {
+        const container = map.getContainer();
+        if (playing && !wasPlaying.current) {
+            // Colours snap back for the restart, then fade at the normal pace.
+            container.dataset.rewinding = 'true';
+            window.setTimeout(() => {
+                container.dataset.rewinding = 'false';
+            }, REWIND_MS);
+            const credit =
+                map.attributionControl?.getContainer()?.offsetHeight ?? 0;
+            const frame = [
+                ...countries.flatMap(countryFrame),
+                ...districts.flatMap(({ position }) =>
+                    position
+                        ? [
+                              [
+                                  position.latitude,
+                                  position.longitude,
+                              ] as L.LatLngTuple,
+                          ]
+                        : [],
+                ),
+            ];
+            if (frame.length > 0) {
+                // Aim where the map's limits let it stay, or it flies there
+                // and then gets pulled back.
+                const continuousMap = map as ContinuousPinchMap;
+                const { center, zoom } = continuousMap._getBoundsCenterZoom(
+                    L.latLngBounds(frame),
+                    {
+                        paddingTopLeft: L.point(14, 14),
+                        paddingBottomRight: L.point(
+                            14,
+                            credit + TIMELINE_CLEARANCE,
+                        ),
+                        maxZoom: 8.5,
+                    },
+                );
+                map.flyTo(
+                    continuousMap._limitCenter(
+                        center,
+                        zoom,
+                        map.options.maxBounds as L.LatLngBounds | undefined,
+                    ),
+                    zoom,
+                    { duration: 0.8 },
+                );
+            }
+        }
+        wasPlaying.current = playing;
+    }, [playing, countries, districts, map]);
     const fitted = useRef<{
         footprint: string;
         width: number;
@@ -1701,6 +2078,25 @@ function ReportingFootprint({
         };
     }, [districts, countries, fills, selectedKey, footprint, map]);
 
+    return null;
+}
+
+/** Lets what floats over the map sit above the credits, however they wrap. */
+function ShareCreditHeight() {
+    const map = useMap();
+    useEffect(() => {
+        const credit = map.attributionControl?.getContainer();
+        const holder = map.getContainer().parentElement;
+        if (!credit || !holder) return;
+        const observer = new ResizeObserver(() =>
+            holder.style.setProperty(
+                '--map-credit-height',
+                `${credit.offsetHeight}px`,
+            ),
+        );
+        observer.observe(credit);
+        return () => observer.disconnect();
+    }, [map]);
     return null;
 }
 
@@ -1845,8 +2241,20 @@ export default function ProgressMap({
     stephensi,
     onStephensiSelect,
     stephensiFocused = false,
+    scansAsOf,
+    pulses,
+    timelineOpen = false,
+    stephensiHeat,
 }: {
     districts: ProgressDistrict[];
+    /** The play panel is open: tags step back, even when paused or at the end. */
+    timelineOpen?: boolean;
+    /** While the timeline is open: soft pink patches instead of `stephensi` dots. */
+    stephensiHeat?: StephensiHeatData;
+    /** The timeline's scans by District, recolouring areas in place. */
+    scansAsOf?: ReadonlyMap<string, number>;
+    /** While the timeline plays: each place that scanned this month ripples. */
+    pulses?: TimelinePulse;
     upcoming?: UpcomingArea[];
     /** Specimens per District key; when given, each gets a rippling dot. */
     stephensi?: ReadonlyMap<string, number>;
@@ -2006,12 +2414,15 @@ export default function ProgressMap({
                 countries={countries}
             />
             <ReportingFootprint
+                playing={pulses !== undefined}
+                timelineOpen={timelineOpen}
                 districts={mappedDistricts}
                 countries={countries}
                 fills={fills}
                 selectedKey={selectedKey}
             />
             <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
+            <ShareCreditHeight />
             <ClearSelection onSelect={onSelect} />
             <FitTooltipsInMap />
             <ReportingActivity
@@ -2021,6 +2432,9 @@ export default function ProgressMap({
                 attributions={attributions}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
+                scansAsOf={scansAsOf}
+                pulses={pulses}
+                timelineOpen={timelineOpen}
                 upcoming={upcoming}
                 upcomingLayers={upcomingLayers}
                 stephensi={stephensi}
@@ -2031,6 +2445,13 @@ export default function ProgressMap({
                         : null
                 }
             />
+            {stephensiHeat && (
+                <StephensiHeat
+                    districts={mappedDistricts}
+                    countries={countries}
+                    heat={stephensiHeat}
+                />
+            )}
             {stephensi && (
                 <StephensiSpots
                     districts={mappedDistricts}

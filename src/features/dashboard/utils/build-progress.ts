@@ -136,7 +136,7 @@ function addSpecies(into: SpeciesCounts, from: SpeciesCounts | undefined) {
 }
 
 /** Most specimens first; specimens without a species last. */
-function speciesListOf(counts: SpeciesCounts): ProgressSpecies[] {
+export function speciesListOf(counts: SpeciesCounts): ProgressSpecies[] {
     return [...counts]
         .map(([name, specimens]) => ({ name, specimens }))
         .sort(
@@ -160,6 +160,7 @@ type SiteVisits = Parameters<typeof countSentinelSites>[0];
 
 type DistrictAccumulator = ProgressDistrict & {
     speciesCounts: SpeciesCounts;
+    speciesByMonth: Map<string, SpeciesCounts>;
     visits: Map<number, SiteVisits>;
     coverage: Map<number, CoverageAccumulator>;
     scans: Map<number, number>;
@@ -321,7 +322,9 @@ export function buildProgress(
                     uniqueScans: 0,
                     uniqueSpecimens: 0,
                     species: [],
+                    speciesMonthly: [],
                     speciesCounts: new Map(),
+                    speciesByMonth: new Map(),
                     monthly,
                     position:
                         districtName === null
@@ -390,6 +393,11 @@ export function buildProgress(
                 speciesBySession.get(session.sessionId),
             );
             addSpecies(speciesCounts, speciesBySession.get(session.sessionId));
+            const monthSpecies =
+                district.speciesByMonth.get(session.month) ?? new Map();
+            addSpecies(monthSpecies, speciesBySession.get(session.sessionId));
+            if (monthSpecies.size > 0)
+                district.speciesByMonth.set(session.month, monthSpecies);
             for (const [name, specimens] of speciesBySession.get(
                 session.sessionId,
             ) ?? []) {
@@ -447,6 +455,12 @@ export function buildProgress(
             uniqueScans: district.uniqueScans,
             uniqueSpecimens: district.uniqueSpecimens,
             species: speciesListOf(district.speciesCounts),
+            speciesMonthly: [...district.speciesByMonth]
+                .map(([month, counts]) => ({
+                    month,
+                    species: speciesListOf(counts),
+                }))
+                .sort((a, b) => a.month.localeCompare(b.month)),
             monthly: district.monthly,
             latestReceivedAt: district.latestReceivedAt,
             coverageByProgram,
