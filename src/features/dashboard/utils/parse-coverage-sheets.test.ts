@@ -281,4 +281,24 @@ describe('parseCoverageSheets', () => {
             { programId: 1, month: '2026-09', projected: 66 },
         ]);
     });
+
+    it('reads Projected Devices laid out a column per month, TOTAL rows only', () => {
+        const result = parseCoverageSheets({
+            units: rows(UNITS_HEADER),
+            expectedUsers: null,
+            programPotential: null,
+            projectedDevices: rows(
+                ['programId', 'country', 'area', '2026-08', '2026-09'],
+                [1, 'Uganda', 'TOTAL', 24, 66],
+                [1, 'Uganda', 'Gulu', 3, 6],
+                [3, 'Ghana', 'Total', null, 4],
+            ),
+        });
+
+        expect(result.ok && result.data.projectedDevices).toEqual([
+            { programId: 1, month: '2026-08', projected: 24 },
+            { programId: 1, month: '2026-09', projected: 66 },
+            { programId: 3, month: '2026-09', projected: 4 },
+        ]);
+    });
 });

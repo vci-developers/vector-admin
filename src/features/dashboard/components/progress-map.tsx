@@ -166,6 +166,18 @@ function sentinelSitesLine(rows: ProgressDistrict['sentinelSitesByProgram']) {
     );
 }
 
+type CountryDevices = ReadonlyMap<string, { active: number; planned: number }>;
+
+/** "4 of 4 active devices" for a country with a plan; nothing otherwise. */
+function devicesLine(figures: { active: number; planned: number } | undefined) {
+    return figures === undefined ? null : (
+        <span className={styles.tooltipLocations}>
+            {number.format(figures.active)} of {number.format(figures.planned)}{' '}
+            active {figures.planned === 1 ? 'device' : 'devices'}
+        </span>
+    );
+}
+
 /** Households and the like; none while the map shows part of the period. */
 function coverageLine(rows: ProgressDistrict['coverageByProgram']) {
     return rows.length === 0 ? null : (
@@ -244,11 +256,13 @@ function CountryFills({
     countries,
     nodes,
     scansAsOf,
+    devices,
     onExplore,
 }: {
     countries: CountryGeometry[];
     nodes: readonly ProgressMapNode[];
     scansAsOf?: ReadonlyMap<string, number>;
+    devices?: CountryDevices;
     onExplore: (node: ProgressMapNode) => void;
 }) {
     const most = Math.max(1, ...nodes.map(node => node.uniqueScans));
@@ -310,6 +324,8 @@ function CountryFills({
                                     {number.format(scans)} scans
                                     {scansAsOf ? ' so far' : ''}
                                 </span>
+                                {!scansAsOf &&
+                                    devicesLine(devices?.get(country.country))}
                             </div>
                         </Tooltip>
                     </GeoJSON>
@@ -952,6 +968,7 @@ function ReportingActivity({
     stephensi,
     stephensiKey,
     scansAsOf,
+    devices,
     pulses,
     timelineOpen,
 }: {
@@ -966,6 +983,7 @@ function ReportingActivity({
     stephensi?: ReadonlyMap<string, number>;
     stephensiKey: string | null;
     scansAsOf?: ReadonlyMap<string, number>;
+    devices?: CountryDevices;
     pulses?: TimelinePulse;
     timelineOpen: boolean;
 }) {
@@ -1567,6 +1585,9 @@ function ReportingActivity({
                                     )}
                                 {!scansAsOf &&
                                     coverageLine(shown.coverageByProgram)}
+                                {!scansAsOf &&
+                                    node.kind === 'country' &&
+                                    devicesLine(devices?.get(node.country))}
                                 {stephensiTotal > 0 && (
                                     <span className={styles.tooltipStephensi}>
                                         {number.format(stephensiTotal)}{' '}
@@ -1586,6 +1607,7 @@ function ReportingActivity({
                 );
             })}
             <CountryFills
+                devices={devices}
                 countries={countries}
                 nodes={countryNodes}
                 scansAsOf={scansAsOf}
@@ -2245,8 +2267,11 @@ export default function ProgressMap({
     pulses,
     timelineOpen = false,
     stephensiHeat,
+    devices,
 }: {
     districts: ProgressDistrict[];
+    /** Active of planned devices per country, for the country tags. */
+    devices?: CountryDevices;
     /** The play panel is open: tags step back, even when paused or at the end. */
     timelineOpen?: boolean;
     /** While the timeline is open: soft pink patches instead of `stephensi` dots. */
@@ -2433,6 +2458,7 @@ export default function ProgressMap({
                 selectedKey={selectedKey}
                 onSelect={onSelect}
                 scansAsOf={scansAsOf}
+                devices={devices}
                 pulses={pulses}
                 timelineOpen={timelineOpen}
                 upcoming={upcoming}

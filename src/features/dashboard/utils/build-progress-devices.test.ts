@@ -1,12 +1,12 @@
 import type { Program } from '@/api/program/validation/program-schema';
 import type { Site } from '@/api/site/validation/site-schema';
 import { describe, expect, it } from 'vitest';
-import { buildProgress, type ProgressProgramData } from './build-progress';
+import type { ProgressProgramData } from './build-progress';
 import {
     buildProgressDevices,
     deviceFigures,
+    deviceFiguresByCountry,
     devicesInSelection,
-    namedAreas,
 } from './build-progress-devices';
 
 const site = (siteId: number, district: string, village: string): Site =>
@@ -72,172 +72,158 @@ const plan = {
 };
 const september = { from: '2026-09', to: '2026-09' };
 
+const august = { from: '2026-08', to: '2026-08' };
+const inAugust = Date.UTC(2026, 7, 15);
+
 describe('buildProgressDevices', () => {
-    const programs = [
+    const ugandaSessions = [
+        session(1, 1, 'Ann'),
+        session(2, 1, 'Bob'),
+        session(3, 2, 'Cat'),
+        session(4, 2, 'Dan'),
+        session(5, 2, 'Eve'),
+        session(6, 3, 'Fay'),
+    ];
+    const ugandaData = (sessions = ugandaSessions) =>
         data(
             uganda,
             [site(1, 'Gulu', 'A'), site(2, 'Oyam', 'B'), site(3, 'Oyam', 'C')],
-            [
-                session(1, 1, 'Ann'),
-                session(2, 1, 'Bob'),
-                session(3, 2, 'Cat'),
-                session(4, 2, 'Dan'),
-                session(5, 2, 'Eve'),
-                session(6, 3, 'Fay'),
-            ],
-        ),
-    ];
+            sessions,
+        );
 
-    it('counts Uganda by the team’s rule, against 3 or 6 per District', () => {
-        const [row] = buildProgressDevices(programs, september, plan);
-        expect(row.active).toBe(4);
-        expect(row.planned).toBe(9);
-        expect(row.areas).toEqual([
-            // A shared-phone village is one device, however many people.
-            { name: 'Gulu', active: 1, planned: 3 },
-            // Each person is a device, two at most per village.
-            { name: 'Oyam', active: 3, planned: 6 },
-        ]);
+    it('counts Uganda from September as one per VHT, two at most per village', () => {
+        const [row] = buildProgressDevices([ugandaData()], september, plan);
+        expect(row).toEqual({ programId: 1, active: 5, planned: 66 });
     });
 
-    it('uses the workbook before the rule starts', () => {
+    it('counts a Uganda village as one shared phone before September', () => {
+        const sessions = ugandaSessions.map(row => ({
+            ...row,
+            submittedAt: inAugust,
+            collectionDate: inAugust,
+        }));
         const [row] = buildProgressDevices(
-            programs,
-            { from: '2026-08', to: '2026-08' },
+            [ugandaData(sessions)],
+            august,
             plan,
         );
-        expect(row.planned).toBe(24);
-        expect(row.areas).toEqual([]);
+        expect(row).toEqual({ programId: 1, active: 3, planned: 24 });
     });
 
-    const place = (siteId: number, district: string, town: string) =>
-        ({
-            siteId,
-            name: town,
-            locationHierarchy: {
-                Region: 'Ashanti',
-                District: district,
-                Town: town,
-            },
-        }) as Site;
-    const ghanaData = data(
-        ghana,
-        [
-            place(9, 'Tarkwa', 'A'),
-            place(10, 'Tarkwa', 'B'),
-            place(11, 'Ejura', 'C'),
-        ],
-        // Many device ids at one site are still one device.
-        [
-            session(1, 9, ''),
-            session(2, 9, ''),
-            session(3, 10, ''),
-            session(4, 11, ''),
-        ],
-    );
-
-    it('counts a device per active Sentinel Site elsewhere, lines adding up to the plan', () => {
-        const [row] = buildProgressDevices([ghanaData], september, plan);
-        expect(row.planned).toBe(2);
-        expect(row.active).toBe(2);
-        expect(row.areas.reduce((sum, area) => sum + area.active, 0)).toBe(2);
-    });
-
-    it('names Areas as the map does, so selecting one finds its devices', () => {
-        for (const program of [ghanaData, programs[0]]) {
-            const devices = buildProgressDevices([program], september, plan);
-            const { districts } = buildProgress([program], september);
-            expect(devices[0].areas.map(area => area.name).sort()).toEqual(
-                districts.map(district => district.name).sort(),
-            );
-            for (const district of districts)
-                expect(devicesInSelection(devices, district)).toHaveLength(1);
-        }
-    });
-
-    it('leaves Uganda Districts outside the plan out of the count', () => {
+    it('counts only the last month’s submissions, without practice', () => {
         const [row] = buildProgressDevices(
             [
-                data(
-                    uganda,
-                    [site(1, 'Gulu', 'A'), site(2, 'Lira', 'B')],
-                    [session(1, 1, 'Ann'), session(2, 2, 'Bob')],
-                ),
+                ugandaData([
+                    session(1, 1, 'Ann'),
+                    { ...session(2, 2, 'Bob'), type: 'PRACTICE' },
+                    // Collected in September, submitted in August.
+                    { ...session(3, 3, 'Cat', 3, inAugust) },
+                ]),
             ],
-            september,
+            { from: '2026-08', to: '2026-09' },
             plan,
         );
         expect(row.active).toBe(1);
-        expect(row.areas.map(area => area.name)).toEqual(['Gulu']);
     });
 
-    it('still counts without a plan', () => {
-        const [row] = buildProgressDevices(programs, september, null);
-        expect(row.planned).toBeNull();
-        expect(row.areas.map(area => area.planned)).toEqual([null, null]);
+    const ghanaData = data(
+        ghana,
+        [site(9, 'Ashanti', 'A')],
+        [session(1, 9, ''), session(2, 9, ''), session(3, 9, '', 2)],
+    );
+
+    it('counts distinct devices elsewhere, never above the plan', () => {
+        expect(buildProgressDevices([ghanaData], september, null)[0]).toEqual({
+            programId: 3,
+            active: 0,
+            planned: null,
+        });
+        expect(buildProgressDevices([ghanaData], september, plan)[0]).toEqual({
+            programId: 3,
+            // Devices 1 and 2: three would pass the plan of 2.
+            active: 2,
+            planned: 2,
+        });
+        const roomy = {
+            ...plan,
+            projectedDevices: [
+                { programId: 3, month: '2026-09', projected: 5 },
+            ],
+        };
+        expect(
+            buildProgressDevices([ghanaData], september, roomy)[0].active,
+        ).toBe(2);
+    });
+
+    it('counts devices for a Uganda Program the workbook lists no villages for', () => {
+        const pilgrim: Program = {
+            programId: 8,
+            name: 'Pilgrim',
+            country: 'Uganda',
+        };
+        const [row] = buildProgressDevices(
+            [
+                data(
+                    pilgrim,
+                    [site(1, 'Gulu', 'A')],
+                    [session(1, 1, 'Ann', 7), session(2, 1, 'Bob', 7)],
+                ),
+            ],
+            september,
+            {
+                ...plan,
+                projectedDevices: [
+                    { programId: 8, month: '2026-09', projected: 10 },
+                ],
+            },
+        );
+        expect(row.active).toBe(1);
     });
 });
 
 describe('deviceFigures', () => {
     const devices = [
-        {
-            programId: 1,
-            active: 1,
-            planned: 9,
-            areas: [{ name: 'Gulu', active: 1, planned: 3 }],
-        },
-        {
-            programId: 3,
-            active: 2,
-            planned: null,
-            areas: [{ name: 'Ashanti', active: 2, planned: null }],
-        },
+        { programId: 1, active: 5, planned: 66 },
+        { programId: 3, active: 0, planned: null },
+        { programId: 4, active: 14, planned: 14 },
     ];
 
-    it('adds the plans that exist, and has none when no Program does', () => {
-        expect(deviceFigures(devices)).toEqual({ active: 3, planned: 9 });
-        expect(deviceFigures(devices.slice(1))).toEqual({
-            active: 2,
+    it('adds the Programs with a plan, and has none when no Program does', () => {
+        expect(deviceFigures(devices)).toEqual({ active: 19, planned: 80 });
+        expect(deviceFigures(devices.slice(1, 2))).toEqual({
+            active: 0,
             planned: null,
         });
     });
 
-    it('lists Areas only when they add something', () => {
-        const row = (...names: string[]) => ({
-            programId: 1,
-            active: 1,
-            planned: null,
-            areas: names.map(name => ({ name, active: 1, planned: null })),
-        });
-        expect(namedAreas(row('Gulu'))).toEqual([]);
-        expect(namedAreas(row('District not recorded', 'Gulu'))).toEqual([]);
-        expect(namedAreas(row('Gulu', 'Oyam'))).toHaveLength(2);
+    it('shows Programs with a plan, narrowed to a selected Area’s', () => {
+        expect(
+            devicesInSelection(devices, null).map(row => row.programId),
+        ).toEqual([1, 4]);
+        expect(devicesInSelection(devices, [3, 4])).toEqual([devices[2]]);
     });
+});
 
-    it('narrows to a selected Area, plan included', () => {
-        const shown = devicesInSelection(devices, {
-            name: 'GULU',
-            programIds: [1],
-        });
-        expect(shown).toHaveLength(1);
-        expect(deviceFigures(shown)).toEqual({ active: 1, planned: 3 });
-    });
-
-    it('lists Areas alphabetically', () => {
-        const [row] = devicesInSelection(
+describe('deviceFiguresByCountry', () => {
+    it('adds up each country’s planned Programs', () => {
+        const programs: Program[] = [
+            uganda,
+            { programId: 8, name: 'Pilgrim', country: 'Uganda' },
+            ghana,
+            { programId: 2, name: 'Colombia', country: 'Colombia' },
+        ];
+        const figures = deviceFiguresByCountry(
             [
-                {
-                    programId: 1,
-                    active: 2,
-                    planned: null,
-                    areas: [
-                        { name: 'Oyam', active: 1, planned: null },
-                        { name: 'Gulu', active: 1, planned: null },
-                    ],
-                },
+                { programId: 1, active: 51, planned: 66 },
+                { programId: 8, active: 2, planned: 10 },
+                { programId: 3, active: 4, planned: 4 },
+                { programId: 2, active: 0, planned: null },
             ],
-            null,
+            programs,
         );
-        expect(row.areas.map(area => area.name)).toEqual(['Gulu', 'Oyam']);
+        expect(Object.fromEntries(figures)).toEqual({
+            Uganda: { active: 53, planned: 76 },
+            Ghana: { active: 4, planned: 4 },
+        });
     });
 });

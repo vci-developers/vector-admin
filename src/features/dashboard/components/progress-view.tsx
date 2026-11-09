@@ -60,6 +60,7 @@ import ProgressSpeciesToggle from './progress-species-toggle';
 import ProgressStephensiPlaces from './progress-stephensi-places';
 import ProgressMapFilters from './progress-map-filters';
 import ProgressCountHeadline from './progress-count-headline';
+import { deviceFiguresByCountry } from '@/features/dashboard/utils/build-progress-devices';
 import ProgressDevicesTile from './progress-devices-tile';
 import ProgressStatTile from './progress-stat-tile';
 import styles from './progress-view.module.css';
@@ -467,7 +468,7 @@ export default function ProgressView() {
                         </ProgressStatTile>
                         <ProgressDevicesTile
                             devices={result.data.devices}
-                            selected={selected ?? null}
+                            selectedProgramIds={selected?.programIds ?? null}
                             programs={result.data.programs}
                             expanded={statsExpanded}
                             onToggle={toggleStats}
@@ -586,6 +587,10 @@ export default function ProgressView() {
                                                 : undefined
                                         }
                                         stephensiHeat={stephensiHeat}
+                                        devices={deviceFiguresByCountry(
+                                            result.data.devices,
+                                            result.data.programs,
+                                        )}
                                         selectedKey={selectedKey}
                                         onSelect={selectArea}
                                         stephensiFocused={stephensiFocused}

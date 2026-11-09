@@ -190,6 +190,52 @@ function readMonthly<S extends z.ZodObject>(
     return errors.length > 0 ? err(errors) : read;
 }
 
+const MONTH_HEADER = /^\d{4}-(0[1-9]|1[0-2])/;
+const headerKey = (cell: string | number | null) =>
+    typeof cell === 'string' ? cell.replace(/\s+/g, '').toLowerCase() : null;
+
+/**
+ * Projected Devices may be laid out one column per month ("2026-09", …), one
+ * row per Program. With an `area` column only its TOTAL rows count: the rest
+ * are a per-place breakdown. Turns that layout into one row per Program and
+ * month; a sheet with a `month` column passes through unchanged.
+ */
+export function unpivotMonthColumns(
+    rows: SheetRow[] | null,
+): SheetRow[] | null {
+    const [header, ...body] = rows ?? [];
+    if (!header) return rows;
+    const names = header.cells.map(headerKey);
+    if (names.includes('month')) return rows;
+    const months = header.cells.flatMap((cell, index) =>
+        typeof cell === 'string' && MONTH_HEADER.test(cell.trim())
+            ? [{ month: cell.trim().slice(0, 7), index }]
+            : [],
+    );
+    if (months.length === 0) return rows;
+
+    const program = names.findIndex(name => name === 'programid');
+    const area = names.findIndex(name => name === 'area');
+    const long: SheetRow[] = [
+        { row: header.row, cells: ['programId', 'month', 'projected'] },
+    ];
+    for (const { row, cells } of body) {
+        if (
+            area !== -1 &&
+            String(cells[area] ?? '')
+                .trim()
+                .toUpperCase() !== 'TOTAL'
+        )
+            continue;
+        for (const { month, index } of months) {
+            const value = cells[index];
+            if (value === null || value === undefined || value === '') continue;
+            long.push({ row, cells: [cells[program] ?? null, month, value] });
+        }
+    }
+    return long;
+}
+
 /** A sheet with one row per Program; a missing sheet has none. */
 function readPerProgram<
     S extends z.ZodObject<{ programId: typeof programIdSchema }>,
@@ -237,7 +283,7 @@ export function parseCoverageSheets(
     );
     const projectedDevices = readMonthly(
         PROJECTED_DEVICES_SHEET,
-        sheets.projectedDevices ?? null,
+        unpivotMonthColumns(sheets.projectedDevices ?? null),
         projectedDevicesRowSchema,
     );
     const errors = [
