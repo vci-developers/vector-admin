@@ -127,14 +127,15 @@ Projected Devices: 3 phones per District, 6 in the phone-per-VHT ones, summed
 over the Active Districts (Sep: 8 × 3 + 3 × 6 = 42; the workbook says 66, which
 matches Expected Users, 2 VHTs × 3 villages × 11). Uganda Sep: 35 of 42 on the
 map and panel; the tiles are unchanged. Hard-coded for Uganda. The Stakeholder
-page's Devices tile shows program totals only, for the Reporting Period's last
-month against that month's Projected Devices (the workbook's TOTAL rows; the
-latest month at or before it). A Session counts in the month it was submitted;
-practice doesn't count. Uganda's plan Program counts villages before September
-2026 (one shared phone each) and from then each VHT named, two at most per
-village (the 66 is 11 Districts × 3 villages × 2 VHTs). Other Programs,
-including Pilgrim, count distinct device ids. Never above the plan; a Program
-without a plan that month shows nothing (decided 2026-11-09).
+page's Devices tile shows program totals only, read straight from the workbook's
+Projected Devices tab (TOTAL rows): each month column is that month's active
+count, the last column the target the Program grows to. The tile shows the count
+for the Reporting Period's last month; a period that runs up to now (Year to
+date, 3/6/12 months, All time) adds "of [sum of targets] projected by [last
+column's month]", while a single month or a period ending earlier shows the
+count alone. A blank cell is no devices, greyed out. Device ids and uploads are
+not used. The map's country tags show the count only, and on the timeline the
+month's count (decided 2026-11-10).
 
 **Team-sheet view**: The summary table, built to paste into the team's sheet
 ("Monthly Entry: VectorVerify log metrics", one row per District per month). Per
@@ -351,9 +352,10 @@ User Coverage.
 
 **Projected Devices**: A per-program, per-month device rollout plan set by the
 program team (Uganda 24 May–Aug 2026, one phone per village shared by two VHTs;
-66 from September, one per VHT; 84 from December). Kept in the workbook but not
-read: it counts devices, not people. Program stage, updates and opportunities
-are planning data outside VectorAdmin. _Avoid_: expected devices
+66 from September, one per VHT; 84 from December). Since 2026-11-10 the tab's
+month columns hold active counts and its last column the target; the Stakeholder
+Devices tile reads it (see Area). Program stage, updates and opportunities are
+planning data outside VectorAdmin. _Avoid_: expected devices
 
 ## Flagged ambiguities
 

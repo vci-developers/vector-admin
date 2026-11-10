@@ -61,7 +61,11 @@ import ProgressSpeciesToggle from './progress-species-toggle';
 import ProgressStephensiPlaces from './progress-stephensi-places';
 import ProgressMapFilters from './progress-map-filters';
 import ProgressCountHeadline from './progress-count-headline';
-import { deviceFiguresByCountry } from '@/features/dashboard/utils/build-progress-devices';
+import {
+    activeDevicesByCountry,
+    showsDeviceTarget,
+} from '@/features/dashboard/utils/build-progress-devices';
+import { addMonths } from '@/features/dashboard/utils/month-key';
 import ProgressDevicesTile from './progress-devices-tile';
 import ProgressStatTile from './progress-stat-tile';
 import styles from './progress-view.module.css';
@@ -104,6 +108,10 @@ export default function ProgressView() {
         };
     }, [filters.range, filters.from, filters.to]);
     const query = useGetProgress({ exclude: filters.exclude, ...range });
+    const withDeviceTarget = showsDeviceTarget(
+        range,
+        addMonths(currentMonth, -1),
+    );
     const result = query.data;
     const dashboard: ProgressDashboard | null = result?.ok ? result.data : null;
     const [showUpcoming, setShowUpcoming] = useState(false);
@@ -524,6 +532,7 @@ export default function ProgressView() {
                         <ProgressDevicesTile
                             devices={result.data.devices}
                             selectedProgramIds={selected?.programIds ?? null}
+                            withTarget={withDeviceTarget}
                             programs={result.data.programs}
                             expanded={statsExpanded}
                             onToggle={toggleStats}
@@ -643,7 +652,7 @@ export default function ProgressView() {
                                                 : undefined
                                         }
                                         stephensiHeat={stephensiHeat}
-                                        devices={deviceFiguresByCountry(
+                                        devices={activeDevicesByCountry(
                                             result.data.devices,
                                             result.data.programs,
                                         )}

@@ -18,7 +18,7 @@ export default function ProgressStatTile({
     title: string;
     icon: LucideIcon;
     value: number;
-    detail: string;
+    detail: ReactNode;
     expanded: boolean;
     onToggle: () => void;
     children: ReactNode;

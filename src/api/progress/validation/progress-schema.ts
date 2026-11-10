@@ -89,10 +89,12 @@ export type ProgressStephensi = z.infer<typeof progressStephensiSchema>;
 /** Counts only: who collected never leaves the server. */
 export const progressProgramDevicesSchema = z.object({
     programId: z.number(),
-    /** In the period's last month; never above `planned`, 0 without one. */
-    active: countSchema,
-    /** For the period's last month; null where none is known. */
-    planned: countSchema.nullable(),
+    /** The workbook's count for the period's last month; null if blank. */
+    active: countSchema.nullable(),
+    /** The workbook's last month column: what the Program grows to. */
+    target: countSchema.nullable(),
+    /** The month of that last column. */
+    targetMonth: monthKeySchema.nullable(),
 });
 
 export type ProgressProgramDevices = z.infer<

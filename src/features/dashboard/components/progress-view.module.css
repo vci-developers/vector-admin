@@ -232,6 +232,10 @@
     font-weight: 500;
 }
 
+.headlineUnit strong {
+    font-weight: 700;
+}
+
 .headlineDescription {
     grid-row: 4;
     align-self: start;

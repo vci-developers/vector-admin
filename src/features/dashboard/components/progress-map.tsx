@@ -167,14 +167,13 @@ function sentinelSitesLine(rows: ProgressDistrict['sentinelSitesByProgram']) {
     );
 }
 
-type CountryDevices = ReadonlyMap<string, { active: number; planned: number }>;
+type CountryDevices = ReadonlyMap<string, number>;
 
-/** "4 of 4 active devices" for a country with a plan; nothing otherwise. */
-function devicesLine(figures: { active: number; planned: number } | undefined) {
-    return figures === undefined ? null : (
+/** "4 active devices" for a country with a count; nothing otherwise. */
+function devicesLine(active: number | undefined) {
+    return active === undefined ? null : (
         <span className={styles.tooltipLocations}>
-            {number.format(figures.active)} of {number.format(figures.planned)}{' '}
-            active {figures.planned === 1 ? 'device' : 'devices'}
+            {number.format(active)} active {active === 1 ? 'device' : 'devices'}
         </span>
     );
 }
@@ -2286,7 +2285,7 @@ export default function ProgressMap({
     districts: ProgressDistrict[];
     /** On the timeline: countries with an upload so far; the rest stay faint. */
     startedCountries?: ReadonlySet<string>;
-    /** Active of planned devices per country, for the country tags. */
+    /** Active devices per country, for the country tags. */
     devices?: CountryDevices;
     /** The play panel is open: tags step back, even when paused or at the end. */
     timelineOpen?: boolean;
