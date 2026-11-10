@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { UNKNOWN_DISTRICT } from './build-progress';
 import {
     countriesStartedBy,
+    districtsAsOf,
     scansAsOf,
     scansInMonth,
     speciesAsOf,
@@ -157,5 +158,42 @@ describe('countriesStartedBy', () => {
         ]);
         expect(countriesStartedBy(districts, '2026-11')!.size).toBe(2);
         expect(countriesStartedBy(districts, null)).toBeUndefined();
+    });
+});
+
+describe('districtsAsOf', () => {
+    const sites = (count: number) => [{ programId: 1, count }];
+    const households = (count: number) => [
+        { programId: 1, unit: 'household' as const, count },
+    ];
+    const gulu = {
+        ...district,
+        sentinelSitesByProgram: sites(3),
+        coverageByProgram: households(9),
+        asOf: [
+            {
+                month: '2026-01',
+                sentinelSitesByProgram: sites(1),
+                coverageByProgram: households(2),
+            },
+            {
+                month: '2026-03',
+                sentinelSitesByProgram: sites(3),
+                coverageByProgram: households(9),
+            },
+        ],
+    } as ProgressDistrict;
+
+    it('takes the sites and locations from the latest month up to it', () => {
+        const [february] = districtsAsOf([gulu], '2026-02');
+        expect(february.sentinelSitesByProgram).toEqual(sites(1));
+        expect(february.coverageByProgram).toEqual(households(2));
+    });
+
+    it('has none before the first upload, and the period’s when null', () => {
+        expect(
+            districtsAsOf([gulu], '2025-12')[0].sentinelSitesByProgram,
+        ).toEqual([]);
+        expect(districtsAsOf([gulu], null)[0]).toBe(gulu);
     });
 });

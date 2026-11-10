@@ -95,6 +95,8 @@ export const progressProgramDevicesSchema = z.object({
     target: countSchema.nullable(),
     /** The month of that last column. */
     targetMonth: monthKeySchema.nullable(),
+    /** Each month's count up to the period's last, for the timeline. */
+    monthly: z.array(z.object({ month: monthKeySchema, active: countSchema })),
 });
 
 export type ProgressProgramDevices = z.infer<
@@ -125,6 +127,17 @@ export const progressDistrictSchema = z.object({
     monthly: z.array(progressMonthSchema),
     /** Months with any upload, practice and image-less ones included. */
     reportingMonths: z.array(monthKeySchema),
+    /**
+     * Sentinel sites and locations up to and including each reporting month,
+     * for the timeline; they can't be added month by month.
+     */
+    asOf: z.array(
+        z.object({
+            month: monthKeySchema,
+            sentinelSitesByProgram: z.array(progressSentinelSitesSchema),
+            coverageByProgram: z.array(progressLocationCoverageSchema),
+        }),
+    ),
     position: z
         .object({ latitude: z.number(), longitude: z.number() })
         .nullable(),

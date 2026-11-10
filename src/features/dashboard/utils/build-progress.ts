@@ -158,7 +158,55 @@ type StephensiAccumulator = Omit<ProgressStephensi, 'districts'> & {
 
 type SiteVisits = Parameters<typeof countSentinelSites>[0];
 
-type DistrictAccumulator = ProgressDistrict & {
+/** One Session's place in a District, kept to count it as of a month. */
+type DistrictVisit = {
+    month: string;
+    programId: number;
+    unit: ProgressCoverageUnit;
+    visit: SiteVisits[number] | null;
+    location: string | null;
+};
+
+/** Sentinel sites and locations from the visits up to each reporting month. */
+function districtAsOf(
+    visits: readonly DistrictVisit[],
+    months: readonly string[],
+): ProgressDistrict['asOf'] {
+    return months.map(month => {
+        const sites = new Map<number, SiteVisits>();
+        const coverage = new Map<number, CoverageAccumulator>();
+        for (const row of visits) {
+            if (row.month > month) continue;
+            const group = coverage.get(row.programId) ?? {
+                programId: row.programId,
+                unit: row.unit,
+                locations: new Set<string>(),
+                incomplete: false,
+            };
+            coverage.set(row.programId, group);
+            if (row.location === null) group.incomplete = true;
+            else group.locations.add(row.location);
+            const programSites = sites.get(row.programId) ?? [];
+            sites.set(row.programId, programSites);
+            if (row.visit) programSites.push(row.visit);
+        }
+        return {
+            month,
+            sentinelSitesByProgram: [...sites]
+                .map(([programId, rows]) => ({
+                    programId,
+                    count: countSentinelSites(rows).sentinelSites,
+                }))
+                .sort((a, b) => a.programId - b.programId),
+            coverageByProgram: mergeLocationCoverage(
+                [...coverage.values()].map(coverageOf),
+            ),
+        };
+    });
+}
+
+type DistrictAccumulator = Omit<ProgressDistrict, 'asOf'> & {
+    timeline: DistrictVisit[];
     speciesCounts: SpeciesCounts;
     speciesByMonth: Map<string, SpeciesCounts>;
     visits: Map<number, SiteVisits>;
@@ -327,6 +375,7 @@ export function buildProgress(
                     species: [],
                     speciesMonthly: [],
                     reportingMonths: [],
+                    timeline: [],
                     speciesCounts: new Map(),
                     speciesByMonth: new Map(),
                     monthly,
@@ -365,17 +414,23 @@ export function buildProgress(
             }
             const count = scansBySession.get(session.sessionId) ?? 0;
             programScans.scans += count;
-            if (site) {
-                const visit = {
-                    siteId: session.siteId,
-                    location: siteLocationPath(site),
-                };
+            const visit = site
+                ? { siteId: session.siteId, location: siteLocationPath(site) }
+                : null;
+            if (visit) {
                 programVisits.push(visit);
                 const districtVisits =
                     district.visits.get(program.programId) ?? [];
                 district.visits.set(program.programId, districtVisits);
                 districtVisits.push(visit);
             }
+            district.timeline.push({
+                month: session.month,
+                programId: program.programId,
+                unit,
+                visit,
+                location,
+            });
             district.scans.set(
                 program.programId,
                 (district.scans.get(program.programId) ?? 0) + count,
@@ -469,6 +524,10 @@ export function buildProgress(
                 .sort((a, b) => a.month.localeCompare(b.month)),
             monthly: district.monthly,
             reportingMonths: district.reportingMonths.toSorted(),
+            asOf: districtAsOf(
+                district.timeline,
+                district.reportingMonths.toSorted(),
+            ),
             latestReceivedAt: district.latestReceivedAt,
             coverageByProgram,
             scansByProgram: [...district.scans]

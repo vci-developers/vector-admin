@@ -23,6 +23,9 @@ export function buildProgressDevices(
             active: rows.find(row => row.month === month)?.projected ?? null,
             target: rows.at(-1)?.projected ?? null,
             targetMonth: rows.at(-1)?.month ?? null,
+            monthly: rows
+                .filter(row => row.month <= month)
+                .map(row => ({ month: row.month, active: row.projected })),
         };
     });
 }
@@ -79,10 +82,14 @@ export function deviceFigures(
     };
 }
 
-/** Each Program Country's active devices, for the map's tags. */
+/**
+ * Each Program Country's active devices, for the map's tags: in the period's
+ * last month, or in `month` on the timeline.
+ */
 export function activeDevicesByCountry(
     devices: readonly ProgressProgramDevices[],
     programs: readonly Program[],
+    month: string | null = null,
 ): Map<string, number> {
     const countryOf = new Map(
         programs.map(program => [program.programId, program.country]),
@@ -90,8 +97,13 @@ export function activeDevicesByCountry(
     const byCountry = new Map<string, number>();
     for (const row of devices) {
         const country = countryOf.get(row.programId);
-        if (country === undefined || row.active === null) continue;
-        byCountry.set(country, (byCountry.get(country) ?? 0) + row.active);
+        const active =
+            month === null
+                ? row.active
+                : (row.monthly.find(entry => entry.month === month)?.active ??
+                  null);
+        if (country === undefined || active === null) continue;
+        byCountry.set(country, (byCountry.get(country) ?? 0) + active);
     }
     return byCountry;
 }

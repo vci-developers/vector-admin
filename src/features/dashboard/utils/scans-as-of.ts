@@ -113,3 +113,22 @@ export function countriesStartedBy(
             .map(district => district.country),
     );
 }
+
+/**
+ * The Districts with sentinel sites and locations up to and including
+ * `month`, for the map's tags on the timeline; as they are when null.
+ */
+export function districtsAsOf(
+    districts: ProgressDistrict[],
+    month: string | null,
+): ProgressDistrict[] {
+    if (month === null) return districts;
+    return districts.map(district => {
+        const latest = district.asOf.findLast(row => row.month <= month);
+        return {
+            ...district,
+            sentinelSitesByProgram: latest?.sentinelSitesByProgram ?? [],
+            coverageByProgram: latest?.coverageByProgram ?? [],
+        };
+    });
+}

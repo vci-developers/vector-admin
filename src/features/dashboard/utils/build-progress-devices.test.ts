@@ -25,18 +25,21 @@ describe('buildProgressDevices', () => {
                 active: 66,
                 target: 84,
                 targetMonth: '2027-02',
+                monthly: [{ month: '2026-10', active: 66 }],
             },
             {
                 programId: 8,
                 active: null,
                 target: 45,
                 targetMonth: '2027-02',
+                monthly: [],
             },
             {
                 programId: 3,
                 active: null,
                 target: null,
                 targetMonth: null,
+                monthly: [],
             },
         ]);
     });
@@ -48,6 +51,7 @@ describe('buildProgressDevices', () => {
                 active: null,
                 target: null,
                 targetMonth: null,
+                monthly: [],
             },
         ]);
     });
@@ -79,18 +83,21 @@ describe('deviceFigures', () => {
             active: 66,
             target: 84,
             targetMonth: '2027-01',
+            monthly: [],
         },
         {
             programId: 8,
             active: null,
             target: 45,
             targetMonth: '2027-02',
+            monthly: [],
         },
         {
             programId: 3,
             active: null,
             target: null,
             targetMonth: null,
+            monthly: [],
         },
     ];
 
@@ -130,11 +137,21 @@ describe('activeDevicesByCountry', () => {
             active,
             target: 1,
             targetMonth: '2027-02',
+            monthly: active === null ? [] : [{ month: '2026-09', active: 2 }],
         });
         const counts = activeDevicesByCountry(
             [row(1, 66), row(8, 10), row(2, null)],
             programs,
         );
         expect(Object.fromEntries(counts)).toEqual({ Uganda: 76 });
+        expect(
+            Object.fromEntries(
+                activeDevicesByCountry(
+                    [row(1, 66), row(8, 10), row(2, null)],
+                    programs,
+                    '2026-09',
+                ),
+            ),
+        ).toEqual({ Uganda: 4 });
     });
 });

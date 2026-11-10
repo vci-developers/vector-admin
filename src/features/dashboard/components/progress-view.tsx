@@ -10,6 +10,7 @@ import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import {
     countriesStartedBy,
+    districtsAsOf,
     scansAsOf,
     scansInMonth,
     speciesAsOf,
@@ -245,6 +246,15 @@ export default function ProgressView() {
     // Stays on the last month at the end of a run, so colours don't jump back.
     const mapScans = useMemo(
         () => scansAsOf(dashboard?.districts ?? [], summaryMonth ?? shownMonth),
+        [dashboard, summaryMonth, shownMonth],
+    );
+    // On the timeline, the tags count sites and devices up to the month.
+    const mapDistricts = useMemo(
+        () =>
+            districtsAsOf(
+                dashboard?.districts ?? [],
+                summaryMonth ?? shownMonth,
+            ),
         [dashboard, summaryMonth, shownMonth],
     );
     // On the timeline, countries stay faint until their first upload.
@@ -640,7 +650,7 @@ export default function ProgressView() {
                                 )}
                                 {result.data.districts.length > 0 ? (
                                     <ProgressMap
-                                        districts={result.data.districts}
+                                        districts={mapDistricts}
                                         scansAsOf={mapScans}
                                         startedCountries={startedCountries}
                                         pulses={pulses}
@@ -655,6 +665,7 @@ export default function ProgressView() {
                                         devices={activeDevicesByCountry(
                                             result.data.devices,
                                             result.data.programs,
+                                            summaryMonth ?? shownMonth,
                                         )}
                                         selectedKey={selectedKey}
                                         onSelect={selectArea}

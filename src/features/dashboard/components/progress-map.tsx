@@ -179,7 +179,18 @@ function devicesLine(active: number | undefined) {
 }
 
 /** Households and the like; none while the map shows part of the period. */
-function coverageLine(rows: ProgressDistrict['coverageByProgram']) {
+type CoverageRows = ProgressDistrict['coverageByProgram'];
+
+/**
+ * Collection sites repeat the sentinel site line (Pilgrim falls back to
+ * them), so the tags only name households, municipalities and the like.
+ */
+function namedCoverage(rows: CoverageRows) {
+    return rows.filter(row => row.unit !== 'collection-site');
+}
+
+function coverageLine(all: CoverageRows) {
+    const rows = namedCoverage(all);
     return rows.length === 0 ? null : (
         <span className={styles.tooltipLocations}>
             {formatProgressLocations(rows, count => number.format(count))}
@@ -187,7 +198,8 @@ function coverageLine(rows: ProgressDistrict['coverageByProgram']) {
     );
 }
 
-function coverageSentence(rows: ProgressDistrict['coverageByProgram']) {
+function coverageSentence(all: CoverageRows) {
+    const rows = namedCoverage(all);
     return rows.length === 0
         ? ''
         : ` Active reporting coverage: ${formatProgressLocations(rows, count => number.format(count))}.`;
@@ -331,10 +343,22 @@ function CountryFills({
                                 </span>
                                 <span className={styles.tooltipScans}>
                                     {number.format(scans)} scans
-                                    {scansAsOf ? ' so far' : ''}
                                 </span>
-                                {!scansAsOf &&
-                                    devicesLine(devices?.get(country.country))}
+                                {node &&
+                                    sentinelSitesLine(
+                                        node.sourceDistricts.flatMap(
+                                            district =>
+                                                district.sentinelSitesByProgram,
+                                        ),
+                                    )}
+                                {node && coverageLine(node.coverageByProgram)}
+                                {devicesLine(devices?.get(country.country))}
+                                {node && (
+                                    <span className={styles.tooltipHint}>
+                                        Mapped reporting areas · Select to zoom
+                                        in
+                                    </span>
+                                )}
                             </div>
                         </Tooltip>
                     </GeoJSON>
@@ -635,14 +659,10 @@ function ReportingDistrictAreas({
                                         )}{' '}
                                         scans
                                     </span>
-                                    {!scansAsOf &&
-                                        sentinelSitesLine(
-                                            district.sentinelSitesByProgram,
-                                        )}
-                                    {!scansAsOf &&
-                                        coverageLine(
-                                            district.coverageByProgram,
-                                        )}
+                                    {sentinelSitesLine(
+                                        district.sentinelSitesByProgram,
+                                    )}
+                                    {coverageLine(district.coverageByProgram)}
                                     {stephensiCount !== undefined && (
                                         <span
                                             className={styles.tooltipStephensi}
@@ -1584,20 +1604,17 @@ function ReportingActivity({
                                     )}{' '}
                                     scans
                                 </span>
-                                {!scansAsOf &&
-                                    sentinelSitesLine(
-                                        // A country or cluster adds up its Districts.
-                                        'name' in shown
-                                            ? shown.sentinelSitesByProgram
-                                            : node.sourceDistricts.flatMap(
-                                                  district =>
-                                                      district.sentinelSitesByProgram,
-                                              ),
-                                    )}
-                                {!scansAsOf &&
-                                    coverageLine(shown.coverageByProgram)}
-                                {!scansAsOf &&
-                                    node.kind === 'country' &&
+                                {sentinelSitesLine(
+                                    // A country or cluster adds up its Districts.
+                                    'name' in shown
+                                        ? shown.sentinelSitesByProgram
+                                        : node.sourceDistricts.flatMap(
+                                              district =>
+                                                  district.sentinelSitesByProgram,
+                                          ),
+                                )}
+                                {coverageLine(shown.coverageByProgram)}
+                                {node.kind === 'country' &&
                                     devicesLine(devices?.get(node.country))}
                                 {stephensiTotal > 0 && (
                                     <span className={styles.tooltipStephensi}>

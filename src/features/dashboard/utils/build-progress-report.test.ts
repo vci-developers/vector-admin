@@ -46,6 +46,7 @@ const progress: ProgressDashboard = {
             species: [],
             speciesMonthly: [],
             reportingMonths: [],
+            asOf: [],
             sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
             monthly: [
@@ -68,6 +69,7 @@ const progress: ProgressDashboard = {
             species: [],
             speciesMonthly: [],
             reportingMonths: [],
+            asOf: [],
             sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 0, specimens: 0 }],
             monthly: [
@@ -403,6 +405,7 @@ describe('buildProgressReport', () => {
                     species: [],
                     speciesMonthly: [],
                     reportingMonths: [],
+                    asOf: [],
                     sentinelSitesByProgram: [],
                     scansByProgram: [{ programId: 2, scans: 4, specimens: 0 }],
                     monthly: [

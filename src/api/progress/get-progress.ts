@@ -39,7 +39,7 @@ import {
 type ProgressRange = Pick<GetProgressQuery, 'from' | 'to'>;
 type ProgressSummary = Omit<ProgressDashboard, 'programs'>;
 const SCAN_COUNT_VERSION =
-    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v5-sheet-counts-v2-species-months-v1-one-stephensi-v1-places-v1-reporting-months-v1';
+    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v5-sheet-counts-v3-as-of-v1-species-months-v1-one-stephensi-v1-places-v1-reporting-months-v1';
 
 export async function getProgress(
     query: GetProgressQuery,
