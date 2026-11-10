@@ -789,8 +789,17 @@ function useViewport() {
     return viewport;
 }
 
-/** Neutral local geography still draws when external tiles are unavailable. */
-function GeographicContext({ countries }: { countries: CountryGeometry[] }) {
+/**
+ * Neutral local geography still draws when external tiles are unavailable.
+ * On the timeline a country's outline stays hidden until its first upload.
+ */
+function GeographicContext({
+    countries,
+    startedCountries,
+}: {
+    countries: CountryGeometry[];
+    startedCountries?: ReadonlySet<string>;
+}) {
     const { zoom } = useViewport();
     return (
         <>
@@ -798,20 +807,25 @@ function GeographicContext({ countries }: { countries: CountryGeometry[] }) {
                 name="progressCountryContext"
                 style={{ zIndex: 390, pointerEvents: 'none' }}
             >
-                {countries.map(country => (
-                    <GeoJSON
-                        key={country.country}
-                        data={country.geometry}
-                        interactive={false}
-                        style={{
-                            color: '#8ea99e',
-                            weight: 1,
-                            opacity: 0.65,
-                            fillColor: '#d4e8dc',
-                            fillOpacity: 0.2,
-                        }}
-                    />
-                ))}
+                {countries.map(country => {
+                    const shown =
+                        startedCountries?.has(country.country) ?? true;
+                    return (
+                        <GeoJSON
+                            key={country.country}
+                            data={country.geometry}
+                            interactive={false}
+                            style={{
+                                className: styles.countryContext,
+                                color: '#8ea99e',
+                                weight: 1,
+                                opacity: shown ? 0.65 : 0,
+                                fillColor: '#d4e8dc',
+                                fillOpacity: shown ? 0.2 : 0,
+                            }}
+                        />
+                    );
+                })}
             </Pane>
             {zoom >= 6.5 &&
                 countries.some(country => country.country === 'Uganda') && (
@@ -2465,7 +2479,10 @@ export default function ProgressMap({
                 opacity={0.58}
                 errorTileUrl={L.Util.emptyImageUrl}
             />
-            <GeographicContext countries={countries} />
+            <GeographicContext
+                countries={countries}
+                startedCountries={startedCountries}
+            />
             <ReportingNavigation
                 districts={mappedDistricts}
                 countries={countries}

@@ -146,6 +146,17 @@
     }
 }
 
+/* A country's outline fades in with its first upload on the timeline. */
+.countryContext {
+    transition:
+        stroke-opacity 600ms ease,
+        fill-opacity 600ms ease;
+}
+
+.canvas[data-rewinding='true'] .countryContext {
+    transition-duration: 250ms;
+}
+
 .canvas[data-rewinding='true'] .districtArea {
     transition-duration: 250ms, 250ms, 150ms, 250ms;
     transition-timing-function: ease-out;
