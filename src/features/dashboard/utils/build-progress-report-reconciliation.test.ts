@@ -181,6 +181,7 @@ describe('downloaded progress workbook reconciliation', () => {
         async ({ from, expectedScans, ugandaScans }) => {
             const range = { from, to: '2026-09' };
             const progress: ProgressDashboard = {
+                devices: [],
                 ...buildProgress(data, range),
                 programs: data.map(row => row.program),
                 selectedProgramIds: [1, 2, 3, 4, 6],

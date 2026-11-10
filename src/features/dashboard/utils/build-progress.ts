@@ -15,7 +15,7 @@ import { monthKeyOf, monthsInRange, programTimeZone } from './month-key';
 import type { ResolvedRange } from './resolve-reporting-range';
 import { countSentinelSites } from './count-sentinel-sites';
 import { siteLocationPath } from './site-location-path';
-import { isStephensi } from './stephensi-totals';
+import { isStephensi, STEPHENSI_LABEL } from './stephensi-totals';
 import {
     mergeLocationCoverage,
     progressLocationIdentity,
@@ -29,7 +29,7 @@ export type ProgressProgramData = {
 };
 type Position = NonNullable<ProgressDistrict['position']>;
 
-const UNKNOWN_DISTRICT = 'District not recorded';
+export const UNKNOWN_DISTRICT = 'District not recorded';
 const UNKNOWN_KEY = 'unknown';
 
 const normalize = (value: string) =>
@@ -113,7 +113,11 @@ function coverageOf(group: CoverageAccumulator): ProgressLocationCoverage {
     return {
         programId: group.programId,
         unit: group.unit,
-        count: group.incomplete ? null : group.locations.size,
+        // A Site with no usable place is left out; it doesn't blank the rest.
+        count:
+            group.incomplete && group.locations.size === 0
+                ? null
+                : group.locations.size,
     };
 }
 
@@ -132,7 +136,7 @@ function addSpecies(into: SpeciesCounts, from: SpeciesCounts | undefined) {
 }
 
 /** Most specimens first; specimens without a species last. */
-function speciesListOf(counts: SpeciesCounts): ProgressSpecies[] {
+export function speciesListOf(counts: SpeciesCounts): ProgressSpecies[] {
     return [...counts]
         .map(([name, specimens]) => ({ name, specimens }))
         .sort(
@@ -154,8 +158,57 @@ type StephensiAccumulator = Omit<ProgressStephensi, 'districts'> & {
 
 type SiteVisits = Parameters<typeof countSentinelSites>[0];
 
-type DistrictAccumulator = ProgressDistrict & {
+/** One Session's place in a District, kept to count it as of a month. */
+type DistrictVisit = {
+    month: string;
+    programId: number;
+    unit: ProgressCoverageUnit;
+    visit: SiteVisits[number] | null;
+    location: string | null;
+};
+
+/** Sentinel sites and locations from the visits up to each reporting month. */
+function districtAsOf(
+    visits: readonly DistrictVisit[],
+    months: readonly string[],
+): ProgressDistrict['asOf'] {
+    return months.map(month => {
+        const sites = new Map<number, SiteVisits>();
+        const coverage = new Map<number, CoverageAccumulator>();
+        for (const row of visits) {
+            if (row.month > month) continue;
+            const group = coverage.get(row.programId) ?? {
+                programId: row.programId,
+                unit: row.unit,
+                locations: new Set<string>(),
+                incomplete: false,
+            };
+            coverage.set(row.programId, group);
+            if (row.location === null) group.incomplete = true;
+            else group.locations.add(row.location);
+            const programSites = sites.get(row.programId) ?? [];
+            sites.set(row.programId, programSites);
+            if (row.visit) programSites.push(row.visit);
+        }
+        return {
+            month,
+            sentinelSitesByProgram: [...sites]
+                .map(([programId, rows]) => ({
+                    programId,
+                    count: countSentinelSites(rows).sentinelSites,
+                }))
+                .sort((a, b) => a.programId - b.programId),
+            coverageByProgram: mergeLocationCoverage(
+                [...coverage.values()].map(coverageOf),
+            ),
+        };
+    });
+}
+
+type DistrictAccumulator = Omit<ProgressDistrict, 'asOf'> & {
+    timeline: DistrictVisit[];
     speciesCounts: SpeciesCounts;
+    speciesByMonth: Map<string, SpeciesCounts>;
     visits: Map<number, SiteVisits>;
     coverage: Map<number, CoverageAccumulator>;
     scans: Map<number, number>;
@@ -209,7 +262,10 @@ export function prepareProgressData(
             // Groups split by sex and abdomen too; only species is reported.
             const species: SpeciesCounts = new Map();
             for (const group of counts.groups) {
-                const name = group.species?.trim() || null;
+                const label = group.species?.trim() || null;
+                // Stakeholders see one An. stephensi, suspected or not.
+                const name =
+                    label && isStephensi(label) ? STEPHENSI_LABEL : label;
                 species.set(name, (species.get(name) ?? 0) + group.count);
             }
             speciesBySession.set(counts.sessionId, species);
@@ -317,7 +373,11 @@ export function buildProgress(
                     uniqueScans: 0,
                     uniqueSpecimens: 0,
                     species: [],
+                    speciesMonthly: [],
+                    reportingMonths: [],
+                    timeline: [],
                     speciesCounts: new Map(),
+                    speciesByMonth: new Map(),
                     monthly,
                     position:
                         districtName === null
@@ -354,23 +414,31 @@ export function buildProgress(
             }
             const count = scansBySession.get(session.sessionId) ?? 0;
             programScans.scans += count;
-            if (site) {
-                const visit = {
-                    siteId: session.siteId,
-                    location: siteLocationPath(site),
-                };
+            const visit = site
+                ? { siteId: session.siteId, location: siteLocationPath(site) }
+                : null;
+            if (visit) {
                 programVisits.push(visit);
                 const districtVisits =
                     district.visits.get(program.programId) ?? [];
                 district.visits.set(program.programId, districtVisits);
                 districtVisits.push(visit);
             }
+            district.timeline.push({
+                month: session.month,
+                programId: program.programId,
+                unit,
+                visit,
+                location,
+            });
             district.scans.set(
                 program.programId,
                 (district.scans.get(program.programId) ?? 0) + count,
             );
             district.uniqueScans += count;
             district.months.get(session.month)!.uniqueScans += count;
+            if (!district.reportingMonths.includes(session.month))
+                district.reportingMonths.push(session.month);
             monthTotals.get(session.month)!.uniqueScans += count;
             uniqueScans += count;
             const specimens = specimensBySession.get(session.sessionId) ?? 0;
@@ -386,6 +454,11 @@ export function buildProgress(
                 speciesBySession.get(session.sessionId),
             );
             addSpecies(speciesCounts, speciesBySession.get(session.sessionId));
+            const monthSpecies =
+                district.speciesByMonth.get(session.month) ?? new Map();
+            addSpecies(monthSpecies, speciesBySession.get(session.sessionId));
+            if (monthSpecies.size > 0)
+                district.speciesByMonth.set(session.month, monthSpecies);
             for (const [name, specimens] of speciesBySession.get(
                 session.sessionId,
             ) ?? []) {
@@ -443,7 +516,18 @@ export function buildProgress(
             uniqueScans: district.uniqueScans,
             uniqueSpecimens: district.uniqueSpecimens,
             species: speciesListOf(district.speciesCounts),
+            speciesMonthly: [...district.speciesByMonth]
+                .map(([month, counts]) => ({
+                    month,
+                    species: speciesListOf(counts),
+                }))
+                .sort((a, b) => a.month.localeCompare(b.month)),
             monthly: district.monthly,
+            reportingMonths: district.reportingMonths.toSorted(),
+            asOf: districtAsOf(
+                district.timeline,
+                district.reportingMonths.toSorted(),
+            ),
             latestReceivedAt: district.latestReceivedAt,
             coverageByProgram,
             scansByProgram: [...district.scans]

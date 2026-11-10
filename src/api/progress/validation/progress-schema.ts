@@ -86,6 +86,23 @@ export const progressStephensiSchema = z.object({
 
 export type ProgressStephensi = z.infer<typeof progressStephensiSchema>;
 
+/** Counts only: who collected never leaves the server. */
+export const progressProgramDevicesSchema = z.object({
+    programId: z.number(),
+    /** The workbook's count for the period's last month; null if blank. */
+    active: countSchema.nullable(),
+    /** The workbook's last month column: what the Program grows to. */
+    target: countSchema.nullable(),
+    /** The month of that last column. */
+    targetMonth: monthKeySchema.nullable(),
+    /** Each month's count up to the period's last, for the timeline. */
+    monthly: z.array(z.object({ month: monthKeySchema, active: countSchema })),
+});
+
+export type ProgressProgramDevices = z.infer<
+    typeof progressProgramDevicesSchema
+>;
+
 export const progressDistrictSchema = z.object({
     key: z.string(),
     /** First contributing program for compatibility; use programIds for attribution. */
@@ -100,7 +117,27 @@ export const progressDistrictSchema = z.object({
     uniqueScans: countSchema,
     uniqueSpecimens: countSchema,
     species: z.array(progressSpeciesSchema),
+    /** `species` by month, for the timeline; only months with specimens. */
+    speciesMonthly: z.array(
+        z.object({
+            month: monthKeySchema,
+            species: z.array(progressSpeciesSchema),
+        }),
+    ),
     monthly: z.array(progressMonthSchema),
+    /** Months with any upload, practice and image-less ones included. */
+    reportingMonths: z.array(monthKeySchema),
+    /**
+     * Sentinel sites and locations up to and including each reporting month,
+     * for the timeline; they can't be added month by month.
+     */
+    asOf: z.array(
+        z.object({
+            month: monthKeySchema,
+            sentinelSitesByProgram: z.array(progressSentinelSitesSchema),
+            coverageByProgram: z.array(progressLocationCoverageSchema),
+        }),
+    ),
     position: z
         .object({ latitude: z.number(), longitude: z.number() })
         .nullable(),
@@ -122,6 +159,7 @@ export const progressDashboardSchema = z.object({
     uniqueSpecimens: countSchema.nullable(),
     species: z.array(progressSpeciesSchema),
     stephensi: z.array(progressStephensiSchema),
+    devices: z.array(progressProgramDevicesSchema),
     districts: z.array(progressDistrictSchema),
     monthly: z.array(progressMonthSchema),
     /** Oldest API snapshot in this response. */

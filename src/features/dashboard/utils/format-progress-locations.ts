@@ -11,13 +11,30 @@ const labels: Record<ProgressLocationCoverage['unit'], [string, string]> = {
     'collection-site': ['collection site', 'collection sites'],
 };
 
-/** Sum program counts only under the generic reporting-location label. */
+/** Add the counts that exist; null only when there are none to add. */
+export function sumAvailableCounts(
+    counts: readonly (number | null)[],
+): number | null {
+    const known = counts.filter(count => count !== null);
+    if (known.length === 0) return null;
+    return known.reduce((sum, count) => sum + count, 0);
+}
+
 export function totalProgressLocations(
     coverage: readonly ProgressLocationCoverage[],
 ): number | null {
-    if (coverage.length === 0 || coverage.some(entry => entry.count === null))
-        return null;
-    return coverage.reduce((sum, entry) => sum + (entry.count ?? 0), 0);
+    return sumAvailableCounts(coverage.map(entry => entry.count));
+}
+
+/** Beside a total: the shared unit, or the generic label for mixed ones. */
+export function locationTotalUnit(
+    coverage: readonly ProgressLocationCoverage[],
+    total: number | null,
+): string {
+    const units = new Set(coverage.map(entry => entry.unit));
+    if (units.size === 1)
+        return progressLocationUnitLabel(coverage[0].unit, total);
+    return total === 1 ? 'reporting location' : 'reporting locations';
 }
 
 /** Display the reviewed reporting unit without treating different units as equal. */
@@ -62,12 +79,15 @@ export function formatProgressLocations(
         .join(' · ');
 }
 
-/** Programs never share a Sentinel Site, so their counts add up; any missing one makes the total unknown. */
+/** Programs never share a Sentinel Site, so their counts add up. */
 export function totalSentinelSites(
     rows: readonly ProgressSentinelSites[],
 ): number | null {
-    if (rows.length === 0 || rows.some(row => row.count === null)) return null;
-    return rows.reduce((sum, row) => sum + (row.count ?? 0), 0);
+    return sumAvailableCounts(rows.map(row => row.count));
+}
+
+export function sentinelSiteLabel(count: number | null): string {
+    return count === 1 ? 'sentinel site' : 'sentinel sites';
 }
 
 /** "1 sentinel site", "3 sentinel sites". */
@@ -75,5 +95,5 @@ export function formatSentinelSites(
     count: number,
     formatNumber: (count: number) => string,
 ): string {
-    return `${formatNumber(count)} ${count === 1 ? 'sentinel site' : 'sentinel sites'}`;
+    return `${formatNumber(count)} ${sentinelSiteLabel(count)}`;
 }

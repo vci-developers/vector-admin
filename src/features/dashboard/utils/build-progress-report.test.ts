@@ -9,6 +9,7 @@ import { buildProgressReport } from './build-progress-report';
 
 const GENERATED_AT = Date.UTC(2026, 9, 9, 16);
 const progress: ProgressDashboard = {
+    devices: [],
     programs: [
         { programId: 7, name: 'Uganda reporting', country: 'Uganda' },
         { programId: 9, name: 'Excluded program', country: 'Ghana' },
@@ -43,6 +44,9 @@ const progress: ProgressDashboard = {
             uniqueScans: 8,
             uniqueSpecimens: 0,
             species: [],
+            speciesMonthly: [],
+            reportingMonths: [],
+            asOf: [],
             sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 8, specimens: 0 }],
             monthly: [
@@ -63,6 +67,9 @@ const progress: ProgressDashboard = {
             uniqueScans: 0,
             uniqueSpecimens: 0,
             species: [],
+            speciesMonthly: [],
+            reportingMonths: [],
+            asOf: [],
             sentinelSitesByProgram: [],
             scansByProgram: [{ programId: 7, scans: 0, specimens: 0 }],
             monthly: [
@@ -171,6 +178,7 @@ describe('buildProgressReport', () => {
         };
         const period = { from: '2026-08', to: '2026-09' };
         const dashboard: ProgressDashboard = {
+            devices: [],
             ...buildProgress([data], period),
             programs: [data.program],
             selectedProgramIds: [7],
@@ -395,6 +403,9 @@ describe('buildProgressReport', () => {
                     uniqueScans: 4,
                     uniqueSpecimens: 0,
                     species: [],
+                    speciesMonthly: [],
+                    reportingMonths: [],
+                    asOf: [],
                     sentinelSitesByProgram: [],
                     scansByProgram: [{ programId: 2, scans: 4, specimens: 0 }],
                     monthly: [

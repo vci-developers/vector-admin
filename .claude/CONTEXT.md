@@ -99,9 +99,12 @@ path, so a Sentinel Site with Sessions at it and at its households counts once.
 Houses are counted beside it where they exist ("3 sentinel sites · 12 houses").
 Named for now; collection frequency is not part of it (in Uganda 18 of 33
 villages had Surveillance Sessions every month Apr–Sep 2026, 9 only once). The
-Stakeholder view shows them under households on the Geographic Coverage card (in
-total and per Program) and in every map tooltip. _Avoid_: Site (the VectorCam
-record: a house in Uganda), collection site
+Stakeholder view leads the Geographic Coverage card with them, above households
+(in total, per country and per Program), and shows them in every map tooltip.
+Totals add the Programs and places that can be counted and leave the rest out; a
+Program reads Unavailable only if it failed to load or none of its Sites could
+be placed. _Avoid_: Site (the VectorCam record: a house in Uganda), collection
+site
 
 **Area**: A Program's top-level place: a District for Uganda and other legacy
 Sites, a Region where Sites use their own `locationHierarchy`. Sessions at a
@@ -123,7 +126,16 @@ above the House. They read against the same rule's plan, not the workbook's
 Projected Devices: 3 phones per District, 6 in the phone-per-VHT ones, summed
 over the Active Districts (Sep: 8 × 3 + 3 × 6 = 42; the workbook says 66, which
 matches Expected Users, 2 VHTs × 3 villages × 11). Uganda Sep: 35 of 42 on the
-map and panel; the tiles are unchanged. Hard-coded for Uganda.
+map and panel; the tiles are unchanged. Hard-coded for Uganda. The Stakeholder
+page's Devices tile shows program totals only, read straight from the workbook's
+Projected Devices tab (TOTAL rows): each month column is that month's active
+count, the last column the target the Program grows to. The tile shows the count
+for the Reporting Period's last month; a period that runs up to now (Year to
+date, 3/6/12 months, All time) adds "of [sum of targets] projected by [last
+column's month]", while a single month or a period ending earlier shows the
+count alone. A blank cell is no devices, greyed out. Device ids and uploads are
+not used. The map's country tags show the count only, and on the timeline the
+month's count (decided 2026-11-10).
 
 **Team-sheet view**: The summary table, built to paste into the team's sheet
 ("Monthly Entry: VectorVerify log metrics", one row per District per month). Per
@@ -134,11 +146,11 @@ Columns, in order: Active Devices, Images, Unique Specimens, Images per Active
 Device, Unique Users and Logins (Program rows only: users log in to a Program,
 not a Site), Metadata Completeness, DHIS2 Upload Rate, % species ID, % capture
 date, % location, % operator name, then Time between images as ID events logged
-(blank until recorded), events excluded, median, 25th pct, 75th pct, mean and
-SD in seconds. Copy is values only, no header or name: a
-button per row, or tick rows and Copy selected. A Device that moved between
-Areas is an Active Device in each. _Avoid_: Location Breakdown (the earlier
-drill-down to every level, removed)
+(blank until recorded), events excluded, median, 25th pct, 75th pct, mean and SD
+in seconds. Copy is values only, no header or name: a button per row, or tick
+rows and Copy selected. A Device that moved between Areas is an Active Device in
+each. _Avoid_: Location Breakdown (the earlier drill-down to every level,
+removed)
 
 **Image**: One photo of a Specimen (`SpecimenImage`). A Specimen photographed
 three times is three Images. Counted in the Reporting Month of its Session's
@@ -219,11 +231,11 @@ it as a click would. It searches only what the map shows, so the map filters
 still apply. Clicking a country, shaded area or Coverage Unit selects it and
 zooms to its shape. The panel's Place picker lists the same places, searchable
 by place or country, and names what is selected; its "All places", like a click
-on empty map, clears the selection and zooms back out to the selected
-countries. A device uses its latest Session's Site. The panel beside the map
-charts specimens per week (periods of up to three months) or per month, stacked
-by species, sex or abdomen status, for the clicked point, cluster or device, or
-for everything on the map when nothing is clicked; each value keeps its colour
+on empty map, clears the selection and zooms back out to the selected countries.
+A device uses its latest Session's Site. The panel beside the map charts
+specimens per week (periods of up to three months) or per month, stacked by
+species, sex or abdomen status, for the clicked point, cluster or device, or for
+everything on the map when nothing is clicked; each value keeps its colour
 whatever is clicked, and the Sessions or devices behind the chart are listed
 under it. Expand chart view opens the same chart from the right with a bar per
 UTC day of the period, quiet days included. _Avoid_: layer filter
@@ -261,9 +273,9 @@ show it blank and stay out of the Total.
 
 **Time between images**: Seconds between consecutive images (by `capturedAt`)
 within one Session: retakes of the same specimen and pauses included, 0 s gaps
-(same capture time) excluded and counted as Events excluded. Gaps are pooled across Sessions, never averaged per Session; percentiles
-and SD as Excel's PERCENTILE.INC and STDEV.S. The Session panel shows each
-Session's median gap.
+(same capture time) excluded and counted as Events excluded. Gaps are pooled
+across Sessions, never averaged per Session; percentiles and SD as Excel's
+PERCENTILE.INC and STDEV.S. The Session panel shows each Session's median gap.
 
 **Unique Users**: VectorVerify web-app users (VCOs and other reviewers, not
 field collectors) of a Program who logged in at least once in the Reporting
@@ -292,13 +304,13 @@ Entered by hand, not derived from Sessions. **Geographic Coverage** = Active ÷
 example: 11 / 14, 11 / 22). Uganda's units are Districts. The four coverage
 metrics are shown per Program, never pooled; Programs without figures are left
 out. Their tooltips use the team's own definitions word for word. Drawn on the
-map as the **Coverage layer** (a Map Filter layer, on by default): each
-Targeted or Surveillance-only unit's boundary filled by status, under the
-specimen and device points. Active units get no fill on the internal map: the
-specimen shading already greens every area reporting. The fills are
-planning status and ignore the Reporting Period, so a Targeted unit can show
-points and an Active one none. _Avoid_: Area (top-level place derived from
-Sites; may not match a Coverage Unit)
+map as the **Coverage layer** (a Map Filter layer, on by default): each Targeted
+or Surveillance-only unit's boundary filled by status, under the specimen and
+device points. Active units get no fill on the internal map: the specimen
+shading already greens every area reporting. The fills are planning status and
+ignore the Reporting Period, so a Targeted unit can show points and an Active
+one none. _Avoid_: Area (top-level place derived from Sites; may not match a
+Coverage Unit)
 
 **Field User**: A person collecting with the VectorCam phone app. Field Users
 have no login. **Active Field Users** are counted from VectorCam: distinct
@@ -340,9 +352,10 @@ User Coverage.
 
 **Projected Devices**: A per-program, per-month device rollout plan set by the
 program team (Uganda 24 May–Aug 2026, one phone per village shared by two VHTs;
-66 from September, one per VHT; 84 from December). Kept in the workbook but not
-read: it counts devices, not people. Program stage, updates and opportunities
-are planning data outside VectorAdmin. _Avoid_: expected devices
+66 from September, one per VHT; 84 from December). Since 2026-11-10 the tab's
+month columns hold active counts and its last column the target; the Stakeholder
+Devices tile reads it (see Area). Program stage, updates and opportunities are
+planning data outside VectorAdmin. _Avoid_: expected devices
 
 ## Flagged ambiguities
 

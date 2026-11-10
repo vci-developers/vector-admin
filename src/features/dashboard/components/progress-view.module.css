@@ -92,6 +92,36 @@
     gap: 12px;
 }
 
+.statTiles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+.statTiles .breakdown {
+    align-self: stretch;
+}
+
+.deviceFigure {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.deviceFigurePlan {
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+
+@media (min-width: 640px) {
+    .statTiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+}
+
 .headline {
     position: relative;
     display: flex;
@@ -202,6 +232,10 @@
     font-weight: 500;
 }
 
+.headlineUnit strong {
+    font-weight: 700;
+}
+
 .headlineDescription {
     grid-row: 4;
     align-self: start;
@@ -213,15 +247,69 @@
     line-height: 1.5;
 }
 
-.coverageRows,
-.scanBreakdown {
-    display: grid;
+.breakdown {
     grid-row: 3;
     align-self: start;
-    gap: 10px;
+    min-width: 0;
     margin-top: 16px;
     padding-top: 12px;
     border-top: 1px solid var(--progress-line);
+}
+
+/* About four countries, so a cut-off line hints at the rest. */
+.breakdownList {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    max-height: 300px;
+    /* Floating scrollbars take no space, so lend them the tile's padding. */
+    margin-right: -18px;
+    padding-right: 18px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentcolor 35%, transparent)
+        transparent;
+}
+
+.breakdownList[data-more] {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+}
+
+.breakdownList > li + li {
+    padding-top: 10px;
+    border-top: 1px solid var(--progress-line);
+}
+
+.breakdownHint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 6px;
+    color: var(--muted-foreground);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+/* A country's several Programs, under its subtotal. */
+.countryPrograms {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid var(--progress-line);
+}
+
+/* Parts of the subtotal above, so they read smaller than it. */
+.countryPrograms .coverageCount,
+.countryPrograms .scanCount {
+    font-size: 16px;
+    letter-spacing: -0.02em;
+}
+
+.countryPrograms .coverageProgram,
+.countryPrograms .scanProgram {
+    margin-top: 0;
 }
 
 .coverageRow,
@@ -232,19 +320,11 @@
     gap: 12px;
 }
 
-.coverageRow + .coverageRow,
-.scanRow + .scanRow {
-    padding-top: 10px;
-    border-top: 1px solid var(--progress-line);
-}
-
 .coverageCountry,
 .scanCountry {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     color: var(--progress-ink);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.4;
     font-weight: 600;
 }
@@ -256,15 +336,13 @@
     align-items: baseline;
     gap: 4px;
     margin-top: 4px;
-    font-size: 10.5px;
+    font-size: 12px;
     line-height: 1.4;
 }
 
 .programName {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .coverageProgram {
@@ -280,35 +358,54 @@
     line-height: 1.5;
 }
 
-.coverageFigure {
+/* Numbers then labels, the same widths on every line. */
+.coverageFigures {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    row-gap: 1px;
+}
+
+.coverageFigureLine {
     display: flex;
     align-items: baseline;
-    justify-content: flex-end;
-    gap: 6px;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+/* Narrow tiles: the figures go under the name, which keeps its room. */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .coverageRow {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+    }
+}
+
+.coverageUnit {
+    white-space: nowrap;
+    color: var(--muted-foreground);
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
+/* Secondary to the sentinel sites: as quiet as its label. */
+.coverageLocations {
+    justify-self: end;
+    color: var(--muted-foreground);
+    font-size: 11.5px;
+    line-height: 1.4;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
 }
 
 .coverageCount {
+    justify-self: end;
     color: var(--progress-ink);
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1.15;
     font-weight: 600;
     letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
-}
-
-.coverageUnavailable {
-    color: var(--muted-foreground);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0;
-}
-
-.coverageUnit {
-    flex-shrink: 0;
-    color: var(--muted-foreground);
-    font-size: 11px;
-    line-height: 1.4;
-    white-space: nowrap;
 }
 
 .headlineFeatured {
@@ -351,12 +448,17 @@
     color: #c0d8ce;
 }
 
-.headlineFeatured .scanBreakdown {
+.headlineFeatured .breakdown {
     border-color: rgb(203 235 220 / 15%);
 }
 
-.headlineFeatured .scanRow + .scanRow {
+.headlineFeatured .breakdownList > li + li,
+.headlineFeatured .countryPrograms {
     border-color: rgb(203 235 220 / 12%);
+}
+
+.headlineFeatured .breakdownHint {
+    color: #c0d8ce;
 }
 
 .headlineFeatured .scanCountry {
@@ -463,7 +565,46 @@
 }
 
 .speciesRow {
+    position: relative;
+    isolation: isolate;
     padding: 5px 8px;
+}
+
+/* Only while the timeline is on a month; `--share` is of the period's top species. */
+.speciesBar {
+    position: absolute;
+    z-index: -1;
+    inset: 1px 0;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    opacity: 0;
+    transform: scaleX(var(--share));
+    transform-origin: left;
+    /* One month long, so bars never pause between months. Kept under Reduce
+       Motion: they move only after someone presses Play or drags the slider. */
+    transition:
+        transform 900ms linear,
+        opacity 300ms ease;
+}
+
+/* A species' first appearance grows from nothing. */
+@starting-style {
+    .speciesBar {
+        transform: scaleX(0);
+    }
+}
+
+.contributionList[data-rewinding='true'] .speciesBar {
+    transition-duration: 250ms, 300ms;
+    transition-timing-function: ease-out, ease;
+}
+
+.speciesBar[data-stephensi='true'] {
+    background: color-mix(in srgb, var(--progress-stephensi) 24%, transparent);
+}
+
+.speciesBar[data-shown='true'] {
+    opacity: 1;
 }
 
 .stephensiRow {
@@ -543,7 +684,10 @@
 }
 
 @media (min-width: 1280px) {
+    /* The map and its panel share one screen; short windows scroll a little. */
     .visuals {
+        height: max(620px, calc(100dvh - 24px));
+        grid-template-rows: minmax(0, 1fr);
         grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);
     }
 
@@ -553,6 +697,8 @@
 
     .areaContributions {
         flex: 1 1 0;
+        margin-top: 12px;
+        padding-top: 12px;
     }
 
     .contributionList {
@@ -575,6 +721,14 @@
     .mapCanvas {
         height: 640px;
         min-height: 640px;
+    }
+}
+
+@media (min-width: 1280px) {
+    .mapCanvas {
+        height: auto;
+        min-height: 0;
+        flex: 1 1 0;
     }
 }
 
@@ -679,22 +833,8 @@
         font-size: 10px;
     }
 
-    .coverageFigure {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 3px;
-    }
-
-    .coverageUnit {
-        font-size: 10px;
-    }
-
     .coverageCount {
         font-size: clamp(0.95rem, 4.6vw, 1.25rem);
-    }
-
-    .coverageUnavailable {
-        font-size: 10px;
     }
 
     .panel {
@@ -714,4 +854,266 @@
         padding: 5px 7px;
         font-size: 10px;
     }
+}
+
+/* Floats over the map, just above the Leaflet credits (8px from the edges). */
+.mapTimeline {
+    position: absolute;
+    z-index: 1000;
+    right: 8px;
+    bottom: calc(var(--map-credit-height, 48px) + 16px);
+    left: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px 8px;
+    border: 1px solid var(--progress-line);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 3px 14px rgb(26 75 61 / 10%);
+}
+
+.mapTimelinePlay {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    color: var(--primary-foreground);
+    background: var(--primary);
+    cursor: pointer;
+    position: relative;
+}
+
+.mapTimelinePlay:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.mapTimelineRange:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.mapTimelinePlay:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.mapTimelineLabel {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 500;
+}
+
+.mapTimelineLabel strong {
+    color: var(--progress-ink);
+    font-weight: 600;
+}
+
+.mapTimelineRange {
+    display: block;
+    width: 100%;
+    height: 16px;
+    margin-top: 2px;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.mapTimelineRange::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+        to right,
+        var(--primary) var(--fill),
+        var(--progress-line) var(--fill)
+    );
+}
+
+.mapTimelineRange::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+        to right,
+        var(--primary) var(--fill),
+        var(--progress-line) var(--fill)
+    );
+}
+
+.mapTimelineRange::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border: 3px solid var(--primary);
+    border-radius: 50%;
+    appearance: none;
+    background: white;
+    transition: box-shadow 200ms ease;
+}
+
+.mapTimelineRange::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border: 3px solid var(--primary);
+    border-radius: 50%;
+    background: white;
+    transition: box-shadow 200ms ease;
+}
+
+.mapTimeline[data-playing='true'] .mapTimelineRange::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.mapTimeline[data-playing='true'] .mapTimelineRange::-moz-range-thumb {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.mapTimelineRange:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.playback {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    animation: playback-in 300ms ease-out;
+}
+
+@keyframes playback-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+.playbackTitle {
+    color: var(--progress-ink);
+    font-size: 14px;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+.playbackTotal {
+    margin-top: 2px;
+    color: var(--primary);
+    font-size: 52px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+}
+
+.playbackStephensi {
+    margin-top: 2px;
+    color: var(--progress-stephensi);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.playbackStephensi strong {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.playbackChart {
+    position: relative;
+    height: clamp(80px, 14dvh, 130px);
+    margin-top: 12px;
+    border-bottom: 1px solid var(--progress-line);
+}
+
+.playbackChart svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.playbackArea {
+    fill: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.playbackLine {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.playbackTip {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border: 2px solid var(--card);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.playbackEnds {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.playbackStats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    margin-top: 14px;
+}
+
+.playbackStats dt {
+    color: var(--muted-foreground);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.playbackStats dd {
+    color: var(--progress-ink);
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .playback {
+        animation: none !important;
+    }
+}
+
+/* A Program or country with nothing in the period: listed, but stepped back. */
+.muted {
+    opacity: 0.5;
+}
+
+.muted .muted {
+    opacity: 1;
+}
+
+.noPeriodData {
+    justify-self: end;
+    white-space: nowrap;
+    color: var(--muted-foreground);
+    font-size: 11.5px;
+    font-style: italic;
+    line-height: 1.4;
 }

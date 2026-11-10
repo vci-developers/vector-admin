@@ -65,11 +65,6 @@ _As of 2026-10-09. Definitions live in `.claude/CONTEXT.md`; data sources in
 
 ## Data quality (for the program teams)
 
-- Projected Devices for Uganda reads 66 (Sep–Nov) and 84 (Dec on), but the
-  team's rollout rule gives 42 and 60 (3 phones per original District, 6 per new
-  one). 66 matches Expected Users instead (2 VHTs × 3 villages × 11). The map
-  and panel use the rule (Sep: 35 of 42); ask the Uganda team to correct the
-  sheet.
 - Device ids overcount phones: Karenga had 17 ids for 5 people in September and
   Oyam 8 for 3 (re-registrations), so Uganda's Stakeholder counts use villages
   and VHTs instead (hard-coded; see CONTEXT.md). Oyam had one VHT per village in

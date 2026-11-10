@@ -8,6 +8,15 @@ import { useDashboardFilters } from '@/features/dashboard/hooks/use-dashboard-fi
 import { AvailableProgramsContext } from './dashboard-provider';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
+import {
+    countriesStartedBy,
+    districtsAsOf,
+    scansAsOf,
+    scansInMonth,
+    speciesAsOf,
+    timelineFigures,
+} from '@/features/dashboard/utils/scans-as-of';
+import { createTimelineClock } from '@/features/dashboard/utils/timeline-clock';
 import { buildUpcomingAreas } from '@/features/dashboard/utils/build-upcoming-areas';
 import { detectsStephensi } from '@/features/dashboard/utils/deployed-models';
 import {
@@ -29,6 +38,7 @@ import {
     AlertCircle,
     Bug,
     Download,
+    Globe,
     Loader2,
     MapPin,
     ScanLine,
@@ -39,16 +49,26 @@ import dynamic from 'next/dynamic';
 import { parseAsBoolean, parseAsString, useQueryState } from 'nuqs';
 import { use, useEffect, useMemo, useState } from 'react';
 import PeriodPicker from './period-picker';
+import ProgramBreakdown from './program-breakdown';
 import ProgressAreaPicker from './progress-area-picker';
 import ProgressCoverageHeadline from './progress-coverage-headline';
 import ProgressLoading from './progress-loading';
+import ProgressMapTimeline from './progress-map-timeline';
 import ProgressMonthlyChart from './progress-monthly-chart';
+import ProgressPlaybackSummary from './progress-playback-summary';
 import ProgressProgramPicker from './progress-program-picker';
 import ProgressSpeciesBreakdown from './progress-species-breakdown';
 import ProgressSpeciesToggle from './progress-species-toggle';
 import ProgressStephensiPlaces from './progress-stephensi-places';
 import ProgressMapFilters from './progress-map-filters';
 import ProgressCountHeadline from './progress-count-headline';
+import {
+    activeDevicesByCountry,
+    showsDeviceTarget,
+} from '@/features/dashboard/utils/build-progress-devices';
+import { addMonths } from '@/features/dashboard/utils/month-key';
+import ProgressDevicesTile from './progress-devices-tile';
+import ProgressStatTile from './progress-stat-tile';
 import styles from './progress-view.module.css';
 
 const ProgressMap = dynamic(() => import('./progress-map'), {
@@ -89,6 +109,10 @@ export default function ProgressView() {
         };
     }, [filters.range, filters.from, filters.to]);
     const query = useGetProgress({ exclude: filters.exclude, ...range });
+    const withDeviceTarget = showsDeviceTarget(
+        range,
+        addMonths(currentMonth, -1),
+    );
     const result = query.data;
     const dashboard: ProgressDashboard | null = result?.ok ? result.data : null;
     const [showUpcoming, setShowUpcoming] = useState(false);
@@ -96,13 +120,16 @@ export default function ProgressView() {
         'stephensi',
         parseAsBoolean.withDefault(false),
     );
-    const stephensiCounts = useMemo(
-        () => sumStephensiByDistrict(dashboard?.stephensi ?? []),
-        [dashboard],
-    );
     // The tiles share rows, so they open and close together.
     const [tilesExpanded, setTilesExpanded] = useState(false);
     const toggleTiles = () => setTilesExpanded(open => !open);
+    const [statsExpanded, setStatsExpanded] = useState(false);
+    const [asOf, setAsOf] = useState<string | null>(null);
+    const [playing, setPlaying] = useState(false);
+    // Opens on the first move of the timeline, and stays open at the end.
+    const [playbackOpen, setPlaybackOpen] = useState(false);
+    const [clock] = useState(createTimelineClock);
+    const toggleStats = () => setStatsExpanded(open => !open);
     const coverage = useGetCoverage(filters.exclude).data;
     const upcoming = useMemo(
         () =>
@@ -154,6 +181,41 @@ export default function ProgressView() {
     const chosenCountries = Array.from(
         new Set(chosenPrograms.map(program => program.country)),
     );
+    // Countries and Programs that uploaded in the period, not just picked,
+    // practice included as everywhere else: scans, or a site visited (as
+    // Geographic Coverage counts). One that failed to load may have, so stays.
+    const visitedSites = new Map(
+        (dashboard?.sentinelSitesByProgram ?? []).map(row => [
+            row.programId,
+            row.count,
+        ]),
+    );
+    const notReporting = new Set(
+        (dashboard?.scansByProgram ?? [])
+            .filter(
+                row =>
+                    row.scans === 0 &&
+                    (visitedSites.get(row.programId) ?? 0) === 0,
+            )
+            .map(row => row.programId),
+    );
+    const reportingPrograms = chosenPrograms.filter(
+        program => !notReporting.has(program.programId),
+    );
+    const shownCountries = selected
+        ? [selected.country]
+        : Array.from(
+              new Set(reportingPrograms.map(program => program.country)),
+          );
+    // Picked but silent in the period: listed last, greyed out.
+    const silentPrograms = chosenPrograms.filter(program =>
+        notReporting.has(program.programId),
+    );
+    const shownPrograms = selected
+        ? reportingPrograms.filter(program =>
+              selected.programIds.includes(program.programId),
+          )
+        : [...reportingPrograms, ...silentPrograms];
     const scope =
         selected?.name ??
         (chosenCountries.length === 1
@@ -170,6 +232,72 @@ export default function ProgressView() {
     const unavailable = dashboard !== null && dashboard.uniqueScans === null;
     const noSelection = dashboard?.selectedProgramIds.length === 0;
     const updating = query.isPlaceholderData;
+    // The month the map is showing; null is the whole period.
+    const shownMonth = dashboard?.monthly.some(row => row.month === asOf)
+        ? asOf
+        : null;
+    const stephensiCounts = useMemo(
+        () => sumStephensiByDistrict(dashboard?.stephensi ?? [], shownMonth),
+        [dashboard, shownMonth],
+    );
+    const summaryMonth = playbackOpen
+        ? (shownMonth ?? dashboard?.monthly.at(-1)?.month ?? null)
+        : null;
+    // Stays on the last month at the end of a run, so colours don't jump back.
+    const mapScans = useMemo(
+        () => scansAsOf(dashboard?.districts ?? [], summaryMonth ?? shownMonth),
+        [dashboard, summaryMonth, shownMonth],
+    );
+    // On the timeline, the tags count sites and devices up to the month.
+    const mapDistricts = useMemo(
+        () =>
+            districtsAsOf(
+                dashboard?.districts ?? [],
+                summaryMonth ?? shownMonth,
+            ),
+        [dashboard, summaryMonth, shownMonth],
+    );
+    // On the timeline, countries stay faint until their first upload.
+    const startedCountries = useMemo(
+        () =>
+            countriesStartedBy(
+                dashboard?.districts ?? [],
+                summaryMonth ?? shownMonth,
+            ),
+        [dashboard, summaryMonth, shownMonth],
+    );
+    const shownSpecies = useMemo(() => {
+        const districts = dashboard?.districts ?? [];
+        const area = districts.find(row => row.key === districtKey);
+        return speciesAsOf(area ? [area] : districts, shownMonth);
+    }, [dashboard, districtKey, shownMonth]);
+    const pulses = useMemo(
+        () =>
+            playing && shownMonth && dashboard
+                ? {
+                      month: shownMonth,
+                      scans: scansInMonth(dashboard.districts, shownMonth),
+                  }
+                : undefined,
+        [playing, shownMonth, dashboard],
+    );
+    const stephensiTotals = useMemo(
+        () => sumStephensiByDistrict(dashboard?.stephensi ?? []),
+        [dashboard],
+    );
+    const stephensiHeat =
+        stephensiOn && playbackOpen
+            ? { counts: stephensiCounts, totals: stephensiTotals }
+            : undefined;
+    const summaryFigures = useMemo(() => {
+        if (!summaryMonth || !dashboard) return null;
+        const area = dashboard.districts.find(row => row.key === districtKey);
+        return timelineFigures(
+            area ? [area] : dashboard.districts,
+            dashboard.monthly.map(row => row.month),
+            summaryMonth,
+        );
+    }, [dashboard, districtKey, summaryMonth]);
     const unplaced =
         mapPlacement?.source === dashboard?.districts
             ? (mapPlacement?.unplaced ?? [])
@@ -367,6 +495,59 @@ export default function ProgressView() {
                             reporting data.
                         </p>
                     )}
+                    <div className={styles.statTiles}>
+                        <ProgressStatTile
+                            title="Countries"
+                            icon={Globe}
+                            value={shownCountries.length}
+                            detail={
+                                shownCountries.join(', ') ||
+                                (shownPrograms.length > 0
+                                    ? 'no data in this period'
+                                    : 'Choose a program')
+                            }
+                            expanded={statsExpanded}
+                            onToggle={toggleStats}
+                        >
+                            {shownPrograms.length > 1 && (
+                                <ProgramBreakdown
+                                    rows={shownPrograms}
+                                    programs={
+                                        new Map(
+                                            shownPrograms.map(program => [
+                                                program.programId,
+                                                program,
+                                            ]),
+                                        )
+                                    }
+                                    label="Programs by country"
+                                    tone="coverage"
+                                    muted={program =>
+                                        notReporting.has(program.programId)
+                                    }
+                                    figure={rows =>
+                                        rows.every(row =>
+                                            notReporting.has(row.programId),
+                                        ) ? (
+                                            <span
+                                                className={styles.noPeriodData}
+                                            >
+                                                No data in this period
+                                            </span>
+                                        ) : null
+                                    }
+                                />
+                            )}
+                        </ProgressStatTile>
+                        <ProgressDevicesTile
+                            devices={result.data.devices}
+                            selectedProgramIds={selected?.programIds ?? null}
+                            withTarget={withDeviceTarget}
+                            programs={result.data.programs}
+                            expanded={statsExpanded}
+                            onToggle={toggleStats}
+                        />
+                    </div>
                     <div className={styles.headlineCards}>
                         <ProgressCoverageHeadline
                             coverage={
@@ -430,8 +611,8 @@ export default function ProgressView() {
                                 'flex flex-col overflow-hidden',
                             )}
                         >
-                            <div className="px-5 py-5 sm:px-7 sm:py-6">
-                                <div className="flex items-start justify-between gap-4">
+                            <div className="px-5 py-5 sm:px-7 sm:py-6 xl:py-3">
+                                <div className="flex items-center justify-between gap-4">
                                     <h2
                                         id="progress-map-heading"
                                         className={styles.panelHeading}
@@ -443,7 +624,7 @@ export default function ProgressView() {
                                         Reported activity
                                     </span>
                                 </div>
-                                <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px]">
+                                <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px] xl:hidden">
                                     Collections reported during the selected
                                     period.
                                 </p>
@@ -469,13 +650,23 @@ export default function ProgressView() {
                                 )}
                                 {result.data.districts.length > 0 ? (
                                     <ProgressMap
-                                        districts={result.data.districts}
+                                        districts={mapDistricts}
+                                        scansAsOf={mapScans}
+                                        startedCountries={startedCountries}
+                                        pulses={pulses}
+                                        timelineOpen={summaryFigures !== null}
                                         upcoming={showUpcoming ? upcoming : []}
                                         stephensi={
-                                            stephensiOn
+                                            stephensiOn && !summaryFigures
                                                 ? stephensiCounts
                                                 : undefined
                                         }
+                                        stephensiHeat={stephensiHeat}
+                                        devices={activeDevicesByCountry(
+                                            result.data.devices,
+                                            result.data.programs,
+                                            summaryMonth ?? shownMonth,
+                                        )}
                                         selectedKey={selectedKey}
                                         onSelect={selectArea}
                                         stephensiFocused={stephensiFocused}
@@ -506,8 +697,21 @@ export default function ProgressView() {
                                         </p>
                                     </div>
                                 )}
+                                {result.data.monthly.length > 1 && (
+                                    <ProgressMapTimeline
+                                        months={result.data.monthly}
+                                        month={shownMonth}
+                                        onChange={month => {
+                                            setAsOf(month);
+                                            setPlaybackOpen(true);
+                                        }}
+                                        playing={playing}
+                                        onPlayingChange={setPlaying}
+                                        clock={clock}
+                                    />
+                                )}
                             </div>
-                            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-7">
+                            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-4 sm:px-7 xl:py-2.5">
                                 <p className="text-muted-foreground flex items-center gap-2 text-[11px]">
                                     <span
                                         aria-hidden="true"
@@ -525,11 +729,11 @@ export default function ProgressView() {
                                     </span>
                                     Darker shade = more scans
                                 </p>
+                                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                                    Select an area to see its reporting
+                                    locations and scans.
+                                </p>
                             </div>
-                            <p className="text-muted-foreground border-t px-5 py-3 text-[11px] leading-relaxed sm:px-7">
-                                Select an area to see its reporting locations
-                                and scans.
-                            </p>
                             {unplaced.length > 0 && (
                                 <p className="text-muted-foreground border-t px-5 py-3 text-[11px] leading-relaxed sm:px-6">
                                     Not mapped:{' '}
@@ -549,112 +753,157 @@ export default function ProgressView() {
                             className={cn(
                                 styles.panel,
                                 styles.chartPanel,
-                                'flex min-h-0 flex-col p-5 sm:p-7',
+                                'flex min-h-0 flex-col p-5 sm:p-7 xl:p-5',
                             )}
                         >
-                            <div className="flex flex-col gap-5">
-                                {/* No wrap: the toggle keeps its corner however long the title. */}
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <h2
-                                            id="progress-chart-heading"
-                                            className={styles.panelHeading}
-                                        >
-                                            {stephensiFocused ? (
-                                                <>
-                                                    <span className="italic">
-                                                        An. stephensi
-                                                    </span>{' '}
-                                                    per month
-                                                </>
-                                            ) : (
-                                                'Scans per month'
-                                            )}
-                                        </h2>
-                                        <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px]">
-                                            {stephensiFocused
-                                                ? 'Specimens by submission month.'
-                                                : 'By submission month.'}
-                                        </p>
+                            {summaryFigures ? (
+                                <ProgressPlaybackSummary
+                                    clock={clock}
+                                    title={scope}
+                                    figures={summaryFigures}
+                                    playing={playing}
+                                    stephensi={
+                                        stephensiOn
+                                            ? selectedKey
+                                                ? (stephensiCounts.get(
+                                                      selectedKey,
+                                                  ) ?? 0)
+                                                : [
+                                                      ...stephensiCounts.values(),
+                                                  ].reduce((a, b) => a + b, 0)
+                                            : null
+                                    }
+                                    onClose={() => {
+                                        setPlaying(false);
+                                        setAsOf(null);
+                                        setPlaybackOpen(false);
+                                    }}
+                                />
+                            ) : (
+                                <>
+                                    <div className="flex flex-col gap-5 xl:gap-3">
+                                        {/* No wrap: the toggle keeps its corner however long the title. */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h2
+                                                    id="progress-chart-heading"
+                                                    className={
+                                                        styles.panelHeading
+                                                    }
+                                                >
+                                                    {stephensiFocused ? (
+                                                        <>
+                                                            <span className="italic">
+                                                                An. stephensi
+                                                            </span>{' '}
+                                                            per month
+                                                        </>
+                                                    ) : (
+                                                        'Scans per month'
+                                                    )}
+                                                </h2>
+                                                <p className="text-muted-foreground mt-2 text-xs leading-relaxed sm:text-[13px] xl:hidden">
+                                                    {stephensiFocused
+                                                        ? 'Specimens by submission month.'
+                                                        : 'By submission month.'}
+                                                </p>
+                                            </div>
+                                            {stephensiOn &&
+                                                !unavailable &&
+                                                !noSelection && (
+                                                    <ProgressSpeciesToggle
+                                                        stephensi={
+                                                            stephensiFocused
+                                                        }
+                                                        onChange={
+                                                            setStephensiFocus
+                                                        }
+                                                    />
+                                                )}
+                                        </div>
+                                        <div className="w-full">
+                                            <ProgressAreaPicker
+                                                areas={result.data.districts}
+                                                showCountry={
+                                                    chosenCountries.length > 1
+                                                }
+                                                selectedKey={selectedKey}
+                                                onChange={selectArea}
+                                                disabled={
+                                                    unavailable ||
+                                                    noSelection ||
+                                                    updating
+                                                }
+                                            />
+                                        </div>
                                     </div>
-                                    {stephensiOn &&
-                                        !unavailable &&
-                                        !noSelection && (
-                                            <ProgressSpeciesToggle
-                                                stephensi={stephensiFocused}
-                                                onChange={setStephensiFocus}
+                                    {unavailable || noSelection ? (
+                                        <div className="text-muted-foreground flex min-h-[300px] flex-1 items-center justify-center text-sm">
+                                            Monthly data unavailable
+                                        </div>
+                                    ) : (
+                                        <div className="mt-6 min-w-0 shrink-0 xl:mt-2">
+                                            {stephensiFocused ? (
+                                                <ProgressMonthlyChart
+                                                    months={sumStephensiMonths(
+                                                        result.data.monthly.map(
+                                                            row => row.month,
+                                                        ),
+                                                        result.data.stephensi,
+                                                        selectedKey,
+                                                    )}
+                                                    seriesName="An. stephensi"
+                                                    color="var(--progress-stephensi)"
+                                                />
+                                            ) : (
+                                                <ProgressMonthlyChart
+                                                    months={(
+                                                        selected?.monthly ??
+                                                        result.data.monthly
+                                                    ).map((row, index) => ({
+                                                        month: row.month,
+                                                        count: row.uniqueScans,
+                                                        stephensi:
+                                                            stephensiMonths?.[
+                                                                index
+                                                            ].count,
+                                                    }))}
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+                                    {!unavailable &&
+                                        !noSelection &&
+                                        stephensiFocused && (
+                                            <ProgressStephensiPlaces
+                                                rows={result.data.stephensi}
+                                                programs={result.data.programs}
+                                                selectedKey={selectedKey}
+                                                onSelect={key =>
+                                                    void setDistrictKey(key)
+                                                }
                                             />
                                         )}
-                                </div>
-                                <div className="w-full">
-                                    <ProgressAreaPicker
-                                        areas={result.data.districts}
-                                        showCountry={chosenCountries.length > 1}
-                                        selectedKey={selectedKey}
-                                        onChange={selectArea}
-                                        disabled={
-                                            unavailable ||
-                                            noSelection ||
-                                            updating
-                                        }
-                                    />
-                                </div>
-                            </div>
-                            {unavailable || noSelection ? (
-                                <div className="text-muted-foreground flex min-h-[300px] flex-1 items-center justify-center text-sm">
-                                    Monthly data unavailable
-                                </div>
-                            ) : (
-                                <div className="mt-6 min-w-0 shrink-0">
-                                    {stephensiFocused ? (
-                                        <ProgressMonthlyChart
-                                            months={sumStephensiMonths(
-                                                result.data.monthly.map(
-                                                    row => row.month,
-                                                ),
-                                                result.data.stephensi,
-                                                selectedKey,
-                                            )}
-                                            seriesName="An. stephensi"
-                                            color="var(--progress-stephensi)"
-                                        />
-                                    ) : (
-                                        <ProgressMonthlyChart
-                                            months={(
-                                                selected?.monthly ??
-                                                result.data.monthly
-                                            ).map((row, index) => ({
-                                                month: row.month,
-                                                count: row.uniqueScans,
-                                                stephensi:
-                                                    stephensiMonths?.[index]
-                                                        .count,
-                                            }))}
-                                        />
-                                    )}
-                                </div>
+                                </>
                             )}
                             {!unavailable &&
                                 !noSelection &&
-                                stephensiFocused && (
-                                    <ProgressStephensiPlaces
-                                        rows={result.data.stephensi}
-                                        programs={result.data.programs}
-                                        selectedKey={selectedKey}
-                                        onSelect={key =>
-                                            void setDistrictKey(key)
-                                        }
-                                    />
-                                )}
-                            {!unavailable &&
-                                !noSelection &&
-                                !stephensiFocused && (
+                                (summaryFigures || !stephensiFocused) && (
                                     <ProgressSpeciesBreakdown
                                         species={
+                                            shownSpecies ??
                                             selected?.species ??
                                             result.data.species
                                         }
                                         areaName={selected?.name ?? null}
+                                        month={summaryMonth ?? shownMonth}
+                                        barTotal={Math.max(
+                                            1,
+                                            ...(
+                                                selected?.species ??
+                                                result.data.species
+                                            ).map(row => row.specimens),
+                                        )}
                                         onStephensiSelect={
                                             stephensiOn
                                                 ? () => setStephensiFocus(true)

@@ -21,9 +21,15 @@ const programs: Program[] = [
     { programId: 7, name: 'Uganda partner reporting', country: 'Uganda' },
 ];
 
+/** Each Program's Sentinel Sites, matching its coverage count by default. */
+const sentinelFor = (
+    coverage: readonly ProgressLocationCoverage[],
+): ProgressSentinelSites[] =>
+    coverage.map(({ programId, count }) => ({ programId, count }));
+
 function renderCoverage(
     coverage: readonly ProgressLocationCoverage[],
-    sentinelSites: readonly ProgressSentinelSites[] = [],
+    sentinelSites: readonly ProgressSentinelSites[] = sentinelFor(coverage),
 ) {
     return renderToStaticMarkup(
         jsx(NextIntlClientProvider, {
@@ -41,16 +47,20 @@ function renderCoverage(
     ).replace(/<!--.*?-->/g, '');
 }
 
+/** Each line's location figure, leaving out its sentinel sites. */
 function coverageFigures(markup: string): string[] {
     return [
         ...markup.matchAll(
-            /<p[^>]*><span[^>]*>([^<]*)<\/span> <span[^>]*>([^<]*)<\/span><\/p>/g,
+            /<span[^>]*>([^<]*)<\/span><span[^>]*>([^<]*)<\/span>/g,
         ),
-    ].map(match => `${match[1]} ${match[2]}`);
+    ]
+        .map(match => `${match[1]} ${match[2]}`)
+        .filter(figure => /^\S+ [a-z ]+$/.test(figure))
+        .filter(figure => !figure.includes('sentinel'));
 }
 
 describe('progress coverage headline', () => {
-    it('shows sentinel sites under the households, in total and per Program', () => {
+    it('shows sentinel sites above the households, in total and per Program', () => {
         const text = renderCoverage(
             [
                 { programId: 1, unit: 'household', count: 250 },
@@ -61,9 +71,11 @@ describe('progress coverage headline', () => {
                 { programId: 4, count: 1 },
             ],
         ).replace(/<[^>]+>/g, ' ');
-        expect(text).toMatch(/active households\s+34 sentinel sites/);
-        expect(text).toMatch(/250\s+households\s+33 sentinel sites/);
-        expect(text).toMatch(/9\s+households\s+1 sentinel site\b/);
+        expect(text).toMatch(
+            /34\s+active sentinel sites\s+259 active households/,
+        );
+        expect(text).toMatch(/33\s+sentinel sites\s+250\s+households/);
+        expect(text).toMatch(/1\s+sentinel site\s+9\s+households/);
     });
 
     it('shows a shared-unit total before the individual Uganda, Ghana and Kenya counts', () => {
@@ -107,14 +119,15 @@ describe('progress coverage headline', () => {
         expect(coverage.map(entry => entry.count)).toEqual([250, 153, 30]);
     });
 
-    it('keeps separate programs in the same country visible below their combined total', () => {
+    it('nests separate programs in the same country under its subtotal', () => {
         const markup = renderCoverage([
             { programId: 1, unit: 'household', count: 2 },
             { programId: 7, unit: 'household', count: 3 },
         ]);
 
         expect(markup).toContain('>5</span>');
-        expect(markup.match(/>Uganda<\/p>/g)).toHaveLength(2);
+        expect(markup.match(/>Uganda<\/p>/g)).toHaveLength(1);
+        expect(markup).toContain('2 programs');
         expect(markup).toContain('Uganda reporting');
         expect(markup).toContain('Uganda partner reporting');
         expect(markup).toContain('>2</span>');
@@ -140,16 +153,17 @@ describe('progress coverage headline', () => {
         expect(markup).toContain('>3</span>');
     });
 
-    it('keeps a missing shared-unit total unavailable while retaining real zero and unavailable rows', () => {
+    it('totals the available shared-unit counts while retaining the unavailable row', () => {
         const markup = renderCoverage([
-            { programId: 1, unit: 'household', count: 0 },
+            { programId: 1, unit: 'household', count: 4 },
             { programId: 3, unit: 'household', count: null },
         ]);
 
-        expect(markup).toContain('>—</span>');
-        expect(markup).toContain('households unavailable');
-        expect(markup).toContain('>0</span>');
-        expect(markup).toContain('>Unavailable</span>');
+        expect(markup).not.toMatch(/headlineValue[^>]*>—/);
+        expect(markup).toContain('active households');
+        expect(markup.match(/>4<\/span>/g)).toHaveLength(3);
+        expect(markup).toContain('Coverage unavailable for some programs');
+        expect(markup).toContain('title="Unavailable"');
         expect(markup).toContain('Uganda reporting');
         expect(markup).toContain('Ghana reporting');
     });
@@ -172,7 +186,7 @@ describe('progress coverage headline', () => {
                     null,
                     createElement(ProgressCoverageHeadline, {
                         coverage,
-                        sentinelSites: [],
+                        sentinelSites: sentinelFor(coverage),
                         programs,
                         expanded: true,
                         onToggle: () => {},
@@ -213,9 +227,6 @@ describe('progress coverage headline', () => {
             '0 households',
             '1 health district',
         ]);
-        expect(cards[0]).not.toContain('· households');
-        expect(cards[0]).not.toContain('· municipalities');
-        expect(cards[0]).not.toContain('· health district');
         expect(cards[0]).not.toContain('active households');
         expect(cards[1]).toContain('>926</span>');
         expect(cards[1]).toContain('total scans');
@@ -242,23 +253,33 @@ describe('progress coverage headline', () => {
         }
     });
 
-    it('keeps incomplete mixed coverage unavailable instead of showing a partial total', () => {
+    it('totals incomplete mixed coverage from the programs that have a count', () => {
         const markup = renderCoverage([
             { programId: 1, unit: 'household', count: 0 },
             { programId: 2, unit: 'municipality', count: null },
             { programId: 6, unit: 'health-district', count: 1 },
         ]);
 
-        expect(markup).toContain('>—</span>');
-        expect(markup).toContain('reporting locations unavailable');
+        expect(markup).not.toMatch(/headlineValue[^>]*>—/);
+        expect(markup).toContain('active reporting location');
         expect(markup).toContain('>0</span>');
         expect(markup).toContain('>1</span>');
-        expect(markup).toContain('>Unavailable</span>');
+        expect(markup).toContain('title="Unavailable"');
         expect(coverageFigures(markup)).toEqual([
             '0 households',
-            'Unavailable municipalities',
+            '— municipalities',
             '1 health district',
         ]);
+    });
+
+    it('keeps the total unavailable when no program has a count', () => {
+        const markup = renderCoverage([
+            { programId: 1, unit: 'household', count: null },
+            { programId: 3, unit: 'household', count: null },
+        ]);
+
+        expect(markup).toContain('>—</span>');
+        expect(markup).toContain('households unavailable');
     });
 
     it('distinguishes zero mixed coverage, a single reporting location and no program selection', () => {
@@ -294,7 +315,10 @@ describe('progress coverage headline', () => {
                         { programId: 1, unit: 'household', count: 206 },
                         { programId: 3, unit: 'household', count: 4 },
                     ],
-                    sentinelSites: [],
+                    sentinelSites: [
+                        { programId: 1, count: 206 },
+                        { programId: 3, count: 4 },
+                    ],
                     programs,
                     expanded: false,
                     onToggle: () => {},

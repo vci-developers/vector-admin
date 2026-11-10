@@ -4,9 +4,9 @@ import type {
     ProgressSentinelSites,
 } from '@/api/progress/validation/progress-schema';
 import {
-    formatSentinelSites,
-    groupProgressLocationsByUnit,
-    progressLocationUnitLabel,
+    locationTotalUnit,
+    sentinelSiteLabel,
+    sumAvailableCounts,
     totalProgressLocations,
     totalSentinelSites,
 } from '@/features/dashboard/utils/format-progress-locations';
@@ -14,6 +14,7 @@ import { cn } from '@/utils/cn';
 import { MapPin } from 'lucide-react';
 import { useFormatter } from 'next-intl';
 import HeadlineExpandButton from './headline-expand-button';
+import ProgramBreakdown from './program-breakdown';
 import styles from './progress-view.module.css';
 
 export default function ProgressCoverageHeadline({
@@ -30,26 +31,50 @@ export default function ProgressCoverageHeadline({
     onToggle: () => void;
 }) {
     const formatter = useFormatter();
-    const units = groupProgressLocationsByUnit(coverage);
-    const sharedUnit = units.length === 1 ? units[0] : null;
     // A location uses its program's reporting level, retained in the breakdown.
-    // Never present a partial location sum as complete coverage.
+    // A Program without a count is left out of the total and marked below.
     const total = totalProgressLocations(coverage);
-    const totalUnit = sharedUnit
-        ? progressLocationUnitLabel(sharedUnit.unit, total)
-        : total === 1
-          ? 'reporting location'
-          : 'reporting locations';
+    const totalUnit = locationTotalUnit(coverage, total);
     const sentinelTotal = totalSentinelSites(sentinelSites);
     const sentinelByProgram = new Map(
         sentinelSites.map(row => [row.programId, row.count]),
     );
-    const formatNumber = (count: number) => formatter.number(count);
     const hasBreakdown = coverage.length > 1;
     const programById = new Map(
         programs.map(program => [program.programId, program]),
     );
     const singleProgram = programById.get(coverage[0]?.programId);
+    const figureCount = (count: number | null, className: string) => (
+        <span
+            className={className}
+            title={count === null ? 'Unavailable' : undefined}
+        >
+            {count === null ? '—' : formatter.number(count)}
+        </span>
+    );
+    // Two lines, each right-aligned as a whole: sentinel sites, then places.
+    const figure = (rows: readonly ProgressLocationCoverage[]) => {
+        const sentinel = sumAvailableCounts(
+            rows.map(row => sentinelByProgram.get(row.programId) ?? null),
+        );
+        const count = totalProgressLocations(rows);
+        return (
+            <div className={styles.coverageFigures}>
+                <p className={styles.coverageFigureLine}>
+                    {figureCount(sentinel, styles.coverageCount)}
+                    <span className={styles.coverageUnit}>
+                        {sentinelSiteLabel(sentinel)}
+                    </span>
+                </p>
+                <p className={styles.coverageFigureLine}>
+                    {figureCount(count, styles.coverageLocations)}
+                    <span className={styles.coverageUnit}>
+                        {locationTotalUnit(rows, count)}
+                    </span>
+                </p>
+            </div>
+        );
+    };
 
     return (
         // The tile is the click target; its chevron button serves keyboards.
@@ -65,121 +90,43 @@ export default function ProgressCoverageHeadline({
             </div>
             <p className={styles.headlineSummary}>
                 <span className={styles.headlineValue}>
-                    {total === null ? '—' : formatter.number(total)}
+                    {sentinelTotal === null
+                        ? '—'
+                        : formatter.number(sentinelTotal)}
                 </span>
                 <span className={styles.headlineUnit}>
                     {coverage.length === 0
                         ? 'Choose a program'
-                        : total === null
-                          ? `${totalUnit} unavailable`
-                          : `active ${totalUnit}`}
+                        : sentinelTotal === null
+                          ? 'sentinel sites unavailable'
+                          : `active ${sentinelSiteLabel(sentinelTotal)}`}
                 </span>
-                {sentinelTotal !== null && (
-                    // Full width, so it starts its own line under the households.
+                {coverage.length > 0 && (
+                    // Full width, so it starts its own line under the sites.
                     <span className={cn(styles.headlineUnit, 'basis-full')}>
-                        {formatSentinelSites(sentinelTotal, formatNumber)}
+                        {total === null
+                            ? `${totalUnit} unavailable`
+                            : `${formatter.number(total)} active ${totalUnit}`}
                     </span>
                 )}
             </p>
             {expanded && (
                 <>
                     {hasBreakdown ? (
-                        <ul
-                            className={styles.coverageRows}
-                            aria-label="Coverage by program"
-                        >
-                            {coverage.map(entry => {
-                                const program = programById.get(
-                                    entry.programId,
-                                );
-                                const sentinel = sentinelByProgram.get(
-                                    entry.programId,
-                                );
-                                return (
-                                    <li
-                                        className={styles.coverageRow}
-                                        key={entry.programId}
-                                    >
-                                        <div className="min-w-0">
-                                            <p
-                                                className={
-                                                    styles.coverageCountry
-                                                }
-                                                title={program?.country}
-                                            >
-                                                {program?.country ||
-                                                    'Reporting program'}
-                                            </p>
-                                            <p
-                                                className={
-                                                    styles.coverageProgram
-                                                }
-                                            >
-                                                <span
-                                                    className={
-                                                        styles.programName
-                                                    }
-                                                    title={program?.name}
-                                                >
-                                                    {program?.name}
-                                                </span>
-                                            </p>
-                                        </div>
-                                        {/* Figure and sentinel sites stack in the right-hand column. */}
-                                        <div className="text-right">
-                                            <p
-                                                className={
-                                                    styles.coverageFigure
-                                                }
-                                            >
-                                                <span
-                                                    className={cn(
-                                                        styles.coverageCount,
-                                                        entry.count === null &&
-                                                            styles.coverageUnavailable,
-                                                    )}
-                                                >
-                                                    {entry.count === null
-                                                        ? 'Unavailable'
-                                                        : formatter.number(
-                                                              entry.count,
-                                                          )}
-                                                </span>{' '}
-                                                <span
-                                                    className={
-                                                        styles.coverageUnit
-                                                    }
-                                                >
-                                                    {progressLocationUnitLabel(
-                                                        entry.unit,
-                                                        entry.count,
-                                                    )}
-                                                </span>
-                                            </p>
-                                            {sentinel != null && (
-                                                <p
-                                                    className={
-                                                        styles.coverageUnit
-                                                    }
-                                                >
-                                                    {formatSentinelSites(
-                                                        sentinel,
-                                                        formatNumber,
-                                                    )}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                        <ProgramBreakdown
+                            rows={coverage}
+                            programs={programById}
+                            label="Coverage by program"
+                            tone="coverage"
+                            figure={figure}
+                        />
                     ) : singleProgram ? (
                         <p className={styles.coverageSingleProgram}>
                             {singleProgram.country} · {singleProgram.name}
                         </p>
                     ) : null}
                     <p className={styles.headlineDescription}>
-                        {coverage.length > 0 && total === null
+                        {coverage.some(entry => entry.count === null)
                             ? 'Coverage unavailable for some programs. Available counts are shown in the breakdown.'
                             : 'Locations reporting during the selected period.'}
                     </p>

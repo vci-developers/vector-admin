@@ -1,8 +1,10 @@
 import type { Program } from '@/api/program/validation/program-schema';
 import type { LucideIcon } from 'lucide-react';
+import { sumAvailableCounts } from '@/features/dashboard/utils/format-progress-locations';
 import { cn } from '@/utils/cn';
 import { useFormatter } from 'next-intl';
 import HeadlineExpandButton from './headline-expand-button';
+import ProgramBreakdown from './program-breakdown';
 import styles from './progress-view.module.css';
 
 /** A total with one line per Program; used for scans and specimens. */
@@ -42,6 +44,18 @@ export default function ProgressCountHeadline({
     const hasBreakdown = byProgram.length > 1;
     const incomplete = byProgram.some(row => row.count === null);
     const singleProgram = programById.get(byProgram[0]?.programId);
+    const figure = (rows: typeof byProgram) => {
+        const count = sumAvailableCounts(rows.map(row => row.count));
+        return (
+            <span
+                className={
+                    count === null ? styles.scanUnavailable : styles.scanCount
+                }
+            >
+                {count === null ? 'Unavailable' : formatter.number(count)}
+            </span>
+        );
+    };
 
     return (
         <article
@@ -75,51 +89,13 @@ export default function ProgressCountHeadline({
             {expanded && (
                 <>
                     {hasBreakdown ? (
-                        <ul
-                            className={styles.scanBreakdown}
-                            aria-label={`${title} by program`}
-                        >
-                            {byProgram.map(row => {
-                                const program = programById.get(row.programId);
-                                return (
-                                    <li
-                                        className={styles.scanRow}
-                                        key={row.programId}
-                                    >
-                                        <div className="min-w-0">
-                                            <p
-                                                className={styles.scanCountry}
-                                                title={program?.country}
-                                            >
-                                                {program?.country ||
-                                                    'Reporting program'}
-                                            </p>
-                                            <p className={styles.scanProgram}>
-                                                <span
-                                                    className={
-                                                        styles.programName
-                                                    }
-                                                    title={program?.name}
-                                                >
-                                                    {program?.name}
-                                                </span>
-                                            </p>
-                                        </div>
-                                        <span
-                                            className={
-                                                row.count === null
-                                                    ? styles.scanUnavailable
-                                                    : styles.scanCount
-                                            }
-                                        >
-                                            {row.count === null
-                                                ? 'Unavailable'
-                                                : formatter.number(row.count)}
-                                        </span>
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                        <ProgramBreakdown
+                            rows={byProgram}
+                            programs={programById}
+                            label={`${title} by program`}
+                            tone="scan"
+                            figure={figure}
+                        />
                     ) : singleProgram ? (
                         <p className={styles.scanSingleProgram}>
                             {singleProgram.country} · {singleProgram.name}

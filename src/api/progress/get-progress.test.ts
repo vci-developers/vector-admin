@@ -19,6 +19,9 @@ vi.mock('@/api/admin/load-progress-snapshot', () => ({
     loadProgressSnapshot: vi.fn(),
     progressSnapshotTag: (programId: number) => `program-progress-${programId}`,
 }));
+vi.mock('@/api/coverage/load-coverage', () => ({
+    loadCoverage: vi.fn(async () => ({ ok: false, error: 'No workbook' })),
+}));
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 
 const programs = [
@@ -67,7 +70,7 @@ describe('getProgress', () => {
         expect(cacheTag).toHaveBeenCalledWith(
             'programs',
             'program-progress-7',
-            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1',
+            'progress-summary-image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v5-sheet-counts-v3-as-of-v1-species-months-v1-one-stephensi-v1-places-v1-reporting-months-v1',
         );
         expect(cacheLife).toHaveBeenCalledWith('hours');
         expect(

@@ -112,7 +112,7 @@ describe('loadProgressSnapshot', () => {
         expect(result.ok && result.data.sessions).toHaveLength(205);
         if (!result.ok) throw new Error('Expected a successful snapshot');
         expect(result.data.sessions[3].type).toBe('');
-        expect(result.data.sessions[0]).not.toHaveProperty('collectorName');
+        expect(result.data.sessions[0].collectorName).toBeNull();
         expect(result.data.sessions[0].deviceId).toBe(20);
         expect(result.data.sessions[3].deviceId).toBeNull();
         expect(result.data.specimenCounts).toEqual([

@@ -33,7 +33,7 @@ type SnapshotResult = Result<ProgressSnapshot, NetworkError>;
 const inFlight = new Map<number, Promise<SnapshotResult>>();
 const STABLE_SORT = { sortBy: 'id', sortOrder: 'asc' };
 // The API filters one session type at a time; types are chosen in the builder.
-const SNAPSHOT_VERSION = 'session-counts-v1-all-types-species';
+const SNAPSHOT_VERSION = 'session-counts-v1-all-types-species-collectors-v1';
 
 function failBriefly(error: NetworkError) {
     cacheLife('seconds');

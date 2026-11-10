@@ -73,3 +73,41 @@ describe('sumStephensiByDistrict', () => {
         );
     });
 });
+
+describe('sumStephensiByDistrict up to a month', () => {
+    const rows = [
+        {
+            programId: 4,
+            species: 'Anopheles stephensi',
+            specimens: 5,
+            latestMonth: '2026-03',
+            districts: [
+                {
+                    key: 'kenya:kilifi',
+                    name: 'Kilifi',
+                    specimens: 5,
+                    monthly: [
+                        { month: '2026-01', specimens: 2 },
+                        { month: '2026-03', specimens: 3 },
+                    ],
+                },
+                {
+                    key: 'kenya:turkana',
+                    name: 'Turkana',
+                    specimens: 1,
+                    monthly: [{ month: '2026-03', specimens: 1 }],
+                },
+            ],
+        },
+    ];
+
+    it('adds months up to it and leaves out Districts with none yet', () => {
+        expect([...sumStephensiByDistrict(rows, '2026-02')]).toEqual([
+            ['kenya:kilifi', 2],
+        ]);
+    });
+
+    it('uses the whole period without a month', () => {
+        expect(sumStephensiByDistrict(rows).get('kenya:kilifi')).toBe(5);
+    });
+});

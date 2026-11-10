@@ -5,7 +5,11 @@ import {
     progressSnapshotTag,
 } from '@/api/admin/load-progress-snapshot';
 import { loadPrograms, PROGRAMS_TAG } from '@/api/admin/load-programs';
-import { boundariesForCountry } from '@/api/coverage/boundaries';
+import {
+    boundariesForCountry,
+    placesForCountry,
+} from '@/api/coverage/boundaries';
+import { loadCoverage } from '@/api/coverage/load-coverage';
 import type { Program } from '@/api/program/validation/program-schema';
 import type {
     GetProgressQuery,
@@ -16,6 +20,7 @@ import {
     progressDistrictKey,
     type ProgressProgramData,
 } from '@/features/dashboard/utils/build-progress';
+import { buildProgressDevices } from '@/features/dashboard/utils/build-progress-devices';
 import { coverageLabelPoint } from '@/features/dashboard/utils/coverage-label-point';
 import {
     buildProgressDeviceMetrics,
@@ -34,7 +39,7 @@ import {
 type ProgressRange = Pick<GetProgressQuery, 'from' | 'to'>;
 type ProgressSummary = Omit<ProgressDashboard, 'programs'>;
 const SCAN_COUNT_VERSION =
-    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1';
+    'image-count-v1-locations-v3-site-hierarchy-v1-all-types-v1-submitted-v1-session-counts-v1-devices-v5-sheet-counts-v3-as-of-v1-species-months-v1-one-stephensi-v1-places-v1-reporting-months-v1';
 
 export async function getProgress(
     query: GetProgressQuery,
@@ -120,9 +125,10 @@ async function buildSelectedProgress(
     selected: Program[],
     range: ProgressRange,
 ) {
-    const snapshots = await Promise.all(
-        selected.map(program => loadProgressSnapshot(program.programId)),
-    );
+    const [coverage, ...snapshots] = await Promise.all([
+        loadCoverage(true),
+        ...selected.map(program => loadProgressSnapshot(program.programId)),
+    ]);
     const loaded: ProgressProgramData[] = [];
     const failedProgramIds: number[] = [];
     selected.forEach((program, index) => {
@@ -147,6 +153,15 @@ async function buildSelectedProgress(
                     { latitude: point.at[0], longitude: point.at[1] },
                 );
         }
+        for (const place of placesForCountry(program.country))
+            anchors.set(
+                progressDistrictKey(
+                    program.country,
+                    place.name,
+                    program.programId,
+                ),
+                { latitude: place.latitude, longitude: place.longitude },
+            );
     }
 
     const aggregate = buildProgress(loaded, range, anchors);
@@ -164,6 +179,11 @@ async function buildSelectedProgress(
         selectedProgramIds: selected.map(program => program.programId),
         failedProgramIds,
         ...aggregate,
+        devices: buildProgressDevices(
+            selected.map(program => program.programId),
+            aggregate.to,
+            coverage.ok ? coverage.data.figures : null,
+        ),
         coverageByProgram,
         scansByProgram: [
             ...aggregate.scansByProgram,

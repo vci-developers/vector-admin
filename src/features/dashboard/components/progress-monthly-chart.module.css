@@ -27,3 +27,10 @@
         height: 280px;
     }
 }
+
+/* Shares a screen with the map, so it gives way on short windows. */
+@media (min-width: 1280px) {
+    .canvas {
+        height: clamp(150px, 24dvh, 240px);
+    }
+}
