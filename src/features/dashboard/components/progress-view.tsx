@@ -9,6 +9,7 @@ import { AvailableProgramsContext } from './dashboard-provider';
 import { usePeriodLabel } from '@/features/dashboard/hooks/use-period-label';
 import { HIDDEN_BY_DEFAULT_PROGRAM_IDS } from '@/features/dashboard/utils/default-excluded-programs';
 import {
+    countriesStartedBy,
     scansAsOf,
     scansInMonth,
     speciesAsOf,
@@ -236,6 +237,15 @@ export default function ProgressView() {
     // Stays on the last month at the end of a run, so colours don't jump back.
     const mapScans = useMemo(
         () => scansAsOf(dashboard?.districts ?? [], summaryMonth ?? shownMonth),
+        [dashboard, summaryMonth, shownMonth],
+    );
+    // On the timeline, countries stay faint until their first upload.
+    const startedCountries = useMemo(
+        () =>
+            countriesStartedBy(
+                dashboard?.districts ?? [],
+                summaryMonth ?? shownMonth,
+            ),
         [dashboard, summaryMonth, shownMonth],
     );
     const shownSpecies = useMemo(() => {
@@ -623,6 +633,7 @@ export default function ProgressView() {
                                     <ProgressMap
                                         districts={result.data.districts}
                                         scansAsOf={mapScans}
+                                        startedCountries={startedCountries}
                                         pulses={pulses}
                                         timelineOpen={summaryFigures !== null}
                                         upcoming={showUpcoming ? upcoming : []}

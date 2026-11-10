@@ -14,6 +14,7 @@ import { createProgressPinchZoom } from '@/features/dashboard/utils/create-progr
 import {
     progressScanFillColor,
     PROGRESS_SCAN_FILL_OPACITY,
+    PROGRESS_STARTED_BORDER,
 } from '@/features/dashboard/utils/progress-map-colors';
 import {
     formatProgressLocations,
@@ -257,12 +258,14 @@ function CountryFills({
     nodes,
     scansAsOf,
     devices,
+    startedCountries,
     onExplore,
 }: {
     countries: CountryGeometry[];
     nodes: readonly ProgressMapNode[];
     scansAsOf?: ReadonlyMap<string, number>;
     devices?: CountryDevices;
+    startedCountries?: ReadonlySet<string>;
     onExplore: (node: ProgressMapNode) => void;
 }) {
     const most = Math.max(1, ...nodes.map(node => node.uniqueScans));
@@ -297,7 +300,6 @@ function CountryFills({
                         }}
                         style={{
                             className: styles.districtArea,
-                            stroke: false,
                             fillColor: progressScanFillColor(
                                 scans,
                                 most,
@@ -305,6 +307,14 @@ function CountryFills({
                             ),
                             fillOpacity:
                                 scans > 0 ? PROGRESS_SCAN_FILL_OPACITY : 0,
+                            // On the timeline a country's border comes in
+                            // with its first upload.
+                            stroke: startedCountries !== undefined,
+                            color: PROGRESS_STARTED_BORDER,
+                            weight: 1.2,
+                            opacity: startedCountries?.has(country.country)
+                                ? 0.9
+                                : 0,
                             bubblingMouseEvents: false,
                         }}
                     >
@@ -969,6 +979,7 @@ function ReportingActivity({
     stephensiKey,
     scansAsOf,
     devices,
+    startedCountries,
     pulses,
     timelineOpen,
 }: {
@@ -984,6 +995,7 @@ function ReportingActivity({
     stephensiKey: string | null;
     scansAsOf?: ReadonlyMap<string, number>;
     devices?: CountryDevices;
+    startedCountries?: ReadonlySet<string>;
     pulses?: TimelinePulse;
     timelineOpen: boolean;
 }) {
@@ -1608,6 +1620,7 @@ function ReportingActivity({
             })}
             <CountryFills
                 devices={devices}
+                startedCountries={startedCountries}
                 countries={countries}
                 nodes={countryNodes}
                 scansAsOf={scansAsOf}
@@ -1625,7 +1638,7 @@ function ReportingActivity({
                         icon={L.divIcon({
                             className: styles.countryLabel,
                             iconSize: [0, 0],
-                            html: `<span data-map-label="country">${escapeHtml(label.country)}</span>`,
+                            html: `<span data-map-label="country" data-started="${startedCountries?.has(label.country) ?? true}">${escapeHtml(label.country)}</span>`,
                         })}
                         interactive={false}
                         keyboard={false}
@@ -2268,8 +2281,11 @@ export default function ProgressMap({
     timelineOpen = false,
     stephensiHeat,
     devices,
+    startedCountries,
 }: {
     districts: ProgressDistrict[];
+    /** On the timeline: countries with an upload so far; the rest stay faint. */
+    startedCountries?: ReadonlySet<string>;
     /** Active of planned devices per country, for the country tags. */
     devices?: CountryDevices;
     /** The play panel is open: tags step back, even when paused or at the end. */
@@ -2459,6 +2475,7 @@ export default function ProgressMap({
                 onSelect={onSelect}
                 scansAsOf={scansAsOf}
                 devices={devices}
+                startedCountries={startedCountries}
                 pulses={pulses}
                 timelineOpen={timelineOpen}
                 upcoming={upcoming}

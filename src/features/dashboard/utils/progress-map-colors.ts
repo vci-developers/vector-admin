@@ -7,6 +7,8 @@ const SCAN_COLOR_STOPS = [
 ];
 
 export const PROGRESS_SCAN_FILL_OPACITY = 0.86;
+/** A country's border on the timeline once its first upload is in. */
+export const PROGRESS_STARTED_BORDER = 'rgb(17 137 99)';
 export const PROGRESS_SCAN_LEGEND = `linear-gradient(to right, ${SCAN_COLOR_STOPS.map(color => `rgb(${color.join(' ')})`).join(', ')})`;
 
 /** Keep one continuous volume scale across all displayed reporting areas. */

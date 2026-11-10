@@ -112,7 +112,8 @@
     transition:
         fill 900ms linear,
         fill-opacity 350ms ease,
-        stroke-width 150ms ease;
+        stroke-width 150ms ease,
+        stroke-opacity 600ms ease;
 }
 
 .timelinePulse span {
@@ -146,7 +147,7 @@
 }
 
 .canvas[data-rewinding='true'] .districtArea {
-    transition-duration: 250ms, 250ms, 150ms;
+    transition-duration: 250ms, 250ms, 150ms, 250ms;
     transition-timing-function: ease-out;
 }
 
@@ -383,6 +384,15 @@
     text-shadow:
         0 0 2px rgb(255 255 255 / 90%),
         0 0 5px rgb(255 255 255 / 80%);
+}
+
+/* Until a country's first upload on the timeline, its name stays faint. */
+.canvas[data-timeline='true'] .countryLabel span {
+    transition: opacity 600ms ease;
+}
+
+.canvas[data-timeline='true'] .countryLabel span[data-started='false'] {
+    opacity: 0.3;
 }
 
 .labelLeaders {

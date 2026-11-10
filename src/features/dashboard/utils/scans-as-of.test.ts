@@ -2,6 +2,7 @@ import type { ProgressDistrict } from '@/api/progress/validation/progress-schema
 import { describe, expect, it } from 'vitest';
 import { UNKNOWN_DISTRICT } from './build-progress';
 import {
+    countriesStartedBy,
     scansAsOf,
     scansInMonth,
     speciesAsOf,
@@ -134,5 +135,27 @@ describe('timelineFigures', () => {
                 '2026-03',
             ),
         ).toMatchObject({ areas: 0, countries: 1 });
+    });
+});
+
+describe('countriesStartedBy', () => {
+    const area = (country: string, reportingMonths: string[]) =>
+        ({
+            ...district,
+            key: country,
+            country,
+            reportingMonths,
+        }) as ProgressDistrict;
+
+    it('lists the countries that have uploaded by the month', () => {
+        const districts = [
+            area('Uganda', ['2026-01']),
+            area('Burundi', ['2026-11']),
+        ];
+        expect([...countriesStartedBy(districts, '2026-10')!]).toEqual([
+            'Uganda',
+        ]);
+        expect(countriesStartedBy(districts, '2026-11')!.size).toBe(2);
+        expect(countriesStartedBy(districts, null)).toBeUndefined();
     });
 });

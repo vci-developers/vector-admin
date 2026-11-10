@@ -95,3 +95,21 @@ export function timelineFigures(
         countries: new Set(reporting.map(row => row.country)).size,
     };
 }
+
+/**
+ * Countries with any upload up to and including `month`: on the timeline a
+ * country stays faint until its first upload. Null for the whole period.
+ */
+export function countriesStartedBy(
+    districts: readonly ProgressDistrict[],
+    month: string | null,
+): ReadonlySet<string> | undefined {
+    if (month === null) return undefined;
+    return new Set(
+        districts
+            .filter(district =>
+                district.reportingMonths.some(key => key <= month),
+            )
+            .map(district => district.country),
+    );
+}
