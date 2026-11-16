@@ -19,12 +19,15 @@ export default function ProgressAreaPicker({
     showCountry,
     selectedKey,
     onChange,
+    allLabel = 'All reporting areas',
     disabled = false,
 }: {
     areas: readonly Pick<ProgressDistrict, 'key' | 'name' | 'country'>[];
     showCountry: boolean;
     selectedKey: string | null;
     onChange: (key: string | null) => void;
+    /** The no-area choice, e.g. "Ghana" for a country on the map. */
+    allLabel?: string;
     disabled?: boolean;
 }) {
     const labelId = useId();
@@ -60,7 +63,7 @@ export default function ProgressAreaPicker({
                         className="bg-card text-foreground focus-visible:ring-ring hover:border-primary/40 flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 text-left text-sm font-medium transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         <span className="truncate">
-                            {selected ? label(selected) : 'All reporting areas'}
+                            {selected ? label(selected) : allLabel}
                         </span>
                         <ChevronDown
                             className="text-muted-foreground size-3.5 shrink-0"
@@ -102,7 +105,7 @@ export default function ProgressAreaPicker({
                                     selected={selectedKey === null}
                                     onClick={() => choose(null)}
                                 >
-                                    All reporting areas
+                                    {allLabel}
                                 </AreaOption>
                             </li>
                         )}

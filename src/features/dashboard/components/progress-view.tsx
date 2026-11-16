@@ -93,6 +93,8 @@ export default function ProgressView() {
         'district',
         parseAsString,
     );
+    // A country clicked on the map narrows the picked Programs to its own.
+    const [country, setCountry] = useQueryState('country', parseAsString);
     const [exporting, setExporting] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
     const [mapPlacement, setMapPlacement] =
@@ -108,7 +110,17 @@ export default function ProgressView() {
             currentMonth: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
         };
     }, [filters.range, filters.from, filters.to]);
-    const query = useGetProgress({ exclude: filters.exclude, ...range });
+    const exclude = country
+        ? Array.from(
+              new Set([
+                  ...filters.exclude,
+                  ...initialPrograms
+                      .filter(program => program.country !== country)
+                      .map(program => program.programId),
+              ]),
+          )
+        : filters.exclude;
+    const query = useGetProgress({ exclude, ...range });
     const withDeviceTarget = showsDeviceTarget(
         range,
         addMonths(currentMonth, -1),
@@ -130,7 +142,7 @@ export default function ProgressView() {
     const [playbackOpen, setPlaybackOpen] = useState(false);
     const [clock] = useState(createTimelineClock);
     const toggleStats = () => setStatsExpanded(open => !open);
-    const coverage = useGetCoverage(filters.exclude).data;
+    const coverage = useGetCoverage(exclude).data;
     const upcoming = useMemo(
         () =>
             coverage?.ok && dashboard
@@ -315,9 +327,18 @@ export default function ProgressView() {
         }
     }, [dashboard, updating, districtKey, selected, setDistrictKey]);
 
+    // The map's country and the Program picker stay in step: picking Programs
+    // leaves the country, and choosing or leaving a country keeps the picks.
+    function chooseCountry(next: string | null) {
+        void setDistrictKey(null);
+        setStephensiFocus(false);
+        void setCountry(next);
+    }
+
     function choosePrograms(selectedProgramIds: number[]) {
         const selectedIds = new Set(selectedProgramIds);
         void setDistrictKey(null);
+        void setCountry(null);
         void setFilters({
             exclude: programs
                 .filter(program => !selectedIds.has(program.programId))
@@ -330,7 +351,7 @@ export default function ProgressView() {
         setExportError(null);
         try {
             const params = new URLSearchParams({
-                exclude: filters.exclude.join(','),
+                exclude: exclude.join(','),
                 to: range.to,
                 ...(range.from ? { from: range.from } : {}),
             });
@@ -373,7 +394,7 @@ export default function ProgressView() {
                     <div className="min-w-0">
                         <ProgressProgramPicker
                             programs={offeredPrograms}
-                            excludedProgramIds={filters.exclude}
+                            excludedProgramIds={exclude}
                             onChange={choosePrograms}
                         />
                     </div>
@@ -669,6 +690,8 @@ export default function ProgressView() {
                                         )}
                                         selectedKey={selectedKey}
                                         onSelect={selectArea}
+                                        selectedCountry={country}
+                                        onCountrySelect={chooseCountry}
                                         stephensiFocused={stephensiFocused}
                                         onStephensiSelect={key => {
                                             void setDistrictKey(key);
@@ -696,6 +719,19 @@ export default function ProgressView() {
                                                 : 'Try another reporting period or country.'}
                                         </p>
                                     </div>
+                                )}
+                                {country && (
+                                    <button
+                                        type="button"
+                                        onClick={() => chooseCountry(null)}
+                                        className={styles.returnToGlobal}
+                                    >
+                                        <Globe
+                                            className="size-3.5"
+                                            aria-hidden="true"
+                                        />
+                                        Return to global view
+                                    </button>
                                 )}
                                 {result.data.monthly.length > 1 && (
                                     <ProgressMapTimeline
@@ -829,6 +865,7 @@ export default function ProgressView() {
                                                 }
                                                 selectedKey={selectedKey}
                                                 onChange={selectArea}
+                                                allLabel={country ?? undefined}
                                                 disabled={
                                                     unavailable ||
                                                     noSelection ||
@@ -895,7 +932,9 @@ export default function ProgressView() {
                                             selected?.species ??
                                             result.data.species
                                         }
-                                        areaName={selected?.name ?? null}
+                                        areaName={
+                                            selected?.name ?? country ?? null
+                                        }
                                         month={summaryMonth ?? shownMonth}
                                         barTotal={Math.max(
                                             1,

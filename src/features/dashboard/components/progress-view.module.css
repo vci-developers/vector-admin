@@ -1117,3 +1117,31 @@
     font-style: italic;
     line-height: 1.4;
 }
+
+/* Beside the zoom control, like a map's "back to national view". */
+.returnToGlobal {
+    position: absolute;
+    z-index: 1000;
+    top: 12px;
+    left: 56px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--progress-line);
+    border-radius: 99px;
+    color: var(--progress-ink);
+    background: var(--progress-soft);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+}
+
+.returnToGlobal:hover {
+    border-color: var(--color-primary, currentColor);
+}
+
+.returnToGlobal:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-ring, currentColor);
+}

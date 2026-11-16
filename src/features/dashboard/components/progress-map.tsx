@@ -266,24 +266,42 @@ function TimelinePulses({
  */
 function CountryFills({
     countries,
+    districts,
     nodes,
     scansAsOf,
     devices,
     startedCountries,
+    selectedCountry,
     onExplore,
+    onClearArea,
 }: {
     countries: CountryGeometry[];
+    districts: readonly ProgressDistrict[];
     nodes: readonly ProgressMapNode[];
     scansAsOf?: ReadonlyMap<string, number>;
     devices?: CountryDevices;
     startedCountries?: ReadonlySet<string>;
+    /** Stays clickable when zoomed in, so a click inside it isn't "outside". */
+    selectedCountry: string | null;
     onExplore: (node: ProgressMapNode) => void;
+    onClearArea: () => void;
 }) {
     const most = Math.max(1, ...nodes.map(node => node.uniqueScans));
     return (
         <Pane name="progressCountryFills" style={{ zIndex: 420 }}>
             {countries.map(country => {
                 const node = nodes.find(row => row.country === country.country);
+                const chosen = country.country === selectedCountry;
+                // Zoomed in, the country is a backdrop to its Districts: no
+                // shade of its own, but its tooltip still adds them all up.
+                const inCountry = districts.filter(
+                    row => row.country === country.country,
+                );
+                const total = inCountry.reduce(
+                    (sum, row) =>
+                        sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
+                    0,
+                );
                 const scans =
                     node?.sourceDistricts.reduce(
                         (sum, row) =>
@@ -299,14 +317,14 @@ function CountryFills({
                             group?.eachLayer(layer => {
                                 const shape = (layer as L.Path).getElement();
                                 if (shape instanceof SVGElement)
-                                    shape.style.pointerEvents = node
-                                        ? 'auto'
-                                        : 'none';
+                                    shape.style.pointerEvents =
+                                        node || chosen ? 'auto' : 'none';
                             });
                         }}
                         eventHandlers={{
                             click: () => {
                                 if (node) onExplore(node);
+                                else if (chosen) onClearArea();
                             },
                         }}
                         style={{
@@ -342,21 +360,21 @@ function CountryFills({
                                     {country.country}
                                 </span>
                                 <span className={styles.tooltipScans}>
-                                    {number.format(scans)} scans
+                                    {number.format(total)} scans
                                 </span>
-                                {node &&
-                                    sentinelSitesLine(
-                                        node.sourceDistricts.flatMap(
-                                            district =>
-                                                district.sentinelSitesByProgram,
-                                        ),
-                                    )}
+                                {sentinelSitesLine(
+                                    inCountry.flatMap(
+                                        district =>
+                                            district.sentinelSitesByProgram,
+                                    ),
+                                )}
                                 {node && coverageLine(node.coverageByProgram)}
                                 {devicesLine(devices?.get(country.country))}
                                 {node && (
                                     <span className={styles.tooltipHint}>
-                                        Mapped reporting areas · Select to zoom
-                                        in
+                                        {chosen
+                                            ? 'Mapped reporting areas · Select to zoom in'
+                                            : `Select to see ${country.country} only`}
                                     </span>
                                 )}
                             </div>
@@ -1006,6 +1024,8 @@ function ReportingActivity({
     attributions,
     selectedKey,
     onSelect,
+    selectedCountry,
+    onCountrySelect,
     upcoming,
     upcomingLayers,
     stephensi,
@@ -1022,6 +1042,8 @@ function ReportingActivity({
     attributions: ReadonlyMap<string, string>;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
+    selectedCountry: string | null;
+    onCountrySelect?: (country: string | null) => void;
     upcoming: UpcomingArea[];
     upcomingLayers: Map<string, L.GeoJSON>;
     stephensi?: ReadonlyMap<string, number>;
@@ -1162,7 +1184,16 @@ function ReportingActivity({
         [nodes, maximum, viewport.width, cards],
     );
 
+    // A country's first click chooses it; once chosen, a click zooms in.
     function explore(node: ProgressMapNode) {
+        if (
+            node.kind === 'country' &&
+            onCountrySelect &&
+            node.country !== selectedCountry
+        ) {
+            onCountrySelect(node.country);
+            return;
+        }
         const points = node.sourceDistricts.map(
             district =>
                 [
@@ -1649,12 +1680,15 @@ function ReportingActivity({
                 );
             })}
             <CountryFills
+                districts={districts}
                 devices={devices}
                 startedCountries={startedCountries}
                 countries={countries}
                 nodes={countryNodes}
                 scansAsOf={scansAsOf}
+                selectedCountry={selectedCountry}
                 onExplore={explore}
+                onClearArea={() => onSelect(null)}
             />
             {pulses && <TimelinePulses nodes={nodes} pulses={pulses} />}
             <Pane
@@ -2165,12 +2199,22 @@ function ShareCreditHeight() {
     return null;
 }
 
+/** A click on empty map clears the area, or outside a chosen country, it. */
 function ClearSelection({
     onSelect,
+    selectedCountry,
+    onCountrySelect,
 }: {
     onSelect: (key: string | null) => void;
+    selectedCountry: string | null;
+    onCountrySelect?: (country: string | null) => void;
 }) {
-    useMapEvents({ click: () => onSelect(null) });
+    useMapEvents({
+        click: () => {
+            if (selectedCountry && onCountrySelect) onCountrySelect(null);
+            else onSelect(null);
+        },
+    });
     return null;
 }
 
@@ -2302,6 +2346,8 @@ export default function ProgressMap({
     upcoming = [],
     selectedKey,
     onSelect,
+    selectedCountry = null,
+    onCountrySelect,
     onPlacementChange,
     stephensi,
     onStephensiSelect,
@@ -2335,6 +2381,9 @@ export default function ProgressMap({
     stephensiFocused?: boolean;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
+    /** The country clicked on the map; null for the global view. */
+    selectedCountry?: string | null;
+    onCountrySelect?: (country: string | null) => void;
     onPlacementChange?: (placement: ProgressMapPlacement) => void;
 }) {
     const countryKey = [...new Set(districts.map(district => district.country))]
@@ -2497,7 +2546,11 @@ export default function ProgressMap({
             />
             <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
             <ShareCreditHeight />
-            <ClearSelection onSelect={onSelect} />
+            <ClearSelection
+                onSelect={onSelect}
+                selectedCountry={selectedCountry}
+                onCountrySelect={onCountrySelect}
+            />
             <FitTooltipsInMap />
             <ReportingActivity
                 districts={mappedDistricts}
@@ -2506,6 +2559,8 @@ export default function ProgressMap({
                 attributions={attributions}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
+                selectedCountry={selectedCountry}
+                onCountrySelect={onCountrySelect}
                 scansAsOf={scansAsOf}
                 devices={devices}
                 startedCountries={startedCountries}
