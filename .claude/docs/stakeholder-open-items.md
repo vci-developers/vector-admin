@@ -29,6 +29,16 @@ _As of 2026-10-09. Definitions live in `.claude/CONTEXT.md`; data sources in
 - Oyam is under Lango in the GF list but Acholi in the rollout list (the app
   doesn't use `region`).
 
+### Stakeholder feedback, 2026-11-16 (Prism-style map)
+
+- Country-click selects that country (map, stats, Program picker in step);
+  click outside or "Return to global view" resets. Done on
+  `feat/country-select`; check it in the browser.
+- Stephensi on: purple shading scaled by specimens instead of green.
+- Time-lapse: a species filter.
+- Bring back species-stacked bars, with smooth rises and falls.
+- Design for advocacy: the page is a marketing tool.
+
 ## Decisions needed (metric definitions)
 
 ### Expected Users for Programs other than Uganda
