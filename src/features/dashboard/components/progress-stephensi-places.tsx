@@ -6,6 +6,7 @@ import { MapPin } from 'lucide-react';
 import { useFormatter } from 'next-intl';
 import ProgramLabel from './program-label';
 import styles from './progress-view.module.css';
+import TaxonName from './taxon-name';
 
 /** Where An. stephensi was found, per Program and label as the API names it. */
 export default function ProgressStephensiPlaces({
@@ -67,7 +68,7 @@ export default function ProgressStephensiPlaces({
                                 </span>
                             </div>
                             <p className="text-muted-foreground mt-0.5 text-[11px]">
-                                <span className="italic">{row.species}</span>
+                                <TaxonName name={row.species} />
                                 {' · last seen '}
                                 {periodLabel(row.latestMonth, row.latestMonth)}
                             </p>

@@ -13,6 +13,7 @@ import { coverageLabelPoint } from '@/features/dashboard/utils/coverage-label-po
 import { createProgressPinchZoom } from '@/features/dashboard/utils/create-progress-pinch-zoom';
 import {
     progressScanFillColor,
+    progressStephensiFillColor,
     PROGRESS_SCAN_FILL_OPACITY,
     PROGRESS_STARTED_BORDER,
 } from '@/features/dashboard/utils/progress-map-colors';
@@ -44,17 +45,23 @@ import {
 } from '@/features/dashboard/utils/place-labels';
 import { placeDistrictNames } from '@/features/dashboard/utils/place-district-names';
 import {
-    placeCountryCards,
-    type CountryCardPlacement,
-} from '@/features/dashboard/utils/place-country-cards';
-import {
     progressMapExtent,
     progressMapMinimumZoom,
     PROGRESS_MAP_MAX_ZOOM,
 } from '@/features/dashboard/utils/progress-map-extent';
 import type { FeatureCollection } from 'geojson';
 import L from 'leaflet';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    createContext,
+    use,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ReactNode,
+} from 'react';
 import {
     GeoJSON,
     MapContainer,
@@ -66,10 +73,21 @@ import {
     useMapEvents,
 } from 'react-leaflet';
 import type { UpcomingArea } from '@/features/dashboard/utils/build-upcoming-areas';
-import { stephensiGlowDelay } from '@/features/dashboard/utils/stephensi-glow';
 import styles from './progress-map.module.css';
 
 const number = new Intl.NumberFormat('en');
+
+/**
+ * What the map's counts are: scans, or one species' specimens while the
+ * timeline plays with that species chosen. `text` is for screen readers.
+ */
+export type MapCountUnit = { label: ReactNode; text: string };
+const SCANS: MapCountUnit = { label: 'scans', text: 'scans' };
+const CountUnitContext = createContext<MapCountUnit>(SCANS);
+
+function CountUnit() {
+    return use(CountUnitContext).label;
+}
 const UGANDA_CENTER: L.LatLngTuple = [1.5, 32.3];
 const TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL = 40 / 3;
 // At or below this zoom the map groups Districts into countries.
@@ -209,57 +227,6 @@ function districtLabel(district: ProgressDistrict) {
     return `${district.name}, ${district.country}: ${number.format(district.uniqueScans)} scans.${coverageSentence(district.coverageByProgram)}`;
 }
 
-type TimelinePulse = { month: string; scans: ReadonlyMap<string, number> };
-
-/** One ripple per marker with scans this month, larger for more scans. */
-function TimelinePulses({
-    nodes,
-    pulses,
-}: {
-    nodes: readonly {
-        key: string;
-        position: { latitude: number; longitude: number };
-        sourceDistricts: readonly { key: string }[];
-    }[];
-    pulses: TimelinePulse;
-}) {
-    const ripples = useMemo(() => {
-        const scanned = nodes.flatMap(node => {
-            const scans = node.sourceDistricts.reduce(
-                (sum, row) => sum + (pulses.scans.get(row.key) ?? 0),
-                0,
-            );
-            return scans > 0 ? [{ node, scans }] : [];
-        });
-        const most = Math.max(1, ...scanned.map(row => row.scans));
-        return scanned.map(({ node, scans }) => ({
-            node,
-            icon: L.divIcon({
-                className: styles.timelinePulse,
-                iconSize: [0, 0],
-                html: `<span style="--size:${Math.round(44 + 76 * Math.sqrt(scans / most))}px"></span>`,
-            }),
-        }));
-    }, [nodes, pulses]);
-
-    return (
-        <Pane
-            name="progressTimelinePulses"
-            style={{ zIndex: 640, pointerEvents: 'none' }}
-        >
-            {ripples.map(({ node, icon }) => (
-                <Marker
-                    key={`${pulses.month}:${node.key}`}
-                    position={[node.position.latitude, node.position.longitude]}
-                    icon={icon}
-                    interactive={false}
-                    keyboard={false}
-                />
-            ))}
-        </Pane>
-    );
-}
-
 /**
  * Each country that is a single marker at this zoom, shaded whole against the
  * top country's scans for the period. Zooming in hands over to its Districts.
@@ -272,8 +239,10 @@ function CountryFills({
     devices,
     startedCountries,
     selectedCountry,
+    shade,
     onExplore,
     onClearArea,
+    onCountrySelect,
 }: {
     countries: CountryGeometry[];
     districts: readonly ProgressDistrict[];
@@ -283,10 +252,21 @@ function CountryFills({
     startedCountries?: ReadonlySet<string>;
     /** Stays clickable when zoomed in, so a click inside it isn't "outside". */
     selectedCountry: string | null;
+    shade?: StephensiShade;
     onExplore: (node: ProgressMapNode) => void;
     onClearArea: () => void;
+    /** A country with no node of its own, as when zoomed in to stephensi. */
+    onCountrySelect?: (country: string) => void;
 }) {
     const most = Math.max(1, ...nodes.map(node => node.uniqueScans));
+    const mostStephensi = shade
+        ? Math.max(
+              1,
+              ...nodes.map(node =>
+                  shadeSum(shade.totals, node.sourceDistricts),
+              ),
+          )
+        : 1;
     return (
         <Pane name="progressCountryFills" style={{ zIndex: 420 }}>
             {countries.map(country => {
@@ -308,34 +288,53 @@ function CountryFills({
                             sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
                         0,
                     ) ?? 0;
+                const purple = shade?.countries.has(country.country) ?? false;
+                const specimens =
+                    shade && purple && node
+                        ? shadeSum(shade.counts, node.sourceDistricts)
+                        : 0;
                 return (
                     <GeoJSON
                         key={country.country}
                         data={country.geometry}
                         ref={group => {
-                            // Once zoomed in, the Districts below take over.
+                            // Zoomed in, the Districts above take their own
+                            // clicks; the rest of the country still selects it.
                             group?.eachLayer(layer => {
                                 const shape = (layer as L.Path).getElement();
                                 if (shape instanceof SVGElement)
                                     shape.style.pointerEvents =
-                                        node || chosen ? 'auto' : 'none';
+                                        node || chosen || onCountrySelect
+                                            ? 'auto'
+                                            : 'none';
                             });
                         }}
                         eventHandlers={{
                             click: () => {
                                 if (node) onExplore(node);
                                 else if (chosen) onClearArea();
+                                else onCountrySelect?.(country.country);
                             },
                         }}
                         style={{
                             className: styles.districtArea,
-                            fillColor: progressScanFillColor(
-                                scans,
-                                most,
-                                scansAsOf !== undefined,
-                            ),
+                            fillColor:
+                                shade && purple
+                                    ? progressStephensiFillColor(
+                                          specimens,
+                                          mostStephensi,
+                                          shade.even,
+                                      )
+                                    : progressScanFillColor(
+                                          scans,
+                                          most,
+                                          scansAsOf !== undefined,
+                                      ),
+                            // With the stephensi filter, only stephensi shows.
                             fillOpacity:
-                                scans > 0 ? PROGRESS_SCAN_FILL_OPACITY : 0,
+                                (shade ? specimens : scans) > 0
+                                    ? PROGRESS_SCAN_FILL_OPACITY
+                                    : 0,
                             // On the timeline a country's border comes in
                             // with its first upload.
                             stroke: startedCountries !== undefined,
@@ -360,7 +359,7 @@ function CountryFills({
                                     {country.country}
                                 </span>
                                 <span className={styles.tooltipScans}>
-                                    {number.format(total)} scans
+                                    {number.format(total)} <CountUnit />
                                 </span>
                                 {sentinelSitesLine(
                                     inCountry.flatMap(
@@ -392,6 +391,29 @@ type StephensiHeatData = {
     /** Specimens over the whole period, which sets the strongest patch. */
     totals: ReadonlyMap<string, number>;
 };
+
+/**
+ * With the An. stephensi filter on, an area where it was found shades purple by
+ * its specimens instead of green by scans; other areas keep their green. Seen
+ * whole, a country with any shades purple.
+ */
+type StephensiShade = {
+    /** Countries with An. stephensi in the period. */
+    countries: ReadonlySet<string>;
+    /** Specimens by District key, so far on the timeline. */
+    counts: ReadonlyMap<string, number>;
+    /** Specimens over the whole period, which sets the darkest shade. */
+    totals: ReadonlyMap<string, number>;
+    /** The timeline's even scale, as for scans. */
+    even: boolean;
+};
+
+function shadeSum(
+    values: ReadonlyMap<string, number>,
+    districts: readonly ProgressDistrict[],
+) {
+    return districts.reduce((sum, row) => sum + (values.get(row.key) ?? 0), 0);
+}
 
 /** Half the patch's full size in the stylesheet. */
 const HEAT_RADIUS = 28;
@@ -462,10 +484,13 @@ function StephensiHeat({
     districts,
     countries,
     heat,
+    filledKeys,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
     heat: StephensiHeatData;
+    /** Shaded purple already; patches are for places without a boundary. */
+    filledKeys: ReadonlySet<string>;
 }) {
     const most = Math.max(1, ...heat.totals.values());
     return (
@@ -474,7 +499,7 @@ function StephensiHeat({
             style={{ zIndex: 440, pointerEvents: 'none' }}
         >
             {districts.flatMap(({ key, position, country }) =>
-                position && heat.totals.has(key) ? (
+                position && heat.totals.has(key) && !filledKeys.has(key) ? (
                     <StephensiHeatSpot
                         key={key}
                         latitude={position.latitude}
@@ -495,8 +520,35 @@ function districtStyle(
     maximum: number,
     selected: boolean,
     scansAsOf?: ReadonlyMap<string, number>,
+    shade?: StephensiShade,
 ): L.PathOptions {
     const scans = scansAsOf?.get(district.key) ?? district.uniqueScans;
+    const specimens = shade?.counts.get(district.key) ?? 0;
+    // The stephensi filter shows stephensi alone: other areas are outlines.
+    if (shade && specimens === 0)
+        return {
+            className: styles.districtArea,
+            color: selected ? '#075341' : '#9aa8a2',
+            weight: selected ? 2.7 : 0.8,
+            opacity: selected ? 1 : 0.6,
+            fillOpacity: 0,
+            bubblingMouseEvents: false,
+        };
+    if (shade) {
+        return {
+            className: styles.districtArea,
+            color: STEPHENSI_STROKE,
+            weight: selected ? 2.7 : 1.35,
+            opacity: 0.9,
+            fillColor: progressStephensiFillColor(
+                specimens,
+                Math.max(1, ...shade.totals.values()),
+                shade.even,
+            ),
+            fillOpacity: PROGRESS_SCAN_FILL_OPACITY,
+            bubblingMouseEvents: false,
+        };
+    }
     return {
         className: styles.districtArea,
         color: selected ? '#075341' : '#168367',
@@ -558,6 +610,8 @@ function ReportingDistrictAreas({
     stephensi,
     stephensiKey,
     scansAsOf,
+    shade,
+    startedCountries,
 }: {
     fills: ProgressDistrictFill[];
     attributions: ReadonlyMap<string, string>;
@@ -573,6 +627,9 @@ function ReportingDistrictAreas({
     /** The area outlined in the stephensi colour: its dot hovered or its view open. */
     stephensiKey: string | null;
     scansAsOf?: ReadonlyMap<string, number>;
+    shade?: StephensiShade;
+    /** On the timeline, areas wait for their country's first upload. */
+    startedCountries?: ReadonlySet<string>;
 }) {
     const maximum = Math.max(
         1,
@@ -589,25 +646,29 @@ function ReportingDistrictAreas({
                     maximum,
                     selected,
                     scansAsOf,
+                    shade,
                 );
                 // The area, its name tag and its marker share one hover.
-                const style = overviewCountries.has(district.country)
-                    ? { ...baseStyle, opacity: 0, fillOpacity: 0 }
-                    : district.key === stephensiKey
-                      ? {
-                            ...baseStyle,
-                            color: STEPHENSI_STROKE,
-                            weight: 3,
-                            opacity: 1,
-                        }
-                      : district.key === hoveredKey && !selected
-                        ? {
-                              ...baseStyle,
-                              color: '#063b30',
-                              weight: 2.6,
-                              opacity: 1,
-                          }
-                        : baseStyle;
+                const style =
+                    overviewCountries.has(district.country) ||
+                    (startedCountries !== undefined &&
+                        !startedCountries.has(district.country))
+                        ? { ...baseStyle, opacity: 0, fillOpacity: 0 }
+                        : district.key === stephensiKey
+                          ? {
+                                ...baseStyle,
+                                color: STEPHENSI_STROKE,
+                                weight: 3,
+                                opacity: 1,
+                            }
+                          : district.key === hoveredKey && !selected
+                            ? {
+                                  ...baseStyle,
+                                  color: '#063b30',
+                                  weight: 2.6,
+                                  opacity: 1,
+                              }
+                            : baseStyle;
                 const stephensiCount = stephensi?.get(district.key);
                 const activate = () => onSelect(selected ? null : district.key);
                 return (
@@ -661,7 +722,6 @@ function ReportingDistrictAreas({
                             <Tooltip
                                 key={`${district.key}:${showSelection}`}
                                 pane="tooltipPane"
-                                permanent={showSelection}
                                 direction="top"
                                 className={styles.tooltip}
                                 opacity={1}
@@ -675,7 +735,7 @@ function ReportingDistrictAreas({
                                             scansAsOf?.get(district.key) ??
                                                 district.uniqueScans,
                                         )}{' '}
-                                        scans
+                                        <CountUnit />
                                     </span>
                                     {sentinelSitesLine(
                                         district.sentinelSitesByProgram,
@@ -723,59 +783,23 @@ function glowDiameter(node: ProgressMapNode, maximum: number) {
     return 24 + 20 * Math.sqrt(node.uniqueScans / maximum);
 }
 
-function markerLayout(
-    node: ProgressMapNode,
-    width: number,
-    placement?: CountryCardPlacement,
-) {
-    if (node.kind !== 'country')
-        return {
-            width: 32,
-            height: 32,
-            anchorX: 16,
-            anchorY: 16,
-            left: false,
-            cardY: 0,
-        };
-    const cardWidth =
-        placement?.cardWidth ?? Math.max(110, node.country.length * 8.5 + 24);
-    const left = placement
-        ? placement.side === 'left'
-        : node.projected.x + cardWidth + 32 > width - 16;
-    const offsetY = placement?.offsetY ?? 0;
-    return {
-        width: cardWidth + 36,
-        height: 48 + Math.abs(offsetY),
-        anchorX: left ? cardWidth + 18 : 18,
-        anchorY: 24 + Math.max(0, -offsetY),
-        cardY: Math.max(0, offsetY),
-        left,
-    };
-}
-
+/** An area or cluster marker; countries have none, only a name. */
 function activityIcon(
     node: ProgressMapNode,
     maximum: number,
     selected: boolean,
-    width: number,
-    placement?: CountryCardPlacement,
 ) {
-    const layout = markerLayout(node, width, placement);
     const glow = glowDiameter(node, maximum);
     const intensity = 0.5 + 0.5 * Math.sqrt(node.uniqueScans / maximum);
     const core =
         node.kind === 'cluster'
             ? `<span class="${styles.clusterCore}">${node.sourceDistricts.length}</span>`
             : `<span class="${styles.core}"></span>`;
-    const leader =
-        node.kind === 'country' && placement?.offsetY
-            ? `<svg class="${styles.cardLeader}" width="${layout.width}" height="${layout.height}" aria-hidden="true"><line x1="${layout.anchorX}" y1="${layout.anchorY}" x2="${layout.left ? layout.width - 36 : 36}" y2="${layout.cardY + 24}" /></svg>`
-            : '';
     return L.divIcon({
         className: styles.mark,
-        iconSize: [layout.width, layout.height],
-        iconAnchor: [layout.anchorX, layout.anchorY],
-        html: `${leader}<span class="${styles.activitySpot}" style="left:${layout.anchorX}px;top:${layout.anchorY}px" data-selected="${selected}" data-empty="${node.uniqueScans === 0}"><span class="${styles.glow}" style="width:${glow}px;height:${glow}px;opacity:${intensity}"></span>${core}</span>${node.kind === 'country' ? `<span class="${styles.countryCard}" data-country-card data-side="${layout.left ? 'left' : 'right'}" style="top:${layout.cardY}px"><strong>${escapeHtml(node.country)}</strong><span>Explore areas <span aria-hidden="true">↗</span></span></span>` : ''}`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        html: `<span class="${styles.activitySpot}" style="left:16px;top:16px" data-selected="${selected}" data-empty="${node.uniqueScans === 0}"><span class="${styles.glow}" style="width:${glow}px;height:${glow}px;opacity:${intensity}"></span>${core}</span>`,
     });
 }
 
@@ -915,107 +939,6 @@ function UpcomingAreas({
     );
 }
 
-/** On each District with An. stephensi, this dot replaces its scan marker. */
-function StephensiSpots({
-    districts,
-    counts,
-    selectedKey,
-    onSelect,
-    onHover,
-}: {
-    districts: ProgressDistrict[];
-    counts: ReadonlyMap<string, number>;
-    selectedKey: string | null;
-    onSelect: (key: string) => void;
-    onHover: (key: string | null) => void;
-}) {
-    // Smaller at overview scale, where a country is only a few dots wide.
-    const compact = useViewport().zoom <= OVERVIEW_MAX_ZOOM;
-    return (
-        <Pane name="progressStephensi" style={{ zIndex: 650 }}>
-            {districts.flatMap(district => {
-                const specimens = counts.get(district.key);
-                if (!specimens || !district.position) return [];
-                const selected = district.key === selectedKey;
-                const label = `${districtLabel(district)}. ${number.format(specimens)} An. stephensi`;
-                const mark = (marker: L.Marker | null) => {
-                    const element = marker?.getElement();
-                    element?.setAttribute('aria-label', label);
-                    element?.setAttribute('aria-pressed', String(selected));
-                };
-                return [
-                    <Marker
-                        key={district.key}
-                        ref={mark}
-                        pane="progressStephensi"
-                        position={[
-                            district.position.latitude,
-                            district.position.longitude,
-                        ]}
-                        icon={L.divIcon({
-                            className: styles.stephensiIcon,
-                            iconSize: compact ? [32, 32] : [56, 56],
-                            tooltipAnchor: [0, compact ? -6 : -10],
-                            html: `<span class="${styles.stephensiGlow}" style="animation-delay:${stephensiGlowDelay()}"></span><span class="${styles.stephensiDot}" data-selected="${selected}" data-compact="${compact}"></span>`,
-                        })}
-                        keyboard
-                        bubblingMouseEvents={false}
-                        eventHandlers={{
-                            add: event => mark(event.target as L.Marker),
-                            click: () => onSelect(district.key),
-                            mouseover: () => onHover(district.key),
-                            mouseout: () => onHover(null),
-                            // One tooltip at a time, even over a selected area's pinned one.
-                            tooltipopen: event =>
-                                (event.target as L.Marker)
-                                    .getElement()
-                                    ?.closest('.leaflet-container')
-                                    ?.setAttribute(
-                                        'data-stephensi-tooltip',
-                                        '',
-                                    ),
-                            tooltipclose: event =>
-                                (event.target as L.Marker)
-                                    .getElement()
-                                    ?.closest('.leaflet-container')
-                                    ?.removeAttribute('data-stephensi-tooltip'),
-                        }}
-                    >
-                        <Tooltip
-                            pane="tooltipPane"
-                            direction="top"
-                            className={`${styles.tooltip} ${styles.stephensiTooltip}`}
-                            opacity={1}
-                        >
-                            <div className={styles.tooltipContent}>
-                                <span className={styles.tooltipName}>
-                                    {district.name}
-                                </span>
-                                <span className={styles.tooltipScans}>
-                                    {number.format(district.uniqueScans)} scans
-                                </span>
-                                {sentinelSitesLine(
-                                    district.sentinelSitesByProgram,
-                                )}
-                                {coverageLine(district.coverageByProgram)}
-                                <span className={styles.tooltipStephensi}>
-                                    {number.format(specimens)}{' '}
-                                    <i>An. stephensi</i>
-                                </span>
-                                {!selected && (
-                                    <span className={styles.tooltipHint}>
-                                        Select to see its <i>An. stephensi</i>
-                                    </span>
-                                )}
-                            </div>
-                        </Tooltip>
-                    </Marker>,
-                ];
-            })}
-        </Pane>
-    );
-}
-
 /** Group at overview scale, then reveal districts without colliding markers. */
 function ReportingActivity({
     districts,
@@ -1033,13 +956,14 @@ function ReportingActivity({
     scansAsOf,
     devices,
     startedCountries,
-    pulses,
     timelineOpen,
+    shade,
 }: {
     districts: ProgressDistrict[];
     countries: CountryGeometry[];
     fills: ProgressDistrictFill[];
     attributions: ReadonlyMap<string, string>;
+    shade?: StephensiShade;
     selectedKey: string | null;
     onSelect: (key: string | null) => void;
     selectedCountry: string | null;
@@ -1051,11 +975,11 @@ function ReportingActivity({
     scansAsOf?: ReadonlyMap<string, number>;
     devices?: CountryDevices;
     startedCountries?: ReadonlySet<string>;
-    pulses?: TimelinePulse;
     timelineOpen: boolean;
 }) {
     const map = useMap();
     const viewport = useViewport();
+    const unit = use(CountUnitContext);
     // Re-read on each viewport update (moveend, zoomend, resize).
     const leaderOrigin = map.containerPointToLayerPoint([0, 0]);
     const [hoveredKey, setHoveredKey] = useState<string | null>(null);
@@ -1071,12 +995,14 @@ function ReportingActivity({
                         position.latitude,
                         position.longitude,
                     ]),
-                overviewZoom: 6,
-                overviewMaxZoom: OVERVIEW_MAX_ZOOM,
+                // A chosen country always opens to its areas, however large
+                // (Colombia frames below the zoom where countries merge).
+                overviewZoom: selectedCountry ? 0 : 6,
+                overviewMaxZoom: selectedCountry ? 0 : OVERVIEW_MAX_ZOOM,
                 overviewFootprint: viewport.width < 520 ? 135 : 190,
                 clusterDistance: 44,
             }),
-        [districts, map, viewport],
+        [districts, map, viewport, selectedCountry],
     );
     const detailDistrictKeys = useMemo(
         () => progressMapDetailDistrictKeys(allNodes),
@@ -1134,54 +1060,17 @@ function ReportingActivity({
     const countryNodes = nodes.filter(node => node.kind === 'country');
     const overviewCountries = new Set(countryNodes.map(node => node.country));
     const selectedDistrict = districts.find(row => row.key === selectedKey);
-    const cards = useMemo(
-        () =>
-            placeCountryCards(
-                nodes
-                    .filter(node => node.kind === 'country')
-                    .map(node => ({
-                        key: node.key,
-                        country: node.country,
-                        ...node.projected,
-                    })),
-                { width: viewport.width, height: viewport.height },
-                [
-                    {
-                        key: 'zoom-control',
-                        x: 38,
-                        y: 57,
-                        width: 50,
-                        height: 86,
-                    },
-                    ...nodes
-                        .filter(node => node.kind !== 'country')
-                        .map(node => ({
-                            key: node.key,
-                            ...node.projected,
-                            width: 32,
-                            height: 32,
-                        })),
-                ],
-            ),
-        [nodes, viewport.width, viewport.height],
-    );
     // A new icon rebuilds its marker, so the timeline's months reuse these.
     const icons = useMemo(
         () =>
             new Map(
                 nodes.map(node => {
                     const icon = (selected: boolean) =>
-                        activityIcon(
-                            node,
-                            maximum,
-                            selected,
-                            viewport.width,
-                            cards.get(node.key),
-                        );
+                        activityIcon(node, maximum, selected);
                     return [node.key, [icon(false), icon(true)]];
                 }),
             ),
-        [nodes, maximum, viewport.width, cards],
+        [nodes, maximum],
     );
 
     // A country's first click chooses it; once chosen, a click zooms in.
@@ -1191,6 +1080,8 @@ function ReportingActivity({
             onCountrySelect &&
             node.country !== selectedCountry
         ) {
+            // Fly now; the country's data lands where the map already is.
+            awaitRefocus(map);
             onCountrySelect(node.country);
             return;
         }
@@ -1227,7 +1118,7 @@ function ReportingActivity({
         if (fill) {
             const bounds = L.geoJSON(fill.geometry).getBounds();
             map.fitBounds(bounds, {
-                padding: viewport.width < 520 ? [38, 72] : [72, 72],
+                ...selectionFit(map),
                 maxZoom: 9,
                 animate: false,
             });
@@ -1279,40 +1170,16 @@ function ReportingActivity({
             box.x + box.width / 2 <= viewport.width - 12 &&
             box.y - box.height / 2 >= 12 &&
             box.y + box.height / 2 <= viewport.height - 24;
-        const obstacles: LabelBox[] = nodes.flatMap(node => {
-            const layout = markerLayout(
-                node,
-                viewport.width,
-                cards.get(node.key),
-            );
-            const anchor = {
+        // Countries have no marker now, only their name, so only areas block.
+        const obstacles: LabelBox[] = nodes
+            .filter(node => node.kind !== 'country')
+            .map(node => ({
                 key: node.key,
                 x: node.projected.x,
                 y: node.projected.y,
                 width: 32,
                 height: 32,
-            };
-            return node.kind === 'country'
-                ? [
-                      anchor,
-                      {
-                          key: `card:${node.key}`,
-                          x:
-                              node.projected.x -
-                              layout.anchorX +
-                              (layout.left ? 0 : 36) +
-                              (layout.width - 36) / 2,
-                          y:
-                              node.projected.y -
-                              layout.anchorY +
-                              layout.cardY +
-                              24,
-                          width: layout.width - 36,
-                          height: 48,
-                      },
-                  ]
-                : [anchor];
-        });
+            }));
         obstacles.push({
             key: 'zoom-control',
             x: 38,
@@ -1320,39 +1187,9 @@ function ReportingActivity({
             width: 50,
             height: 86,
         });
-        const selectedNode = allNodes.find(node =>
-            node.districtKeys.includes(selectedKey ?? ''),
-        );
-        const selectedFill = fills.find(
-            fill => fill.district.key === selectedKey,
-        );
-        const selectedAt = selectedFill
-            ? coverageLabelPoint(selectedFill.geometry)?.at
-            : null;
-        const selectedProjection = selectedAt
-            ? map.latLngToContainerPoint(selectedAt)
-            : selectedNode?.projected;
-        if (selectedProjection && detailDistrictKeys.has(selectedKey ?? ''))
-            obstacles.push({
-                key: 'selection-tooltip',
-                x: selectedProjection.x,
-                y: selectedProjection.y - 66,
-                width: Math.max(
-                    184,
-                    (selectedDistrict?.name.length ?? 0) * 7 + 30,
-                ),
-                height: 100,
-            });
         const countryLabels = countries.flatMap(country => {
-            if (
-                !timelineOpen &&
-                nodes.some(
-                    node =>
-                        node.country === country.country &&
-                        node.kind === 'country',
-                )
-            )
-                return [];
+            // Inside a chosen country its areas speak; its name is the page's.
+            if (country.country === selectedCountry) return [];
             const point = coverageLabelPoint(country.geometry);
             if (!point) return [];
             const projected = map.latLngToContainerPoint(point.at);
@@ -1363,19 +1200,43 @@ function ReportingActivity({
                 width: country.country.length * 9 + 12,
                 height: 20,
             };
-            // On the timeline, the tags that would block a name are hidden.
+            // Names may touch each other (Uganda and Kenya at world scale);
+            // on the timeline, the tags that would block one are hidden.
             return onScreen(box) &&
                 (timelineOpen || placeLabels([box], obstacles).has(box.key))
                 ? [{ country: country.country, position: point.at, box }]
                 : [];
         });
+        // Touching names ease apart a few pixels: the higher (or western)
+        // one up, the other down.
+        for (const [index, first] of countryLabels.entries())
+            for (const second of countryLabels.slice(index + 1)) {
+                if (placeLabels([second.box], [first.box]).has(second.box.key))
+                    continue;
+                const [upper, lower] =
+                    first.box.y < second.box.y ||
+                    (first.box.y === second.box.y && first.box.x < second.box.x)
+                        ? [first, second]
+                        : [second, first];
+                upper.box.y -= LABEL_EASE_PX;
+                lower.box.y += LABEL_EASE_PX;
+            }
+        for (const label of countryLabels) {
+            const at = map.containerPointToLatLng([label.box.x, label.box.y]);
+            label.position = [at.lat, at.lng];
+        }
         obstacles.push(...countryLabels.map(label => label.box));
         // Country summaries and granular area names share one visibility rule.
         // Partly visible shapes may place a name inside the edge; places wholly
         // outside the viewport must not appear as misleading edge labels.
         const visibleBounds = map.getBounds();
         const ordered = districts
-            .filter(district => detailDistrictKeys.has(district.key))
+            .filter(
+                district =>
+                    detailDistrictKeys.has(district.key) &&
+                    // Named only once its country's first upload is in.
+                    (startedCountries?.has(district.country) ?? true),
+            )
             .flatMap(district => {
                 const fill = fills.find(
                     row => row.district.key === district.key,
@@ -1401,12 +1262,12 @@ function ReportingActivity({
                       ]
                     : [];
             })
+            // Busiest first: where names collide, theirs stay.
             .toSorted(
                 (a, b) =>
                     Number(b.district.key === selectedKey) -
                         Number(a.district.key === selectedKey) ||
-                    a.projected.y - b.projected.y ||
-                    a.projected.x - b.projected.x ||
+                    b.district.uniqueScans - a.district.uniqueScans ||
                     a.district.key.localeCompare(b.district.key),
             );
         const fontSize = window.matchMedia('(max-width: 640px)').matches
@@ -1429,16 +1290,20 @@ function ReportingActivity({
                 ) + 22,
             ]),
         );
-        const placements = placeDistrictNames(
-            ordered.map(label => ({
-                key: label.district.key,
-                x: label.projected.x,
-                y: label.projected.y + (label.filled ? 0 : 24),
-                width: textWidths.get(label.district.key)!,
-                height: 24,
-            })),
-            viewport,
-            obstacles,
+        // Names sit on their areas, never moved out to tags: one that would
+        // collide is left off, and its area's tooltip still names it.
+        const nameBoxes = ordered.map(label => ({
+            key: label.district.key,
+            x: label.projected.x,
+            y: label.projected.y + (label.filled ? 0 : 24),
+            width: textWidths.get(label.district.key)!,
+            height: 24,
+        }));
+        const shownNames = placeLabels(nameBoxes, obstacles);
+        const placements = new Map(
+            nameBoxes
+                .filter(box => shownNames.has(box.key))
+                .map(box => [box.key, box]),
         );
         // Upcoming tags move around the reporting names, never the reverse.
         const upcomingOrdered =
@@ -1483,40 +1348,42 @@ function ReportingActivity({
                     leader: leaderEnd(box, label.projected),
                 };
             }),
-            districts: ordered.map(label => {
-                const box = placements.get(label.district.key)!;
-                return {
-                    ...label,
-                    box,
-                    // Exceptionally long names stay complete on one line.
-                    fontSize:
-                        fontSize *
-                        Math.min(
-                            1,
-                            Math.max(1, box.width - 22) /
-                                Math.max(
-                                    1,
-                                    textWidths.get(label.district.key)! - 22,
-                                ),
-                        ),
-                    position: map.containerPointToLatLng([box.x, box.y]),
-                    leader: leaderEnd(box, label.projected),
-                };
+            districts: ordered.flatMap(label => {
+                const box = placements.get(label.district.key);
+                if (!box) return [];
+                return [
+                    {
+                        ...label,
+                        box,
+                        // Exceptionally long names stay complete on one line.
+                        fontSize:
+                            fontSize *
+                            Math.min(
+                                1,
+                                Math.max(1, box.width - 22) /
+                                    Math.max(
+                                        1,
+                                        textWidths.get(label.district.key)! -
+                                            22,
+                                    ),
+                            ),
+                        position: map.containerPointToLatLng([box.x, box.y]),
+                    },
+                ];
             }),
         };
     }, [
         timelineOpen,
+        startedCountries,
         nodes,
-        allNodes,
         detailDistrictKeys,
         districts,
         fills,
         fillBounds,
         countries,
         selectedKey,
-        selectedDistrict,
+        selectedCountry,
         viewport,
-        cards,
         map,
         upcoming,
     ]);
@@ -1536,149 +1403,160 @@ function ReportingActivity({
                 stephensi={stephensi}
                 stephensiKey={stephensiKey}
                 scansAsOf={scansAsOf}
+                shade={shade}
+                startedCountries={startedCountries}
             />
-            {nodes.map(node => {
-                const selected = node.districtKeys.includes(selectedKey ?? '');
-                const district = node.sourceDistricts[0];
-                // Its stephensi dot stands in for it.
-                if (node.kind === 'district' && stephensi?.has(district.key))
-                    return null;
-                const zoomLabel = `Zoom to ${node.kind === 'country' ? node.country : `${node.sourceDistricts.length} nearby`} reporting areas.`;
-                const nodeScans = node.sourceDistricts.reduce(
-                    (sum, row) =>
-                        sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
-                    0,
-                );
-                const label = scansAsOf
-                    ? `${node.kind === 'district' ? district.name : zoomLabel} ${number.format(nodeScans)} scans so far.`
-                    : node.kind === 'district'
-                      ? districtLabel(district)
-                      : node.kind !== 'country' && selected && selectedDistrict
-                        ? `${districtLabel(selectedDistrict)}. ${zoomLabel}`
-                        : `${zoomLabel} ${number.format(node.uniqueScans)} mapped scans.${coverageSentence(node.coverageByProgram)}`;
-                const activate = () => {
-                    if (node.kind === 'district')
-                        onSelect(selected ? null : district.key);
-                    else explore(node);
-                };
-                const shown =
-                    node.kind === 'country'
-                        ? node
-                        : selected && selectedDistrict
-                          ? selectedDistrict
-                          : node.kind === 'district'
-                            ? district
-                            : node;
-                // A country or cluster adds up the Districts it stands for.
-                const stephensiTotal = (
-                    'name' in shown ? [shown.key] : node.districtKeys
-                ).reduce((sum, key) => sum + (stephensi?.get(key) ?? 0), 0);
-                return (
-                    <Marker
-                        key={node.key}
-                        ref={marker =>
-                            markAccessibility(marker, label, selected, node)
-                        }
-                        position={[
-                            node.position.latitude,
-                            node.position.longitude,
-                        ]}
-                        icon={icons.get(node.key)![selected ? 1 : 0]}
-                        title={label}
-                        keyboard
-                        bubblingMouseEvents={false}
-                        zIndexOffset={
-                            selected ? 1000 : node.kind === 'country' ? 100 : 0
-                        }
-                        eventHandlers={{
-                            add: event =>
-                                markAccessibility(
-                                    event.target as L.Marker,
-                                    label,
-                                    selected,
-                                    node,
-                                ),
-                            click: activate,
-                            mouseover: () => {
-                                if (node.kind === 'district')
-                                    setHoveredKey(district.key);
-                            },
-                            mouseout: () => {
-                                if (node.kind === 'district')
-                                    setHoveredKey(null);
-                            },
-                            keydown: event => {
-                                const original =
-                                    event.originalEvent as KeyboardEvent;
-                                if (
-                                    original.key !== ' ' &&
-                                    original.key !== 'Enter'
-                                )
-                                    return;
-                                original.preventDefault();
-                                original.stopPropagation();
-                                if (!original.repeat) activate();
-                            },
-                        }}
-                    >
-                        <Tooltip
-                            key={`${node.key}:${selectedKey}`}
-                            permanent={
-                                node.kind !== 'country' &&
-                                selected &&
-                                !filledKeys.has(selectedKey ?? '')
+            {/* A country is its shaded shape and name, as on Prism: no tag. */}
+            {/* The stephensi filter shows stephensi alone: no scan markers. */}
+            {nodes
+                .filter(node => node.kind !== 'country' && !shade)
+                .map(node => {
+                    const selected = node.districtKeys.includes(
+                        selectedKey ?? '',
+                    );
+                    const district = node.sourceDistricts[0];
+                    const zoomLabel = `Zoom to ${node.kind === 'country' ? node.country : `${node.sourceDistricts.length} nearby`} reporting areas.`;
+                    const nodeScans = node.sourceDistricts.reduce(
+                        (sum, row) =>
+                            sum + (scansAsOf?.get(row.key) ?? row.uniqueScans),
+                        0,
+                    );
+                    const label = scansAsOf
+                        ? `${node.kind === 'district' ? district.name : zoomLabel} ${number.format(nodeScans)} ${unit.text} so far.`
+                        : node.kind === 'district'
+                          ? districtLabel(district)
+                          : node.kind !== 'country' &&
+                              selected &&
+                              selectedDistrict
+                            ? `${districtLabel(selectedDistrict)}. ${zoomLabel}`
+                            : `${zoomLabel} ${number.format(node.uniqueScans)} mapped scans.${coverageSentence(node.coverageByProgram)}`;
+                    const activate = () => {
+                        if (node.kind === 'district')
+                            onSelect(selected ? null : district.key);
+                        else explore(node);
+                    };
+                    const shown =
+                        node.kind === 'country'
+                            ? node
+                            : selected && selectedDistrict
+                              ? selectedDistrict
+                              : node.kind === 'district'
+                                ? district
+                                : node;
+                    // A country or cluster adds up the Districts it stands for.
+                    const stephensiTotal = (
+                        'name' in shown ? [shown.key] : node.districtKeys
+                    ).reduce((sum, key) => sum + (stephensi?.get(key) ?? 0), 0);
+                    return (
+                        <Marker
+                            key={node.key}
+                            ref={marker =>
+                                markAccessibility(marker, label, selected, node)
                             }
-                            direction="top"
-                            offset={[0, -24]}
-                            className={styles.tooltip}
-                            opacity={1}
+                            position={[
+                                node.position.latitude,
+                                node.position.longitude,
+                            ]}
+                            icon={icons.get(node.key)![selected ? 1 : 0]}
+                            title={label}
+                            keyboard
+                            bubblingMouseEvents={false}
+                            zIndexOffset={
+                                selected
+                                    ? 1000
+                                    : node.kind === 'country'
+                                      ? 100
+                                      : 0
+                            }
+                            eventHandlers={{
+                                add: event =>
+                                    markAccessibility(
+                                        event.target as L.Marker,
+                                        label,
+                                        selected,
+                                        node,
+                                    ),
+                                click: activate,
+                                mouseover: () => {
+                                    if (node.kind === 'district')
+                                        setHoveredKey(district.key);
+                                },
+                                mouseout: () => {
+                                    if (node.kind === 'district')
+                                        setHoveredKey(null);
+                                },
+                                keydown: event => {
+                                    const original =
+                                        event.originalEvent as KeyboardEvent;
+                                    if (
+                                        original.key !== ' ' &&
+                                        original.key !== 'Enter'
+                                    )
+                                        return;
+                                    original.preventDefault();
+                                    original.stopPropagation();
+                                    if (!original.repeat) activate();
+                                },
+                            }}
                         >
-                            <div className={styles.tooltipContent}>
-                                <span className={styles.tooltipName}>
-                                    {'name' in shown
-                                        ? shown.name
-                                        : node.kind === 'country'
-                                          ? node.country
-                                          : `${node.sourceDistricts.length} nearby areas`}
-                                </span>
-                                <span className={styles.tooltipScans}>
-                                    {number.format(
-                                        scansAsOf
-                                            ? nodeScans
-                                            : shown.uniqueScans,
-                                    )}{' '}
-                                    scans
-                                </span>
-                                {sentinelSitesLine(
-                                    // A country or cluster adds up its Districts.
-                                    'name' in shown
-                                        ? shown.sentinelSitesByProgram
-                                        : node.sourceDistricts.flatMap(
-                                              district =>
-                                                  district.sentinelSitesByProgram,
-                                          ),
-                                )}
-                                {coverageLine(shown.coverageByProgram)}
-                                {node.kind === 'country' &&
-                                    devicesLine(devices?.get(node.country))}
-                                {stephensiTotal > 0 && (
-                                    <span className={styles.tooltipStephensi}>
-                                        {number.format(stephensiTotal)}{' '}
-                                        <i>An. stephensi</i>
+                            <Tooltip
+                                key={`${node.key}:${selectedKey}`}
+                                direction="top"
+                                offset={[0, -24]}
+                                className={styles.tooltip}
+                                opacity={1}
+                            >
+                                <div className={styles.tooltipContent}>
+                                    <span className={styles.tooltipName}>
+                                        {'name' in shown
+                                            ? shown.name
+                                            : node.kind === 'country'
+                                              ? node.country
+                                              : `${node.sourceDistricts.length} nearby areas`}
                                     </span>
-                                )}
-                                {node.kind !== 'district' &&
-                                    (node.kind === 'country' || !selected) && (
-                                        <span className={styles.tooltipHint}>
-                                            Mapped reporting areas · Select to
-                                            zoom in
+                                    <span className={styles.tooltipScans}>
+                                        {number.format(
+                                            scansAsOf
+                                                ? nodeScans
+                                                : shown.uniqueScans,
+                                        )}{' '}
+                                        <CountUnit />
+                                    </span>
+                                    {sentinelSitesLine(
+                                        // A country or cluster adds up its Districts.
+                                        'name' in shown
+                                            ? shown.sentinelSitesByProgram
+                                            : node.sourceDistricts.flatMap(
+                                                  district =>
+                                                      district.sentinelSitesByProgram,
+                                              ),
+                                    )}
+                                    {coverageLine(shown.coverageByProgram)}
+                                    {node.kind === 'country' &&
+                                        devicesLine(devices?.get(node.country))}
+                                    {stephensiTotal > 0 && (
+                                        <span
+                                            className={styles.tooltipStephensi}
+                                        >
+                                            {number.format(stephensiTotal)}{' '}
+                                            <i>An. stephensi</i>
                                         </span>
                                     )}
-                            </div>
-                        </Tooltip>
-                    </Marker>
-                );
-            })}
+                                    {node.kind !== 'district' &&
+                                        (node.kind === 'country' ||
+                                            !selected) && (
+                                            <span
+                                                className={styles.tooltipHint}
+                                            >
+                                                Mapped reporting areas · Select
+                                                to zoom in
+                                            </span>
+                                        )}
+                                </div>
+                            </Tooltip>
+                        </Marker>
+                    );
+                })}
             <CountryFills
                 districts={districts}
                 devices={devices}
@@ -1687,10 +1565,17 @@ function ReportingActivity({
                 nodes={countryNodes}
                 scansAsOf={scansAsOf}
                 selectedCountry={selectedCountry}
+                shade={shade}
                 onExplore={explore}
                 onClearArea={() => onSelect(null)}
+                onCountrySelect={
+                    onCountrySelect &&
+                    (country => {
+                        awaitRefocus(map);
+                        onCountrySelect(country);
+                    })
+                }
             />
-            {pulses && <TimelinePulses nodes={nodes} pulses={pulses} />}
             <Pane
                 name="progressCountryLabels"
                 style={{ zIndex: 450, pointerEvents: 'none' }}
@@ -1726,27 +1611,6 @@ function ReportingActivity({
                     aria-hidden="true"
                     focusable="false"
                 >
-                    {labels.districts.map(label =>
-                        label.leader ? (
-                            <g
-                                key={label.district.key}
-                                data-hovered={label.district.key === hoveredKey}
-                            >
-                                <line
-                                    x1={label.projected.x}
-                                    y1={label.projected.y}
-                                    x2={label.leader.x}
-                                    y2={label.leader.y}
-                                />
-                                {/* The dot marks the area; the name sits at the other end. */}
-                                <circle
-                                    cx={label.projected.x}
-                                    cy={label.projected.y}
-                                    r={2.5}
-                                />
-                            </g>
-                        ) : null,
-                    )}
                     {labels.upcoming.map(label =>
                         label.leader ? (
                             <g key={label.area.key} data-upcoming="true">
@@ -1777,7 +1641,7 @@ function ReportingActivity({
                         icon={L.divIcon({
                             className: styles.districtLabel,
                             iconSize: [0, 0],
-                            html: `<span data-map-label="district" data-district-key="${escapeHtml(label.district.key)}" data-filled="${label.filled}" data-displaced="${Boolean(label.leader)}" data-selected="${label.district.key === selectedKey}" data-hovered="${label.district.key === hoveredKey}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.district.name)}</span>`,
+                            html: `<span data-map-label="district" data-district-key="${escapeHtml(label.district.key)}" data-filled="${label.filled}" data-selected="${label.district.key === selectedKey}" data-hovered="${label.district.key === hoveredKey}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.district.name)}</span>`,
                         })}
                         // Same toggle as the area; the area keeps keyboard focus.
                         keyboard={false}
@@ -1797,11 +1661,9 @@ function ReportingActivity({
                             },
                             mouseout: () => {
                                 setHoveredKey(null);
-                                // A selected area's tooltip is permanent.
-                                if (label.district.key !== selectedKey)
-                                    areaLayers
-                                        .get(label.district.key)
-                                        ?.closeTooltip();
+                                areaLayers
+                                    .get(label.district.key)
+                                    ?.closeTooltip();
                             },
                         }}
                     />
@@ -1818,7 +1680,7 @@ function ReportingActivity({
                         icon={L.divIcon({
                             className: `${styles.districtLabel} ${styles.upcomingTag}`,
                             iconSize: [0, 0],
-                            html: `<span data-displaced="${Boolean(label.leader)}" style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.area.name)}</span>`,
+                            html: `<span style="width:${label.box.width}px;min-height:${label.box.height}px;font-size:${label.fontSize}px">${escapeHtml(label.area.name)}</span>`,
                         })}
                         // The tag opens its area's tooltip; it selects nothing.
                         keyboard={false}
@@ -1858,12 +1720,136 @@ function countryFrame(country: CountryGeometry): L.LatLngTuple[] {
         : [];
 }
 
+/** A selected area's frame: roomier, and clear of the timeline bar too. */
+function selectionFit(map: L.Map): L.FitBoundsOptions {
+    const side = map.getSize().x < 520 ? 38 : 72;
+    const credit = map.attributionControl?.getContainer()?.offsetHeight ?? 0;
+    return {
+        paddingTopLeft: [side, 72],
+        paddingBottomRight: [side, credit + TIMELINE_CLEARANCE],
+    };
+}
+
+/** How far apart two touching country names ease. */
+const LABEL_EASE_PX = 4;
+
+/**
+ * How the whole footprint, or a chosen country, is framed: clear of the
+ * timeline bar and the credit under it.
+ */
+function overviewFit(map: L.Map): L.FitBoundsOptions {
+    const side = map.getSize().x < 520 ? 32 : 42;
+    const credit = map.attributionControl?.getContainer()?.offsetHeight ?? 0;
+    return {
+        paddingTopLeft: [side, 48],
+        paddingBottomRight: [side, credit + TIMELINE_CLEARANCE],
+        maxZoom: 8.5,
+    };
+}
+
+/** Matches the map pane's fade in the stylesheet. */
+const REFOCUS_FADE_MS = 160;
+/** A render or two for the new zoom's markers and areas. */
+const REFOCUS_SETTLE_MS = 80;
+const REFOCUS_TIMERS = new WeakMap<L.Map, number>();
+
+/**
+ * Moves to a country or back to the world as Prism does: no flight (far out,
+ * a flight shrinks into a map with no tiles yet), but a quick fade out, a jump,
+ * and a fade back in. A later call before the jump re-aims it.
+ */
+function refocus(map: L.Map, bounds: L.LatLngBounds, fit: L.FitBoundsOptions) {
+    const container = map.getContainer();
+    container.dataset.refocusing = 'true';
+    const hold = REFOCUS_HOLDS.get(map);
+    if (hold !== undefined) window.clearTimeout(hold);
+    REFOCUS_HOLDS.delete(map);
+    const pending = REFOCUS_TIMERS.get(map);
+    if (pending !== undefined) window.clearTimeout(pending);
+    REFOCUS_TIMERS.set(
+        map,
+        window.setTimeout(() => {
+            REFOCUS_TIMERS.delete(map);
+            if (!container.isConnected) return;
+            withoutLimitPan(map, () =>
+                map.fitBounds(bounds, { ...fit, animate: false }),
+            );
+            // Fade back in once the markers and areas have redrawn for the
+            // new zoom, so the old zoom's country shapes don't flash.
+            window.setTimeout(() => {
+                if (!REFOCUS_TIMERS.has(map))
+                    container.dataset.refocusing = 'false';
+            }, REFOCUS_SETTLE_MS);
+        }, REFOCUS_FADE_MS),
+    );
+}
+
+const REFOCUS_GIVE_UP_MS = 4000;
+const REFOCUS_HOLDS = new WeakMap<L.Map, number>();
+
+/**
+ * Fades the map out at once and holds it there until the new data's
+ * footprint arrives and `refocus` jumps to it; gives up if it never does.
+ */
+function awaitRefocus(map: L.Map) {
+    const container = map.getContainer();
+    container.dataset.refocusing = 'true';
+    const pending = REFOCUS_HOLDS.get(map);
+    if (pending !== undefined) window.clearTimeout(pending);
+    REFOCUS_HOLDS.set(
+        map,
+        window.setTimeout(() => {
+            REFOCUS_HOLDS.delete(map);
+            if (!REFOCUS_TIMERS.has(map))
+                container.dataset.refocusing = 'false';
+        }, REFOCUS_GIVE_UP_MS),
+    );
+}
+
+/** Already about where `bounds` frames, so a snap goes unnoticed. */
+function framesAlready(
+    map: L.Map,
+    bounds: L.LatLngBounds,
+    fit: L.FitBoundsOptions,
+) {
+    const zoom = map.getBoundsZoom(
+        bounds,
+        false,
+        L.point(fit.paddingTopLeft as L.PointTuple).add(
+            L.point(fit.paddingBottomRight as L.PointTuple),
+        ),
+    );
+    return (
+        Math.abs(Math.min(zoom, fit.maxZoom ?? zoom) - map.getZoom()) < 0.5 &&
+        map.getBounds().contains(bounds.getCenter())
+    );
+}
+
 /** What the timeline bar and its gaps take from the bottom of the map. */
-const TIMELINE_CLEARANCE = 84;
+const TIMELINE_CLEARANCE = 100;
 /** Matches the quick colour reset in the stylesheet. */
 const REWIND_MS = 300;
 
+/**
+ * Runs `move` without Leaflet's animated pan into the pan limit. That pan
+ * starts on any move (a resize, or the stop of an earlier pan inside a refit),
+ * outlives the refit, and carries the view off-centre (Uganda from stephensi).
+ */
+function withoutLimitPan(map: L.Map, move: () => void) {
+    const enforcing = map as L.Map & { _enforcingBounds?: boolean };
+    enforcing._enforcingBounds = true;
+    try {
+        move();
+    } finally {
+        enforcing._enforcingBounds = false;
+    }
+}
+
 /** Keep navigation near the displayed geography without refitting on pan/zoom. */
+function setMaxBoundsQuietly(map: L.Map, bounds: L.LatLngBounds) {
+    withoutLimitPan(map, () => map.setMaxBounds(bounds));
+}
+
 function ReportingNavigation({
     districts,
     countries,
@@ -1897,13 +1883,18 @@ function ReportingNavigation({
             const key = `${extent!.south}:${extent!.west}:${extent!.north}:${extent!.east}:${size.x}:${size.y}`;
             if (applied.current === key) return;
             applied.current = key;
-            map.setMaxBounds(bounds);
-            map.setMinZoom(
-                progressMapMinimumZoom(extent!, {
-                    width: size.x,
-                    height: size.y,
-                }),
-            );
+            // Room beyond the footprint for the fit's margins (the timeline
+            // bar's above all), or the limit pushes a country under the bar.
+            setMaxBoundsQuietly(map, bounds.pad(0.5));
+            const minZoom = progressMapMinimumZoom(extent!, {
+                width: size.x,
+                height: size.y,
+            });
+            // Leaflet would animate up to a raised minimum, and that animation
+            // ending would undo a refit made meanwhile (see refocus).
+            if (map.getZoom() < minZoom)
+                map.setZoom(minZoom, { animate: false });
+            map.setMinZoom(minZoom);
         }
         updateLimits();
         map.on('resize', updateLimits);
@@ -1996,12 +1987,108 @@ function ReportingNavigation({
     return null;
 }
 
+const WORLD_RING = [
+    [-180, -90],
+    [180, -90],
+    [180, 90],
+    [-180, 90],
+    [-180, -90],
+];
+
+/**
+ * Veils the world outside the countries on the map, so the basemap's other
+ * place names all but disappear while its land and coasts still show.
+ */
+function WorldVeil({ countries }: { countries: CountryGeometry[] }) {
+    const mask = useMemo(
+        () => ({
+            type: 'Polygon' as const,
+            coordinates: [
+                WORLD_RING,
+                ...countries.flatMap(country =>
+                    country.geometry.coordinates.map(polygon => polygon[0]),
+                ),
+            ],
+        }),
+        [countries],
+    );
+    return (
+        <Pane
+            name="progressWorldVeil"
+            style={{ zIndex: 384, pointerEvents: 'none' }}
+        >
+            <GeoJSON
+                key={countries.map(country => country.country).join(',')}
+                data={mask}
+                interactive={false}
+                style={{
+                    stroke: false,
+                    fillColor: '#f6f7f6',
+                    fillOpacity: WORLD_VEIL_OPACITY,
+                    fillRule: 'evenodd',
+                }}
+            />
+        </Pane>
+    );
+}
+
+/** How much of the basemap outside our countries shows through: 0.35. */
+const WORLD_VEIL_OPACITY = 0.65;
+
+/** Washes out the map around a chosen country, so it stands alone. */
+function CountryFocus({
+    country,
+    shown,
+}: {
+    country: CountryGeometry;
+    /** False once the country is left: fades while the world loads. */
+    shown: boolean;
+}) {
+    const map = useMap();
+    useEffect(() => {
+        const pane = map.getPane('progressCountryFocus');
+        if (!pane) return;
+        pane.style.transition = 'opacity 400ms ease';
+        pane.style.opacity = shown ? '1' : '0';
+    }, [map, shown]);
+    const mask = useMemo(
+        () => ({
+            type: 'Polygon' as const,
+            coordinates: [
+                WORLD_RING,
+                ...country.geometry.coordinates.map(polygon => polygon[0]),
+            ],
+        }),
+        [country],
+    );
+    return (
+        <Pane
+            name="progressCountryFocus"
+            style={{ zIndex: 385, pointerEvents: 'none' }}
+        >
+            <GeoJSON
+                key={country.country}
+                data={mask}
+                interactive={false}
+                style={{
+                    className: styles.countryFocus,
+                    stroke: false,
+                    fillColor: '#f6f7f6',
+                    fillOpacity: 0.6,
+                    fillRule: 'evenodd',
+                }}
+            />
+        </Pane>
+    );
+}
+
 /** Refits for a new reporting footprint, while keeping a user's pan and zoom. */
 function ReportingFootprint({
     districts,
     countries,
     fills,
     selectedKey,
+    selectedCountry,
     playing,
     timelineOpen,
 }: {
@@ -2009,12 +2096,20 @@ function ReportingFootprint({
     countries: CountryGeometry[];
     fills: ProgressDistrictFill[];
     selectedKey: string | null;
+    selectedCountry: string | null;
     /** The timeline is running: frame every country as tightly as fits. */
     playing: boolean;
     timelineOpen: boolean;
 }) {
     const map = useMap();
     const wasPlaying = useRef(false);
+    // Leaving a country fades out at once, before paint: otherwise, while the
+    // world's data loads, a wide country (Colombia) shows as one solid shape.
+    const lastCountry = useRef(selectedCountry);
+    useLayoutEffect(() => {
+        if (lastCountry.current && !selectedCountry) awaitRefocus(map);
+        lastCountry.current = selectedCountry;
+    }, [map, selectedCountry]);
     // Tags give way to the colours and country names on the timeline.
     useEffect(() => {
         map.getContainer().dataset.timeline = String(timelineOpen);
@@ -2029,19 +2124,22 @@ function ReportingFootprint({
             }, REWIND_MS);
             const credit =
                 map.attributionControl?.getContainer()?.offsetHeight ?? 0;
-            const frame = [
-                ...countries.flatMap(countryFrame),
-                ...districts.flatMap(({ position }) =>
-                    position
-                        ? [
-                              [
-                                  position.latitude,
-                                  position.longitude,
-                              ] as L.LatLngTuple,
-                          ]
-                        : [],
-                ),
-            ];
+            // A selected area stays in view: play runs where you are.
+            const frame = selectedKey
+                ? []
+                : [
+                      ...countries.flatMap(countryFrame),
+                      ...districts.flatMap(({ position }) =>
+                          position
+                              ? [
+                                    [
+                                        position.latitude,
+                                        position.longitude,
+                                    ] as L.LatLngTuple,
+                                ]
+                              : [],
+                      ),
+                  ];
             if (frame.length > 0) {
                 // Aim where the map's limits let it stay, or it flies there
                 // and then gets pulled back.
@@ -2069,12 +2167,16 @@ function ReportingFootprint({
             }
         }
         wasPlaying.current = playing;
-    }, [playing, countries, districts, map]);
+    }, [playing, countries, districts, selectedKey, map]);
     const fitted = useRef<{
         footprint: string;
         width: number;
         height: number;
+        country: string | null;
+        /** The countries framed, e.g. fewer with the stephensi filter on. */
+        countries: string;
     } | null>(null);
+
     const footprint = useMemo(
         () =>
             districts
@@ -2125,14 +2227,23 @@ function ReportingFootprint({
                 Math.abs(previous.height - size.y) < 2
             )
                 return;
+            // Choosing or leaving a country, or the set of countries changing
+            // (the stephensi filter), fades through; other refits snap.
+            const framed = countries.map(country => country.country).join(',');
+            const moving =
+                previous !== null &&
+                (previous.country !== selectedCountry ||
+                    previous.countries !== framed);
             fitted.current = {
                 footprint: target,
                 width: size.x,
                 height: size.y,
+                country: selectedCountry,
+                countries: framed,
             };
             if (selectedFill) {
                 map.fitBounds(L.geoJSON(selectedFill.geometry).getBounds(), {
-                    padding: size.x < 520 ? [38, 72] : [72, 72],
+                    ...selectionFit(map),
                     maxZoom: 9,
                     animate: false,
                 });
@@ -2145,17 +2256,34 @@ function ReportingFootprint({
                         ],
                     ],
                     {
-                        padding: size.x < 520 ? [38, 72] : [72, 72],
+                        ...selectionFit(map),
                         maxZoom: 9,
                         animate: false,
                     },
                 );
             } else if (points.length > 0 || context.length > 0) {
-                map.fitBounds([...context, ...points], {
-                    padding: size.x < 520 ? [32, 38] : [42, 38],
-                    maxZoom: 8.5,
-                    animate: false,
-                });
+                // A chosen country is framed by its own outline, not by
+                // reporting points that may sit outside it.
+                const bounds = L.latLngBounds(
+                    selectedCountry && context.length > 0
+                        ? context
+                        : [...context, ...points],
+                );
+                // Whole shapes, so a large area isn't framed by its centre.
+                for (const fill of fills)
+                    bounds.extend(L.geoJSON(fill.geometry).getBounds());
+                const fit = overviewFit(map);
+                // A fade still under way (its areas landing) is re-aimed.
+                if (
+                    REFOCUS_TIMERS.has(map) ||
+                    REFOCUS_HOLDS.has(map) ||
+                    (moving && !framesAlready(map, bounds, fit))
+                )
+                    refocus(map, bounds, fit);
+                else
+                    withoutLimitPan(map, () =>
+                        map.fitBounds(bounds, { ...fit, animate: false }),
+                    );
             } else {
                 map.setView(UGANDA_CENTER, 6, { animate: false });
             }
@@ -2168,14 +2296,22 @@ function ReportingFootprint({
         );
         fitFootprint();
         const observer = new ResizeObserver(() => {
-            map.invalidateSize({ pan: false });
+            withoutLimitPan(map, () => map.invalidateSize({ pan: false }));
             fitFootprint();
         });
         observer.observe(map.getContainer());
         return () => {
             observer.disconnect();
         };
-    }, [districts, countries, fills, selectedKey, footprint, map]);
+    }, [
+        districts,
+        countries,
+        fills,
+        selectedKey,
+        selectedCountry,
+        footprint,
+        map,
+    ]);
 
     return null;
 }
@@ -2202,16 +2338,15 @@ function ShareCreditHeight() {
 /** A click on empty map clears the area, or outside a chosen country, it. */
 function ClearSelection({
     onSelect,
-    selectedCountry,
-    onCountrySelect,
+    onReturn,
 }: {
     onSelect: (key: string | null) => void;
-    selectedCountry: string | null;
-    onCountrySelect?: (country: string | null) => void;
+    /** Back to every location; omitted when the map already shows them. */
+    onReturn?: () => void;
 }) {
     useMapEvents({
         click: () => {
-            if (selectedCountry && onCountrySelect) onCountrySelect(null);
+            if (onReturn) onReturn();
             else onSelect(null);
         },
     });
@@ -2348,18 +2483,21 @@ export default function ProgressMap({
     onSelect,
     selectedCountry = null,
     onCountrySelect,
+    onReturnToGlobal,
     onPlacementChange,
     stephensi,
-    onStephensiSelect,
     stephensiFocused = false,
     scansAsOf,
-    pulses,
+    playing = false,
     timelineOpen = false,
     stephensiHeat,
     devices,
     startedCountries,
+    countUnit = SCANS,
 }: {
     districts: ProgressDistrict[];
+    /** What `uniqueScans` and `scansAsOf` count; scans unless told otherwise. */
+    countUnit?: MapCountUnit;
     /** On the timeline: countries with an upload so far; the rest stay faint. */
     startedCountries?: ReadonlySet<string>;
     /** Active devices per country, for the country tags. */
@@ -2370,13 +2508,11 @@ export default function ProgressMap({
     stephensiHeat?: StephensiHeatData;
     /** The timeline's scans by District, recolouring areas in place. */
     scansAsOf?: ReadonlyMap<string, number>;
-    /** While the timeline plays: each place that scanned this month ripples. */
-    pulses?: TimelinePulse;
+    /** The timeline is playing: the map frames every country. */
+    playing?: boolean;
     upcoming?: UpcomingArea[];
-    /** Specimens per District key; when given, each gets a rippling dot. */
+    /** Specimens per District key; when given, only these are shaded. */
     stephensi?: ReadonlyMap<string, number>;
-    /** A click on a stephensi dot; plain selection when omitted. */
-    onStephensiSelect?: (key: string) => void;
     /** Whether the selected District's stephensi view is open. */
     stephensiFocused?: boolean;
     selectedKey: string | null;
@@ -2384,15 +2520,14 @@ export default function ProgressMap({
     /** The country clicked on the map; null for the global view. */
     selectedCountry?: string | null;
     onCountrySelect?: (country: string | null) => void;
+    /** A click outside: back to every location, when narrowed. */
+    onReturnToGlobal?: () => void;
     onPlacementChange?: (placement: ProgressMapPlacement) => void;
 }) {
     const countryKey = [...new Set(districts.map(district => district.country))]
         .toSorted()
         .join('|');
     const [loadedAreas, setLoadedAreas] = useState(() => new Map(AREA_CACHE));
-    const [stephensiHoverKey, setStephensiHoverKey] = useState<string | null>(
-        null,
-    );
     // Upcoming outlines fill it; their tags read it in hover handlers.
     const [upcomingLayers] = useState(() => new Map<string, L.GeoJSON>());
     useEffect(() => {
@@ -2478,14 +2613,64 @@ export default function ProgressMap({
             }),
         [districts, fills],
     );
+    const shade = useMemo<StephensiShade | undefined>(() => {
+        const scale = stephensiHeat
+            ? { ...stephensiHeat, even: true }
+            : stephensi
+              ? { counts: stephensi, totals: stephensi, even: false }
+              : undefined;
+        if (!scale) return undefined;
+        const countries = new Set(
+            districts
+                .filter(district => (scale.totals.get(district.key) ?? 0) > 0)
+                .map(district => district.country),
+        );
+        return { ...scale, countries };
+    }, [districts, stephensi, stephensiHeat]);
+    const filledKeys = useMemo(
+        () => new Set(fills.map(fill => fill.district.key)),
+        [fills],
+    );
+    // The stephensi filter shows where it is: only its areas stay on the map,
+    // and the map frames them, not their whole countries. A chosen country
+    // keeps all its areas.
+    // A chosen country's outline and name show from the first month on the
+    // timeline, before its first upload.
+    const startedOrChosen = useMemo(
+        () =>
+            startedCountries && selectedCountry
+                ? new Set([...startedCountries, selectedCountry])
+                : startedCountries,
+        [startedCountries, selectedCountry],
+    );
+    const stephensiOnly = shade !== undefined && shade.countries.size > 0;
+    const { shownDistricts, shownFills } = useMemo(() => {
+        if (!stephensiOnly)
+            return { shownDistricts: mappedDistricts, shownFills: fills };
+        const kept = (district: ProgressDistrict) =>
+            (shade.totals.get(district.key) ?? 0) > 0 ||
+            district.country === selectedCountry;
+        return {
+            shownDistricts: mappedDistricts.filter(kept),
+            shownFills: fills.filter(row => kept(row.district)),
+        };
+    }, [stephensiOnly, shade, mappedDistricts, fills, selectedCountry]);
     const countries = useMemo(() => {
         const names = new Set(
-            mappedDistricts
+            shownDistricts
                 .filter(district => district.position !== null)
                 .map(district => district.country),
         );
         return COUNTRY_GEOMETRIES.filter(country => names.has(country.country));
-    }, [mappedDistricts]);
+    }, [shownDistricts]);
+
+    // Waits for the country's data, so the wash and the flight land together,
+    // and stays (fading) after Return until the world's data replaces it.
+    const focusedCountry =
+        countries.length === 1 &&
+        (selectedCountry === null || countries[0].country === selectedCountry)
+            ? countries[0]
+            : undefined;
 
     if (!mappedDistricts.some(district => district.position))
         return (
@@ -2503,95 +2688,93 @@ export default function ProgressMap({
         );
 
     return (
-        <MapContainer
-            center={UGANDA_CENTER}
-            zoom={6}
-            scrollWheelZoom={false}
-            touchZoom
-            bounceAtZoomLimits={false}
-            maxBoundsViscosity={1}
-            minZoom={1}
-            maxZoom={PROGRESS_MAP_MAX_ZOOM}
-            worldCopyJump={false}
-            className={styles.canvas}
-            zoomSnap={0}
-            zoomDelta={0.5}
-            wheelPxPerZoomLevel={TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL}
-        >
-            <TileLayer
-                attribution='<span class="progress-map-credit"><span class="progress-map-credit-source">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></span>'
-                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maxZoom={19}
-                updateWhenIdle
-                updateWhenZooming={false}
-                noWrap
-                opacity={0.58}
-                errorTileUrl={L.Util.emptyImageUrl}
-            />
-            <GeographicContext
-                countries={countries}
-                startedCountries={startedCountries}
-            />
-            <ReportingNavigation
-                districts={mappedDistricts}
-                countries={countries}
-            />
-            <ReportingFootprint
-                playing={pulses !== undefined}
-                timelineOpen={timelineOpen}
-                districts={mappedDistricts}
-                countries={countries}
-                fills={fills}
-                selectedKey={selectedKey}
-            />
-            <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
-            <ShareCreditHeight />
-            <ClearSelection
-                onSelect={onSelect}
-                selectedCountry={selectedCountry}
-                onCountrySelect={onCountrySelect}
-            />
-            <FitTooltipsInMap />
-            <ReportingActivity
-                districts={mappedDistricts}
-                countries={countries}
-                fills={fills}
-                attributions={attributions}
-                selectedKey={selectedKey}
-                onSelect={onSelect}
-                selectedCountry={selectedCountry}
-                onCountrySelect={onCountrySelect}
-                scansAsOf={scansAsOf}
-                devices={devices}
-                startedCountries={startedCountries}
-                pulses={pulses}
-                timelineOpen={timelineOpen}
-                upcoming={upcoming}
-                upcomingLayers={upcomingLayers}
-                stephensi={stephensi}
-                stephensiKey={
-                    stephensi
-                        ? (stephensiHoverKey ??
-                          (stephensiFocused ? selectedKey : null))
-                        : null
-                }
-            />
-            {stephensiHeat && (
-                <StephensiHeat
-                    districts={mappedDistricts}
+        <CountUnitContext value={countUnit}>
+            <MapContainer
+                center={UGANDA_CENTER}
+                zoom={6}
+                scrollWheelZoom={false}
+                touchZoom
+                bounceAtZoomLimits={false}
+                maxBoundsViscosity={1}
+                minZoom={1}
+                maxZoom={PROGRESS_MAP_MAX_ZOOM}
+                worldCopyJump={false}
+                className={styles.canvas}
+                zoomSnap={0}
+                zoomDelta={0.5}
+                wheelPxPerZoomLevel={TRACKPAD_PINCH_PIXELS_PER_ZOOM_LEVEL}
+            >
+                <TileLayer
+                    attribution='<span class="progress-map-credit"><span class="progress-map-credit-source">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</span></span>'
+                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    maxZoom={19}
+                    updateWhenIdle
+                    updateWhenZooming={false}
+                    noWrap
+                    opacity={0.58}
+                    errorTileUrl={L.Util.emptyImageUrl}
+                />
+                <WorldVeil countries={countries} />
+                {focusedCountry && (
+                    <CountryFocus
+                        country={focusedCountry}
+                        shown={focusedCountry.country === selectedCountry}
+                    />
+                )}
+                <GeographicContext
                     countries={countries}
-                    heat={stephensiHeat}
+                    startedCountries={startedOrChosen}
                 />
-            )}
-            {stephensi && (
-                <StephensiSpots
-                    districts={mappedDistricts}
-                    counts={stephensi}
+                <ReportingNavigation
+                    districts={shownDistricts}
+                    countries={countries}
+                />
+                <ReportingFootprint
+                    playing={playing}
+                    timelineOpen={timelineOpen}
+                    districts={shownDistricts}
+                    countries={countries}
+                    fills={shownFills}
                     selectedKey={selectedKey}
-                    onSelect={onStephensiSelect ?? onSelect}
-                    onHover={setStephensiHoverKey}
+                    selectedCountry={selectedCountry}
                 />
-            )}
-        </MapContainer>
+                <UpcomingAreas areas={upcoming} areaLayers={upcomingLayers} />
+                <ShareCreditHeight />
+                <ClearSelection
+                    onSelect={onSelect}
+                    onReturn={onReturnToGlobal}
+                />
+                <FitTooltipsInMap />
+                <ReportingActivity
+                    districts={shownDistricts}
+                    countries={countries}
+                    fills={shownFills}
+                    attributions={attributions}
+                    selectedKey={selectedKey}
+                    onSelect={onSelect}
+                    selectedCountry={selectedCountry}
+                    onCountrySelect={onCountrySelect}
+                    scansAsOf={scansAsOf}
+                    devices={devices}
+                    startedCountries={startedOrChosen}
+                    timelineOpen={timelineOpen}
+                    shade={shade}
+                    upcoming={upcoming}
+                    upcomingLayers={upcomingLayers}
+                    stephensi={stephensi}
+                    stephensiKey={
+                        stephensi && stephensiFocused ? selectedKey : null
+                    }
+                />
+                {stephensiHeat && (
+                    <StephensiHeat
+                        districts={shownDistricts}
+                        countries={countries}
+                        heat={stephensiHeat}
+                        filledKeys={filledKeys}
+                    />
+                )}
+            </MapContainer>
+        </CountUnitContext>
     );
 }

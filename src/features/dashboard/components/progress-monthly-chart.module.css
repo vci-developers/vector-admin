@@ -1,7 +1,9 @@
 .chart {
     width: 100%;
     min-width: 0;
-    overflow: clip;
+    /* Clips sideways only, so a long tooltip can hang below the bars. */
+    overflow-x: clip;
+    overflow-y: visible;
     border-radius: 8px;
 }
 
@@ -31,6 +33,80 @@
 /* Shares a screen with the map, so it gives way on short windows. */
 @media (min-width: 1280px) {
     .canvas {
-        height: clamp(150px, 24dvh, 240px);
+        height: clamp(180px, 31dvh, 300px);
     }
+}
+
+/* The timeline panel's chart: shorter at every width. */
+.canvas[data-compact='true'] {
+    height: clamp(140px, 22dvh, 200px);
+}
+
+/* Placed by transform from the top-left of the chart. */
+.segment {
+    transform-origin: 0 0;
+}
+
+.tooltip {
+    min-width: 150px;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    box-shadow: 0 4px 14px rgb(20 55 43 / 10%);
+    backdrop-filter: blur(4px);
+    font-size: 11px;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+}
+
+.tooltipMonth {
+    color: var(--muted-foreground);
+    font-size: 10px;
+}
+
+.tooltipTotal {
+    color: var(--progress-ink, var(--foreground));
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tooltipRows {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+}
+
+.tooltipRows li {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-top: 1px;
+    color: var(--progress-ink, var(--foreground));
+}
+
+/* With a species focused, its row is tinted in its colour; the rest step back. */
+.tooltipRows li[data-focused='true'] {
+    margin: 1px -5px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--swatch) 16%, transparent);
+    font-weight: 700;
+}
+
+.tooltipRows li[data-focused='false'] {
+    opacity: 0.5;
+}
+
+.tooltipRows li > span[aria-hidden] {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
+.tooltipRows b {
+    margin-left: auto;
+    padding-left: 10px;
+    font-weight: 600;
 }

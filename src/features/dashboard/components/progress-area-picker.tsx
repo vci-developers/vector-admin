@@ -34,11 +34,16 @@ export default function ProgressAreaPicker({
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const label = (area: (typeof areas)[number]) =>
-        showCountry ? `${area.name} · ${area.country}` : area.name;
+        showCountry ? `${area.name}, ${area.country}` : area.name;
     const selected = areas.find(area => area.key === selectedKey);
+    // A search finds an area by its own name or its country's.
     const matches = areas.filter(area =>
-        fold(label(area)).includes(fold(query)),
+        fold(`${area.name} ${area.country}`).includes(fold(query)),
     );
+    // Across countries, areas sit under their country's heading.
+    const groups = showCountry
+        ? Map.groupBy(matches, area => area.country)
+        : new Map([['', matches]]);
 
     function choose(key: string | null) {
         onChange(key);
@@ -109,14 +114,28 @@ export default function ProgressAreaPicker({
                                 </AreaOption>
                             </li>
                         )}
-                        {matches.map(area => (
-                            <li key={area.key}>
-                                <AreaOption
-                                    selected={area.key === selectedKey}
-                                    onClick={() => choose(area.key)}
-                                >
-                                    {label(area)}
-                                </AreaOption>
+                        {[...groups].map(([country, rows]) => (
+                            <li key={country}>
+                                {country && (
+                                    <p className="text-muted-foreground px-2 pt-3 pb-1 text-[10px] font-semibold tracking-wider uppercase">
+                                        {country}
+                                    </p>
+                                )}
+                                <ul aria-label={country || undefined}>
+                                    {rows.map(area => (
+                                        <li key={area.key}>
+                                            <AreaOption
+                                                indented={Boolean(country)}
+                                                selected={
+                                                    area.key === selectedKey
+                                                }
+                                                onClick={() => choose(area.key)}
+                                            >
+                                                {area.name}
+                                            </AreaOption>
+                                        </li>
+                                    ))}
+                                </ul>
                             </li>
                         ))}
                         {matches.length === 0 && (
@@ -133,10 +152,13 @@ export default function ProgressAreaPicker({
 
 function AreaOption({
     selected,
+    indented = false,
     onClick,
     children,
 }: {
     selected: boolean;
+    /** Sits under its country's heading. */
+    indented?: boolean;
     onClick: () => void;
     children: React.ReactNode;
 }) {
@@ -147,6 +169,7 @@ function AreaOption({
             onClick={onClick}
             className={cn(
                 'hover:bg-muted focus-visible:bg-muted w-full truncate rounded-md px-2 py-1.5 text-left text-sm outline-none',
+                indented && 'pl-5',
                 selected && 'text-primary font-semibold',
             )}
         >

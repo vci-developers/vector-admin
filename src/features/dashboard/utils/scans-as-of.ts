@@ -24,21 +24,6 @@ export function scansAsOf(
     );
 }
 
-/** The Districts with scans in `month` alone, by key. */
-export function scansInMonth(
-    districts: readonly ProgressDistrict[],
-    month: string,
-): ReadonlyMap<string, number> {
-    return new Map(
-        districts.flatMap(district => {
-            const scans =
-                district.monthly.find(row => row.month === month)
-                    ?.uniqueScans ?? 0;
-            return scans > 0 ? [[district.key, scans] as const] : [];
-        }),
-    );
-}
-
 /** Specimens per species up to `month`; undefined for the whole period. */
 export function speciesAsOf(
     districts: readonly ProgressDistrict[],

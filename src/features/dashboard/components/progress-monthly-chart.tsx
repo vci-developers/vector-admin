@@ -2,7 +2,11 @@
 
 import { monthStartDate } from '@/features/dashboard/utils/month-key';
 import { monthlyChartLabelFits } from '@/features/dashboard/utils/monthly-chart-label-fits';
+import type { ColoredSeries } from '@/features/dashboard/utils/build-species-months';
+import { focusedAxisMax } from '@/features/dashboard/utils/focused-axis-max';
 import { useFormatter } from 'next-intl';
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import TaxonName from './taxon-name';
 import {
     Bar,
     BarChart,
@@ -15,7 +19,14 @@ import {
 } from 'recharts';
 import styles from './progress-monthly-chart.module.css';
 
-function MonthlyScanLabels() {
+function MonthlyScanLabels({
+    upTo,
+    hidden,
+}: {
+    upTo: string | null;
+    /** Zoomed in, the totals sit off the top of the chart. */
+    hidden: boolean;
+}) {
     const formatter = useFormatter();
 
     return (
@@ -24,7 +35,16 @@ function MonthlyScanLabels() {
             // still passes the previous bars for one render.
             valueAccessor={entry => {
                 // An empty month has no bar, so no label either.
-                if (typeof entry.value !== 'number' || entry.value === 0)
+                if (
+                    hidden ||
+                    typeof entry.value !== 'number' ||
+                    entry.value === 0
+                )
+                    return undefined;
+                // The timeline hasn't reached this month yet.
+                const month = (entry.payload as { month?: string } | undefined)
+                    ?.month;
+                if (upTo !== null && month !== undefined && month > upTo)
                     return undefined;
                 const value = formatter.number(entry.value);
                 return 'width' in entry &&
@@ -41,7 +61,209 @@ function MonthlyScanLabels() {
     );
 }
 
-type MonthRow = { month: string; count: number; stephensi?: number };
+type MonthRow = {
+    month: string;
+    count: number;
+    stephensi?: number;
+    /** Specimens per species series key, for the stacked bars. */
+    specimens?: Record<string, number>;
+    /** The month's scans, when `count` is its specimens instead. */
+    scans?: number;
+};
+
+type SegmentState = { transform: string; opacity: number };
+
+/**
+ * Where each segment was last drawn, by month and species, and the glide it
+ * is in, so a rebuilt segment carries on from the same point.
+ */
+type DrawnSegments = Map<
+    string,
+    SegmentState & {
+        /** `start` stays null until the glide's first frame is painted. */
+        glide?: { from: SegmentState; start: number | null };
+    }
+>;
+
+const GROW_MS = 450;
+/**
+ * A month change re-renders the whole page, and Firefox times an animation
+ * from the frame before that render: hold the start state through it.
+ */
+const GROW_HOLD_MS = 120;
+
+/**
+ * A unit-high rect, placed and sized by transform. Recharts rebuilds bar
+ * shapes on every update, so each segment glides from where it was last drawn,
+ * or up from the baseline the first time.
+ */
+function Segment({
+    id,
+    drawn,
+    x,
+    width,
+    fill,
+    transform,
+    from,
+    opacity,
+}: {
+    id: string;
+    drawn: DrawnSegments;
+    x: number;
+    width: number;
+    fill: string;
+    transform: string;
+    /** The flat start for a segment never drawn before. */
+    from: string;
+    opacity: number;
+}) {
+    const ref = useRef<SVGRectElement>(null);
+    useLayoutEffect(() => {
+        const last = drawn.get(id);
+        const target = { transform, opacity };
+        let glide = last?.glide;
+        if (!last || last.transform !== transform || last.opacity !== opacity) {
+            // Recharts draws one pass with the old axis before the new one. A
+            // glide not yet painted, or still holding, shows its start, so the
+            // next one starts there too, not at that unseen pass.
+            const holding =
+                last?.glide &&
+                (last.glide.start === null ||
+                    performance.now() - last.glide.start < GROW_HOLD_MS);
+            glide = {
+                from: holding
+                    ? last.glide!.from
+                    : (last ?? { transform: from, opacity }),
+                start: null,
+            };
+        }
+        drawn.set(id, { ...target, glide });
+        if (!glide) return;
+        const elapsed =
+            glide.start === null ? 0 : performance.now() - glide.start;
+        if (elapsed >= GROW_HOLD_MS + GROW_MS) return;
+        // Species stepping back fade early, before they stretch off the top;
+        // ones coming back fade in late, once they're near their place.
+        const fading = target.opacity < glide.from.opacity;
+        const brightening = target.opacity > glide.from.opacity;
+        const keyframes: Keyframe[] = fading
+            ? [glide.from, { opacity: target.opacity, offset: 0.12 }, target]
+            : brightening
+              ? [
+                    glide.from,
+                    { opacity: glide.from.opacity, offset: 0.9 },
+                    target,
+                ]
+              : [glide.from, target];
+        const animation = ref.current?.animate(keyframes, {
+            duration: GROW_MS,
+            delay: GROW_HOLD_MS - elapsed,
+            fill: 'backwards',
+            easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+        });
+        const current = glide;
+        if (animation && current.start === null)
+            void animation.ready.then(() => {
+                if (current.start === null && animation.startTime !== null)
+                    current.start = Number(animation.startTime);
+            });
+    }, [id, drawn, transform, from, opacity]);
+    return (
+        <rect
+            ref={ref}
+            x={x}
+            y={0}
+            width={width}
+            height={1}
+            fill={fill}
+            className={styles.segment}
+            style={{ transform, opacity }}
+        />
+    );
+}
+
+/**
+ * One scan bar split by each species' share of the month's specimens, the
+ * focused species at the base and the rest faded.
+ */
+function SpeciesBar(
+    props: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        index?: number;
+        payload?: MonthRow;
+    },
+    series: readonly ColoredSeries[],
+    focused: string | null,
+    upTo: string | null,
+    radius: [number, number, number, number],
+    clipPrefix: string,
+    drawn: DrawnSegments,
+) {
+    const { x = 0, y = 0, width = 0, height = 0, index = 0, payload } = props;
+    if (height <= 0) return <g />;
+    // Months the timeline hasn't reached sit flat, ready to grow.
+    const shown = upTo === null || (payload?.month ?? '') <= upTo;
+    const counts = payload?.specimens ?? {};
+    const total = series.reduce((sum, row) => sum + (counts[row.key] ?? 0), 0);
+    const ordered = focused
+        ? [
+              ...series.filter(row => row.key === focused),
+              ...series.filter(row => row.key !== focused),
+          ]
+        : series;
+    // Scans with no specimens yet still get a bar, in Other's colour.
+    const segments =
+        total === 0
+            ? [
+                  {
+                      key: 'none',
+                      color: 'var(--progress-species-other)',
+                      share: 1,
+                  },
+              ]
+            : ordered.map(row => ({
+                  key: row.key,
+                  color: row.color,
+                  share: (counts[row.key] ?? 0) / total,
+              }));
+    const clipId = `${clipPrefix}-${index}`;
+    let below = 0;
+    return (
+        <g clipPath={`url(#${clipId})`}>
+            <defs>
+                <clipPath id={clipId}>
+                    <Rectangle
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        radius={radius}
+                    />
+                </clipPath>
+            </defs>
+            {segments.map(segment => {
+                const part = shown ? height * segment.share : 0;
+                below += part;
+                return (
+                    <Segment
+                        key={segment.key}
+                        id={`${payload?.month}|${segment.key}`}
+                        drawn={drawn}
+                        x={x}
+                        width={width}
+                        fill={segment.color}
+                        transform={`translateY(${y + height - below}px) scaleY(${part})`}
+                        from={`translateY(${y + height}px) scaleY(0)`}
+                        opacity={focused && segment.key !== focused ? 0.1 : 1}
+                    />
+                );
+            })}
+        </g>
+    );
+}
 
 // Stephensi counts specimens and scans count images (1–2 per specimen), so
 // the slice is close to scale, not exact.
@@ -142,13 +364,56 @@ export default function ProgressMonthlyChart({
     months,
     seriesName = 'Scans',
     color = 'var(--primary)',
+    species,
+    focusedSpecies = null,
+    upTo = null,
+    compact = false,
+    unitLabel,
+    selectedMonth = null,
+    onMonthSelect,
 }: {
+    /** The month the map shows alone; the other bars step back. */
+    selectedMonth?: string | null;
+    /** A bar's click: its month, or null when it was already the one shown. */
+    onMonthSelect?: (month: string | null) => void;
+    /** The tooltip total's unit; the series name, lowercased, by default. */
+    unitLabel?: ReactNode;
     /** `stephensi` marks months with An. stephensi specimens above the bar. */
     months: MonthRow[];
     seriesName?: string;
     color?: string;
+    /** When given, each bar splits by these species' `specimens`. */
+    species?: readonly ColoredSeries[];
+    /** A species key to bring to the base of each bar, the rest faded. */
+    focusedSpecies?: string | null;
+    /** The timeline's month: later bars wait flat and grow as it passes. */
+    upTo?: string | null;
+    /** Shorter, for the timeline panel, so the species list fits below. */
+    compact?: boolean;
 }) {
     const formatter = useFormatter();
+    const clipPrefix = `species-bar-${useId().replace(/:/g, '')}`;
+    const drawn = useRef<DrawnSegments>(new Map()).current;
+    const colored = species && species.length > 0 ? species : null;
+    const focused = colored?.some(row => row.key === focusedSpecies)
+        ? focusedSpecies
+        : null;
+    // Zoomed to the focused species; the rest of each bar runs off the top.
+    const zoomMax = focused ? focusedAxisMax(months, focused) : null;
+    // Zoomed, bars count specimens, so the focused segment is its true count.
+    const rows: MonthRow[] =
+        zoomMax === null
+            ? months
+            : months.map(month => ({
+                  ...month,
+                  scans: month.count,
+                  count: Object.values(month.specimens ?? {}).reduce(
+                      (sum, value) => sum + value,
+                      0,
+                  ),
+              }));
+    const radius: [number, number, number, number] =
+        months.length > 12 ? [2, 2, 0, 0] : [7, 7, 0, 0];
     const monthLabel = (month: string, full = false) =>
         formatter.dateTime(monthStartDate(month), {
             month: full ? 'long' : 'short',
@@ -162,19 +427,36 @@ export default function ProgressMonthlyChart({
             aria-label={`Monthly ${seriesName.toLowerCase()} for the entire selected period.`}
             tabIndex={0}
         >
-            <div className={styles.canvas}>
+            <div className={styles.canvas} data-compact={compact}>
                 <BarChart
                     responsive
-                    style={{ width: '100%', height: '100%' }}
-                    data={months}
+                    data={rows}
                     margin={{
-                        top: 30,
+                        top: compact ? 20 : 30,
                         right: 8,
                         bottom: 0,
                         left: -12,
                     }}
                     barCategoryGap={months.length > 12 ? '15%' : '30%'}
                     accessibilityLayer
+                    // The whole month's column takes the click, as its hover
+                    // shading shows, so a short bar is as easy to pick.
+                    onClick={
+                        onMonthSelect &&
+                        (state => {
+                            const month =
+                                rows[Number(state.activeIndex)]?.month;
+                            if (month)
+                                onMonthSelect(
+                                    month === selectedMonth ? null : month,
+                                );
+                        })
+                    }
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        cursor: onMonthSelect ? 'pointer' : undefined,
+                    }}
                 >
                     <CartesianGrid
                         vertical={false}
@@ -197,6 +479,8 @@ export default function ProgressMonthlyChart({
                     />
                     <YAxis
                         allowDecimals={false}
+                        domain={zoomMax === null ? undefined : [0, zoomMax]}
+                        allowDataOverflow={zoomMax !== null}
                         axisLine={false}
                         tickLine={false}
                         tick={{
@@ -213,54 +497,101 @@ export default function ProgressMonthlyChart({
                         tickCount={5}
                     />
                     <Tooltip
-                        position={{ x: 8, y: 8 }}
+                        // Follows the pointer, close by, and moves without a lag.
+                        offset={14}
+                        animationDuration={120}
+                        allowEscapeViewBox={{ x: false, y: true }}
+                        wrapperStyle={{ zIndex: 10, pointerEvents: 'none' }}
                         cursor={{ fill: 'var(--muted)', radius: 8 }}
-                        // Custom so stephensi gets a row like the series': "Name : value".
                         content={({ active, payload, label }) => {
                             const row = payload?.[0]?.payload as
                                 (typeof months)[number] | undefined;
                             if (!active || !row) return null;
-                            const rows: [string, number, string][] = [
-                                [seriesName, row.count, color],
-                                ...(row.stephensi
-                                    ? [
-                                          [
-                                              'An. stephensi',
-                                              row.stephensi,
-                                              'var(--progress-stephensi)',
-                                          ] as [string, number, string],
-                                      ]
-                                    : []),
-                            ];
+                            if (upTo !== null && row.month > upTo) return null;
+                            // The focused species stays listed, even at none.
+                            const breakdown: [
+                                string,
+                                number,
+                                string,
+                                boolean,
+                            ][] = colored
+                                ? colored
+                                      .filter(
+                                          item =>
+                                              item.key === focused ||
+                                              (row.specimens?.[item.key] ?? 0) >
+                                                  0,
+                                      )
+                                      .map(item => [
+                                          item.name,
+                                          row.specimens?.[item.key] ?? 0,
+                                          item.color,
+                                          item.key === focused,
+                                      ])
+                                : row.stephensi
+                                  ? [
+                                        [
+                                            'An. stephensi',
+                                            row.stephensi,
+                                            'var(--progress-stephensi)',
+                                            false,
+                                        ],
+                                    ]
+                                  : [];
                             return (
-                                <div
-                                    style={{
-                                        background: 'var(--card)',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: 12,
-                                        padding: '12px 16px',
-                                        fontSize: 13,
-                                        boxShadow:
-                                            '0 8px 24px rgb(20 55 43 / 10%)',
-                                    }}
-                                >
-                                    <p style={{ color: 'var(--foreground)' }}>
+                                <div className={styles.tooltip}>
+                                    <p className={styles.tooltipMonth}>
                                         {monthLabel(String(label), true)}
                                     </p>
-                                    <ul>
-                                        {rows.map(([name, value, rowColor]) => (
-                                            <li
-                                                key={name}
-                                                style={{
-                                                    color: rowColor,
-                                                    padding: '4px 0',
-                                                }}
-                                            >
-                                                {name} :{' '}
-                                                {formatter.number(value)}
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <p className={styles.tooltipTotal}>
+                                        {formatter.number(
+                                            row.scans ?? row.count,
+                                        )}{' '}
+                                        {unitLabel ?? seriesName.toLowerCase()}
+                                    </p>
+                                    {breakdown.length > 0 && (
+                                        <>
+                                            <ul className={styles.tooltipRows}>
+                                                {breakdown.map(
+                                                    ([
+                                                        name,
+                                                        value,
+                                                        swatch,
+                                                        highlighted,
+                                                    ]) => (
+                                                        <li
+                                                            key={name}
+                                                            data-focused={
+                                                                focused === null
+                                                                    ? undefined
+                                                                    : highlighted
+                                                            }
+                                                            style={{
+                                                                ['--swatch' as string]:
+                                                                    swatch,
+                                                            }}
+                                                        >
+                                                            <span
+                                                                aria-hidden="true"
+                                                                style={{
+                                                                    background:
+                                                                        swatch,
+                                                                }}
+                                                            />
+                                                            <TaxonName
+                                                                name={name}
+                                                            />
+                                                            <b>
+                                                                {formatter.number(
+                                                                    value,
+                                                                )}
+                                                            </b>
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        </>
+                                    )}
                                 </div>
                             );
                         }}
@@ -269,20 +600,36 @@ export default function ProgressMonthlyChart({
                         dataKey="count"
                         name={seriesName}
                         fill={color}
-                        shape={(props: Parameters<typeof ScanBar>[0]) =>
-                            ScanBar(
-                                props,
-                                color,
-                                months.length > 12
-                                    ? [2, 2, 0, 0]
-                                    : [7, 7, 0, 0],
-                            )
-                        }
+                        shape={(props: Parameters<typeof SpeciesBar>[0]) => (
+                            <g
+                                opacity={
+                                    selectedMonth !== null &&
+                                    props.payload?.month !== selectedMonth
+                                        ? 0.35
+                                        : 1
+                                }
+                            >
+                                {colored
+                                    ? SpeciesBar(
+                                          props,
+                                          colored,
+                                          focused,
+                                          upTo,
+                                          radius,
+                                          clipPrefix,
+                                          drawn,
+                                      )
+                                    : ScanBar(props, color, radius)}
+                            </g>
+                        )}
                         maxBarSize={72}
                         isAnimationActive={false}
                     >
-                        <MonthlyScanLabels />
-                        <StephensiSliceLabels months={months} />
+                        <MonthlyScanLabels
+                            upTo={upTo}
+                            hidden={zoomMax !== null}
+                        />
+                        {!colored && <StephensiSliceLabels months={months} />}
                     </Bar>
                 </BarChart>
             </div>

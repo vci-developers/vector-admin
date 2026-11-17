@@ -1,6 +1,10 @@
 import type { ProgressStephensi } from '@/api/progress/validation/progress-schema';
 import { describe, expect, it } from 'vitest';
-import { sumStephensiByDistrict, sumStephensiMonths } from './stephensi-totals';
+import {
+    stephensiTimelineFigures,
+    sumStephensiByDistrict,
+    sumStephensiMonths,
+} from './stephensi-totals';
 
 const rows: ProgressStephensi[] = [
     {
@@ -109,5 +113,62 @@ describe('sumStephensiByDistrict up to a month', () => {
 
     it('uses the whole period without a month', () => {
         expect(sumStephensiByDistrict(rows).get('kenya:kilifi')).toBe(5);
+    });
+});
+
+describe('stephensiTimelineFigures', () => {
+    const months = ['2026-01', '2026-02', '2026-03'];
+    const countryOf = new Map([[1, 'Uganda']]);
+
+    it('counts areas and countries found up to the month', () => {
+        expect(
+            stephensiTimelineFigures(rows, months, '2026-02', null, countryOf),
+        ).toEqual({
+            months: [
+                { month: '2026-01', count: 0 },
+                { month: '2026-02', count: 1 },
+                { month: '2026-03', count: 7 },
+            ],
+            added: 1,
+            areas: 1,
+            countries: 1,
+        });
+    });
+
+    it('narrows to one area', () => {
+        const figures = stephensiTimelineFigures(
+            rows,
+            months,
+            '2026-03',
+            'uganda:gulu',
+            countryOf,
+        );
+        expect(figures.added).toBe(4);
+        expect(figures.areas).toBe(1);
+    });
+
+    it('leaves an unrecorded area out of areas but not countries', () => {
+        const unknown: ProgressStephensi = {
+            programId: 2,
+            species: 'An. stephensi',
+            specimens: 1,
+            latestMonth: '2026-01',
+            districts: [
+                {
+                    key: 'kenya:unknown',
+                    name: 'District not recorded',
+                    specimens: 1,
+                    monthly: [{ month: '2026-01', specimens: 1 }],
+                },
+            ],
+        };
+        const figures = stephensiTimelineFigures(
+            [unknown],
+            months,
+            '2026-01',
+            null,
+            new Map([[2, 'Kenya']]),
+        );
+        expect(figures).toMatchObject({ areas: 0, countries: 1 });
     });
 });

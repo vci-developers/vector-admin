@@ -1,11 +1,16 @@
 import type { ProgressSpecies } from '@/api/progress/validation/progress-schema';
 import { syncStephensiGlow } from '@/features/dashboard/utils/stephensi-glow';
 import { isStephensi } from '@/features/dashboard/utils/stephensi-totals';
+import {
+    seriesKeyOf,
+    type ColoredSeries,
+} from '@/features/dashboard/utils/build-species-months';
 import { monthStartDate } from '@/features/dashboard/utils/month-key';
 import { cn } from '@/utils/cn';
-import { Bug, ChevronRight } from 'lucide-react';
+import { Bug, ChevronRight, X } from 'lucide-react';
 import { useFormatter } from 'next-intl';
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
+import TaxonName from './taxon-name';
 import GlidingNumber from './gliding-number';
 import styles from './progress-view.module.css';
 
@@ -16,6 +21,9 @@ export default function ProgressSpeciesBreakdown({
     month = null,
     barTotal = 1,
     onStephensiSelect,
+    series,
+    focusedSpecies = null,
+    onFocusSpecies,
 }: {
     species: readonly ProgressSpecies[];
     /** The selected area, or null for the whole selection. */
@@ -26,6 +34,12 @@ export default function ProgressSpeciesBreakdown({
     barTotal?: number;
     /** When given, An. stephensi rows stand out and open its view. */
     onStephensiSelect?: () => void;
+    /** The chart's species colours: each row shows its bar colour. */
+    series?: readonly ColoredSeries[];
+    /** The series key the chart brings forward; its rows stay bright. */
+    focusedSpecies?: string | null;
+    /** When given, a row brings its species forward in the chart. */
+    onFocusSpecies?: (key: string | null) => void;
 }) {
     const formatter = useFormatter();
     const list = useRef<HTMLOListElement>(null);
@@ -113,6 +127,13 @@ export default function ProgressSpeciesBreakdown({
                             isStephensi(row.name);
                         // The timeline marks it with a pink bar instead.
                         const highlighted = stephensi && month === null;
+                        const seriesKey = series ? seriesKeyOf(row.name) : null;
+                        const swatch = series?.find(
+                            item => item.key === seriesKey,
+                        )?.color;
+                        const focused =
+                            focusedSpecies !== null &&
+                            seriesKey === focusedSpecies;
                         const content = (
                             <>
                                 <p
@@ -121,7 +142,37 @@ export default function ProgressSpeciesBreakdown({
                                         !row.name && 'text-muted-foreground',
                                     )}
                                 >
-                                    {row.name ?? 'Calibration specimens'}
+                                    {swatch &&
+                                        (focused && onFocusSpecies ? (
+                                            // In the swatch's place: clicking the row again clears it.
+                                            <span
+                                                className={styles.speciesClear}
+                                                style={{
+                                                    ['--swatch' as string]:
+                                                        swatch,
+                                                }}
+                                                title="Clear selection"
+                                            >
+                                                <X
+                                                    className="size-3"
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="sr-only">
+                                                    Clear selection:
+                                                </span>
+                                            </span>
+                                        ) : (
+                                            <span
+                                                aria-hidden="true"
+                                                className={styles.speciesSwatch}
+                                                style={{ background: swatch }}
+                                            />
+                                        ))}
+                                    {row.name ? (
+                                        <TaxonName name={row.name} />
+                                    ) : (
+                                        'Calibration specimens'
+                                    )}
                                 </p>
                                 <span className={styles.contributionCount}>
                                     {month ? (
@@ -141,6 +192,7 @@ export default function ProgressSpeciesBreakdown({
                             <li
                                 key={row.name ?? ''}
                                 data-species={row.name ?? ''}
+                                data-faded={focusedSpecies !== null && !focused}
                                 className={styles.speciesRow}
                             >
                                 <span
@@ -172,6 +224,22 @@ export default function ProgressSpeciesBreakdown({
                                             className="size-3.5 shrink-0"
                                             aria-hidden="true"
                                         />
+                                    </button>
+                                ) : onFocusSpecies && seriesKey ? (
+                                    <button
+                                        type="button"
+                                        aria-pressed={focused}
+                                        onClick={() =>
+                                            onFocusSpecies(
+                                                focused ? null : seriesKey,
+                                            )
+                                        }
+                                        className={cn(
+                                            styles.speciesFocus,
+                                            'focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-sm text-left outline-none focus-visible:ring-2 aria-pressed:font-semibold [&>p]:flex-1',
+                                        )}
+                                    >
+                                        {content}
                                     </button>
                                 ) : (
                                     <div className="flex items-center justify-between gap-3">

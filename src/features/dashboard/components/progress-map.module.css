@@ -100,50 +100,20 @@
     pointer-events: none;
 }
 
-.mark .activitySpot,
-.mark .countryCard {
+.mark .activitySpot {
     pointer-events: auto;
 }
 
 .districtArea {
-    /* Colours fade over one timeline month, so they never pause; shapes appear and
-       leave faster, as when a country gives way to its Districts. Fades, so kept
-       under Reduce Motion. */
+    /* Each timeline month's colour lands quickly, so the change reads as a
+       step rather than a slow blend; shapes appear and leave faster, as when
+       a country gives way to its Districts. Fades, so kept under Reduce
+       Motion. */
     transition:
-        fill 900ms linear,
+        fill 300ms ease-out,
         fill-opacity 350ms ease,
         stroke-width 150ms ease,
         stroke-opacity 600ms ease;
-}
-
-.timelinePulse span {
-    position: absolute;
-    top: calc(var(--size) / -2);
-    left: calc(var(--size) / -2);
-    width: var(--size);
-    height: var(--size);
-    border: 2px solid #168577;
-    border-radius: 50%;
-    background: rgb(22 133 119 / 22%);
-    animation: timeline-pulse 900ms ease-out forwards;
-}
-
-@keyframes timeline-pulse {
-    from {
-        opacity: 0.9;
-        transform: scale(0.2);
-    }
-
-    to {
-        opacity: 0;
-        transform: scale(1);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .timelinePulse span {
-        display: none;
-    }
 }
 
 /* A country's outline fades in with its first upload on the timeline. */
@@ -155,6 +125,12 @@
 
 .canvas[data-rewinding='true'] .countryContext {
     transition-duration: 250ms;
+}
+
+/* Off the timeline, as when the stephensi filter swaps colours: quicker. */
+.canvas:not([data-timeline='true']) .districtArea {
+    transition-duration: 300ms, 300ms, 150ms, 300ms;
+    transition-timing-function: ease;
 }
 
 .canvas[data-rewinding='true'] .districtArea {
@@ -184,9 +160,10 @@
     );
     opacity: var(--heat-opacity, 0);
     transform: scale(var(--heat-scale, 0.3));
+    /* Steps with the area colours: each month lands quickly. */
     transition:
-        opacity 900ms linear,
-        transform 900ms linear;
+        opacity 300ms ease-out,
+        transform 300ms ease-out;
 }
 
 .canvas[data-rewinding='true'] .stephensiHeat i {
@@ -297,73 +274,7 @@
         0 0 0 8px rgb(22 133 119 / 12%);
 }
 
-.countryCard {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 48px;
-    left: 36px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 0 12px;
-    border: 1px solid rgb(44 83 64 / 13%);
-    border-radius: 11px;
-    background: rgb(255 255 255 / 95%);
-    box-shadow: 0 3px 14px rgb(26 75 61 / 8%);
-    white-space: nowrap;
-    transition:
-        opacity 120ms ease,
-        border-color 160ms ease,
-        box-shadow 160ms ease;
-}
-
-.cardLeader {
-    position: absolute;
-    inset: 0;
-    overflow: visible;
-    pointer-events: none;
-}
-
-.cardLeader line {
-    stroke: rgb(20 123 108 / 40%);
-    stroke-width: 1;
-}
-
-.countryCard[data-side='left'] {
-    right: 36px;
-    left: 0;
-}
-
-.countryCard strong {
-    color: #244d3e;
-    font-size: 15px;
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-}
-
-.countryCard > span {
-    color: #75867c;
-    font-size: 9px;
-    font-weight: 500;
-}
-
-.countryCard > span > span {
-    margin-left: 3px;
-    color: #147b6c;
-}
-
-.mark:hover .countryCard,
-.mark:focus-visible .countryCard {
-    border-color: rgb(22 133 119 / 65%);
-    box-shadow: 0 4px 18px rgb(26 75 61 / 13%);
-}
-
 /* While the timeline is open the map shows only colours and country names. */
-.canvas[data-timeline='true'] .countryCard,
-.canvas[data-timeline='true'] .cardLeader,
 .canvas[data-timeline='true'] .mark .activitySpot {
     opacity: 0;
     pointer-events: none;
@@ -374,24 +285,17 @@
     visibility: hidden;
 }
 
+/* Sits on its shaded country (there is no tag), so it needs contrast. */
 .countryLabel span {
     position: absolute;
     transform: translate(-50%, -50%);
-    color: #92a99a;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.23em;
+    color: #12362b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-align: center;
     text-transform: uppercase;
     white-space: nowrap;
-}
-
-/* Sits on shaded countries on the timeline, so it needs more contrast. */
-.canvas[data-timeline='true'] .countryLabel span {
-    color: #12362b;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
     text-shadow:
         0 0 2px rgb(255 255 255 / 90%),
         0 0 5px rgb(255 255 255 / 80%);
@@ -478,13 +382,6 @@
     color: #073f2e;
 }
 
-.districtLabel span[data-displaced='true'] {
-    border: 1px solid rgb(58 104 82 / 15%);
-    background: rgb(250 255 252 / 96%);
-    box-shadow: 0 1px 4px rgb(26 75 61 / 6%);
-    text-shadow: none;
-}
-
 .districtLabel span[data-hovered='true'] {
     color: #053c2b;
     border-color: rgb(20 110 94 / 45%);
@@ -564,119 +461,31 @@
     }
 }
 
-.stephensiIcon {
-    display: grid;
-    place-items: center;
-}
-
-/* Only the dot takes clicks; the glow around it leaves the area clickable. */
-.canvas .stephensiIcon:global(.leaflet-interactive) {
-    pointer-events: none;
-}
-
-.stephensiGlow {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: radial-gradient(
-        circle,
-        color-mix(in srgb, var(--progress-stephensi) 80%, transparent) 0%,
-        color-mix(in srgb, var(--progress-stephensi) 40%, transparent) 35%,
-        transparent 70%
-    );
-    animation: stephensi-glow 1.6s ease-in-out infinite alternate;
-    pointer-events: none;
-}
-
-.stephensiDot {
-    position: relative;
-    z-index: 1;
-    pointer-events: auto;
-    transition:
-        transform 120ms ease,
-        box-shadow 120ms ease;
-    box-sizing: border-box;
-    width: 13px;
-    height: 13px;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    background: var(--progress-stephensi);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
-}
-
-/* A target bigger than the 13px dot. */
-.stephensiDot::before {
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    content: '';
-}
-
-.stephensiDot[data-compact='true'] {
-    width: 9px;
-    height: 9px;
-    border-width: 1.5px;
-}
-
-.stephensiIcon:hover .stephensiDot {
-    transform: scale(1.15);
-}
-
-.stephensiIcon:hover .stephensiDot,
-.stephensiDot[data-selected='true'],
-.stephensiIcon:focus-visible .stephensiDot {
-    box-shadow:
-        0 0 0 2px #fff,
-        0 0 0 4px var(--progress-stephensi);
-}
-
-.stephensiIcon:hover .stephensiDot[data-compact='true'],
-.stephensiDot[data-compact='true'][data-selected='true'],
-.stephensiIcon:focus-visible .stephensiDot[data-compact='true'] {
-    box-shadow:
-        0 0 0 1.5px #fff,
-        0 0 0 3px var(--progress-stephensi);
-}
-
-.canvas[data-stephensi-tooltip]
-    :global(.leaflet-tooltip):not(.stephensiTooltip) {
-    visibility: hidden;
-}
-
-@keyframes stephensi-glow {
-    from {
-        opacity: 0.35;
-        transform: scale(0.55);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes stephensi-glow-still {
-    from {
-        opacity: 0.25;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    /* Brightens in place instead of growing: no motion, still noticeable. */
-    .stephensiGlow {
-        animation-name: stephensi-glow-still;
-    }
-
-    .stephensiDot {
-        transition: none;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .core,
     .clusterCore {
         transition: none;
     }
+}
+
+/* The wash around a chosen country fades in with the flight. */
+.countryFocus {
+    animation: country-focus-in 500ms ease-out both;
+}
+
+@keyframes country-focus-in {
+    from {
+        opacity: 0;
+    }
+}
+
+/* Zooming out to the world fades through instead of flying (see
+   ReportingFootprint): out quickly, back in once it has jumped. */
+.canvas :global(.leaflet-map-pane) {
+    transition: opacity 280ms ease;
+}
+
+.canvas[data-refocusing='true'] :global(.leaflet-map-pane) {
+    opacity: 0;
+    transition-duration: 160ms;
 }

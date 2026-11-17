@@ -3,6 +3,26 @@
     --progress-soft: #edf5f1;
     --progress-line: #dce7e1;
     --progress-stephensi: #b5176f;
+    /* Species: Paul Tol's discrete rainbow, as published, in both themes. */
+    --progress-rainbow-1: #1965b0;
+    --progress-rainbow-2: #4eb265;
+    --progress-rainbow-3: #f4a736;
+    --progress-rainbow-4: #dc050c;
+    --progress-rainbow-5: #5289c7;
+    --progress-rainbow-6: #cae0ab;
+    --progress-rainbow-7: #e8601c;
+    --progress-rainbow-8: #994f88;
+    --progress-rainbow-9: #7bafde;
+    --progress-rainbow-10: #f7f056;
+    --progress-rainbow-11: #882e72;
+    --progress-rainbow-12: #f1932d;
+    --progress-rainbow-13: #a5170e;
+    --progress-rainbow-14: #90c987;
+    --progress-rainbow-15: #f6c141;
+    --progress-rainbow-16: #ae76a3;
+    --progress-rainbow-17: #6195cf;
+    --progress-species-other: #8d9a94;
+    --progress-species-calibration: #67736e;
     --progress-shadow:
         0 3px 6px rgb(20 55 43 / 2%), 0 14px 36px rgb(20 55 43 / 4%);
     padding-top: 32px;
@@ -13,6 +33,8 @@
     --progress-soft: #172e2a;
     --progress-line: #2e443e;
     --progress-stephensi: #f06aae;
+    --progress-species-other: #8a9792;
+    --progress-species-calibration: #b3bdb8;
     --progress-shadow: 0 12px 36px rgb(0 0 0 / 12%);
 }
 
@@ -568,6 +590,7 @@
     position: relative;
     isolation: isolate;
     padding: 5px 8px;
+    transition: opacity 200ms ease;
 }
 
 /* Only while the timeline is on a month; `--share` is of the period's top species. */
@@ -699,6 +722,13 @@
         flex: 1 1 0;
         margin-top: 12px;
         padding-top: 12px;
+    }
+
+    /* A section with another below it (a played species' breakdown, then
+       where it was found) keeps to its rows; the last one takes the rest. */
+    .areaContributions:has(+ .areaContributions),
+    .areaContributions:has(+ .areaContributions) .contributionList {
+        flex: 0 0 auto;
     }
 
     .contributionList {
@@ -1013,63 +1043,8 @@
     font-variant-numeric: tabular-nums;
 }
 
-.playbackStephensi {
-    margin-top: 2px;
+.playbackTotal[data-stephensi] {
     color: var(--progress-stephensi);
-    font-size: 13px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-}
-
-.playbackStephensi strong {
-    font-size: 22px;
-    font-weight: 700;
-}
-
-.playbackChart {
-    position: relative;
-    height: clamp(80px, 14dvh, 130px);
-    margin-top: 12px;
-    border-bottom: 1px solid var(--progress-line);
-}
-
-.playbackChart svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-}
-
-.playbackArea {
-    fill: color-mix(in srgb, var(--primary) 14%, transparent);
-}
-
-.playbackLine {
-    fill: none;
-    stroke: var(--primary);
-    stroke-width: 2px;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.playbackTip {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    margin: -5px 0 0 -5px;
-    border: 2px solid var(--card);
-    border-radius: 50%;
-    background: var(--primary);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent);
-}
-
-.playbackEnds {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 4px;
-    color: var(--muted-foreground);
-    font-size: 11px;
-    font-weight: 500;
 }
 
 .playbackStats {
@@ -1119,29 +1094,174 @@
 }
 
 /* Beside the zoom control, like a map's "back to national view". */
-.returnToGlobal {
+/* A month picked in the chart: named above the map, with a way back. */
+.monthChip {
     position: absolute;
     z-index: 1000;
-    top: 12px;
-    left: 56px;
+    top: 18px;
+    left: 50%;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 12px;
+    gap: 4px;
+    padding: 6px 6px 6px 12px;
     border: 1px solid var(--progress-line);
     border-radius: 99px;
     color: var(--progress-ink);
-    background: var(--progress-soft);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+    background: var(--card);
+    box-shadow: 0 3px 14px rgb(26 75 61 / 8%);
     font-size: 12px;
-    font-weight: 600;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.monthChip button {
+    display: flex;
+    margin-left: 4px;
+    padding: 3px;
+    border-radius: 99px;
     outline: none;
 }
 
-.returnToGlobal:hover {
-    border-color: var(--color-primary, currentColor);
+.monthChip button:hover {
+    background: var(--progress-soft);
 }
 
-.returnToGlobal:focus-visible {
+.monthChip button:focus-visible {
     box-shadow: 0 0 0 2px var(--color-ring, currentColor);
+}
+
+/* Back and global view: icons under the zoom control, styled to match it. */
+.mapNav {
+    position: absolute;
+    z-index: 1000;
+    /* The zoom control's margin, its two 37px buttons and borders, a gap. */
+    top: calc(18px + 76px + 8px);
+    left: 18px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgb(26 75 61 / 12%);
+    border-radius: 12px;
+    box-shadow: 0 3px 14px rgb(26 75 61 / 8%);
+}
+
+.mapNavButton {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 37px;
+    color: #31594b;
+    background: rgb(255 255 255 / 96%);
+    outline: none;
+}
+
+.mapNavButton:first-child {
+    border-radius: 11px 11px 0 0;
+}
+
+.mapNavButton:last-child {
+    border-radius: 0 0 11px 11px;
+}
+
+.mapNavButton:only-child {
+    border-radius: 11px;
+}
+
+.mapNavButton + .mapNavButton {
+    border-top: 1px solid #e2eae5;
+}
+
+.mapNavButton:hover {
+    background: #f2f7f4;
+    color: #146e5e;
+}
+
+.mapNavButton:focus-visible {
+    outline: 2px solid #168577;
+    outline-offset: -3px;
+}
+
+/* The button's name, beside it on hover or keyboard focus. */
+.mapNavButton::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    padding: 5px 9px;
+    border-radius: 8px;
+    color: #fff;
+    background: rgb(23 48 40 / 92%);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.mapNavButton:hover::after,
+.mapNavButton:focus-visible::after {
+    opacity: 1;
+}
+
+@media (max-width: 640px) {
+    .mapNav {
+        top: calc(14px + 76px + 8px);
+        left: 14px;
+    }
+}
+
+/* The chart's colour for each species row; rows outside its focus step back. */
+.speciesSwatch {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 8px;
+    border-radius: 2px;
+    vertical-align: 0;
+}
+
+.speciesRow[data-faded='true'] {
+    opacity: 0.45;
+}
+
+/* Hover marks the row's swatch and lifts a faded row, leaving the share bar be. */
+.speciesFocus .speciesSwatch {
+    transition: box-shadow 150ms ease;
+}
+
+.speciesFocus:hover .speciesSwatch {
+    box-shadow:
+        0 0 0 2px var(--card),
+        0 0 0 4px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+
+/* Replaces the swatch on the focused row, in the same space. */
+.speciesClear {
+    display: inline-grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    margin: -4px 4px -4px -4px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--swatch) 22%, var(--card));
+    box-shadow: inset 0 0 0 1.5px var(--swatch);
+    color: var(--progress-ink);
+    vertical-align: -1px;
+    transition: background 150ms ease;
+}
+
+.speciesFocus:hover .speciesClear {
+    background: color-mix(in srgb, var(--swatch) 38%, var(--card));
+}
+
+/* The share bar behind a hovered row steps back, so the ring and name read. */
+.speciesRow:has(.speciesFocus:hover) .speciesBar[data-shown='true'] {
+    opacity: 0.3;
+}
+
+.speciesRow[data-faded='true']:has(.speciesFocus:hover) {
+    opacity: 0.8;
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { progressScanFillColor } from './progress-map-colors';
+import {
+    progressScanFillColor,
+    progressStephensiFillColor,
+} from './progress-map-colors';
 
 describe('progressScanFillColor', () => {
     it('keeps a small count paler on the even scale', () => {
@@ -15,5 +18,18 @@ describe('progressScanFillColor', () => {
         expect(progressScanFillColor(400, 400, true)).toBe(
             progressScanFillColor(400, 400),
         );
+    });
+});
+
+describe('progressStephensiFillColor', () => {
+    it('reaches the stephensi colour three quarters of the way up', () => {
+        expect(progressStephensiFillColor(9, 16)).toBe('rgb(181 23 111)');
+    });
+
+    it('darkens with more specimens', () => {
+        expect(progressStephensiFillColor(1, 10)).not.toBe(
+            progressStephensiFillColor(10, 10),
+        );
+        expect(progressStephensiFillColor(10, 10)).toBe('rgb(112 10 68)');
     });
 });
