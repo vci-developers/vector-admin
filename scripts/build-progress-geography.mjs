@@ -247,31 +247,104 @@ function simplifyGeometry(geometry) {
 
 /**
  * The Ilemi Triangle is disputed (Kenya, South Sudan, Ethiopia). Natural Earth
- * draws it inside Kenya, but the Turkana boundary stops at its southern line,
- * leaving an empty sliver on the map. Kenya's outline here follows Turkana:
- * vertices north of that line, between its ends, are dropped. Display only.
+ * draws a small part of it inside Kenya; Kenya's own Turkana boundary takes
+ * all of it, up to about 5.4°N. Between the two places where they meet, Kenya's
+ * outline here follows Turkana's northern edge so the country and its areas
+ * agree. Display only.
  */
-const ILEMI = { west: 34.39, east: 35.6, south: 4.621 };
-function withoutIlemiTriangle({ country, geometry }) {
+const TURKANA_JOINS = [
+    [34.366, 4.577],
+    [36.051, 4.456],
+];
+const JOIN_TOLERANCE = 0.06;
+
+function nearestIndex(ring, target) {
+    let best = -1;
+    let bestDistance = Infinity;
+    ring.forEach(([x, y], index) => {
+        const distance = Math.hypot(x - target[0], y - target[1]);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = index;
+        }
+    });
+    return { index: best, distance: bestDistance };
+}
+
+/** The open ring's arc from `from` to `to`, going forwards or backwards. */
+function arc(ring, from, to, forwards) {
+    const points = [];
+    const step = forwards ? 1 : ring.length - 1;
+    for (let index = from; ; index = (index + step) % ring.length) {
+        points.push(ring[index]);
+        if (index === to) return points;
+    }
+}
+
+const northernmost = points => Math.max(...points.map(([, y]) => y));
+
+/** Which way round from `from` to `to` runs through the north. */
+function northIsForwards(ring, from, to) {
+    return (
+        northernmost(arc(ring, from, to, true)) >
+        northernmost(arc(ring, from, to, false))
+    );
+}
+
+const turkanaRing = (() => {
+    const kenya = reportingAreas.reportingAreas.find(
+        areas => areas.country === 'Kenya',
+    );
+    const turkana = kenya?.features.find(
+        feature => feature.properties.name === 'Turkana',
+    );
+    assert(turkana, 'Kenya reporting areas must include Turkana');
+    const { type, coordinates } = turkana.geometry;
+    assert(type === 'MultiPolygon' && coordinates.length === 1);
+    return coordinates[0][0].slice(0, -1);
+})();
+
+function withTurkanaNorth({ country, geometry }) {
     if (country !== 'Kenya') return geometry;
-    const inTriangle = ([x, y]) =>
-        x > ILEMI.west && x < ILEMI.east && y > ILEMI.south;
-    let dropped = 0;
-    const polygons = (
-        geometry.type === 'Polygon'
-            ? [geometry.coordinates]
-            : geometry.coordinates
-    ).map(polygon =>
-        polygon.map(ring => {
-            const kept = ring.filter(point => !inTriangle(point));
-            dropped += ring.length - kept.length;
-            return kept;
+    assert.equal(geometry.type, 'MultiPolygon');
+    let spliced = 0;
+    const coordinates = geometry.coordinates.map(polygon =>
+        polygon.map((closedRing, ringIndex) => {
+            if (ringIndex !== 0) return closedRing;
+            const ring = closedRing.slice(0, -1);
+            const [west, east] = TURKANA_JOINS.map(join =>
+                nearestIndex(ring, join),
+            );
+            if (
+                west.distance > JOIN_TOLERANCE ||
+                east.distance > JOIN_TOLERANCE
+            ) {
+                return closedRing;
+            }
+            const forwards = northIsForwards(ring, west.index, east.index);
+            // The rest of Kenya, east round to west, the other way.
+            const kept = arc(ring, east.index, west.index, forwards);
+            const turkanaWest = nearestIndex(turkanaRing, TURKANA_JOINS[0]);
+            const turkanaEast = nearestIndex(turkanaRing, TURKANA_JOINS[1]);
+            assert(turkanaWest.distance < JOIN_TOLERANCE);
+            assert(turkanaEast.distance < JOIN_TOLERANCE);
+            const north = arc(
+                turkanaRing,
+                turkanaWest.index,
+                turkanaEast.index,
+                northIsForwards(
+                    turkanaRing,
+                    turkanaWest.index,
+                    turkanaEast.index,
+                ),
+            );
+            const result = [...kept, ...north];
+            spliced += 1;
+            return [...result, result[0]];
         }),
     );
-    assert(dropped > 0, 'Kenya outline no longer has the Ilemi Triangle');
-    return geometry.type === 'Polygon'
-        ? { type: 'Polygon', coordinates: polygons[0] }
-        : { type: 'MultiPolygon', coordinates: polygons };
+    assert.equal(spliced, 1, "Kenya's outline must meet Turkana's edge once");
+    return { type: 'MultiPolygon', coordinates };
 }
 
 const output = {
@@ -285,7 +358,7 @@ const output = {
     },
     outlines: countries.outlines.map(country => ({
         country: country.country,
-        geometry: simplifyGeometry(withoutIlemiTriangle(country)),
+        geometry: simplifyGeometry(withTurkanaNorth(country)),
     })),
     districts: {
         type: 'FeatureCollection',
