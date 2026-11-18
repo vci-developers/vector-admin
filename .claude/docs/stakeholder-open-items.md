@@ -29,6 +29,13 @@ _As of 2026-10-09. Definitions live in `.claude/CONTEXT.md`; data sources in
 - Oyam is under Lango in the GF list but Acholi in the rollout list (the app
   doesn't use `region`).
 
+### Stakeholder feedback, 2026-11-16 (Prism-style map)
+
+- Design for advocacy: the page is a marketing tool.
+- Selected area's figures (devices, scans, sentinel sites, households) only
+  show in the tiles above the map; the map view has no place for them now that
+  tooltips don't stick. Decide where they go.
+
 ## Decisions needed (metric definitions)
 
 ### Expected Users for Programs other than Uganda

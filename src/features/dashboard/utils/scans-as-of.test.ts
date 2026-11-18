@@ -5,7 +5,6 @@ import {
     countriesStartedBy,
     districtsAsOf,
     scansAsOf,
-    scansInMonth,
     speciesAsOf,
     timelineFigures,
 } from './scans-as-of';
@@ -50,13 +49,6 @@ describe('scansAsOf', () => {
 
     it('has nothing to say for the whole period', () => {
         expect(scansAsOf([district], null)).toBeUndefined();
-    });
-});
-
-describe('scansInMonth', () => {
-    it('lists only the Districts that scanned that month', () => {
-        expect(scansInMonth([district], '2026-03').get(district.key)).toBe(7);
-        expect(scansInMonth([district], '2026-02').size).toBe(0);
     });
 });
 

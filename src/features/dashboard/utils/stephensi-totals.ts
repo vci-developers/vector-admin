@@ -50,3 +50,45 @@ export function sumStephensiByDistrict(
         }
     return totals;
 }
+
+/** The timeline panel's stephensi figures, up to and including `month`. */
+export type StephensiTimelineFigures = {
+    /** Specimens in each month of the period. */
+    months: { month: string; count: number }[];
+    /** Specimens in `month` alone. */
+    added: number;
+    /** Named areas with a specimen so far. */
+    areas: number;
+    /** Countries with a specimen so far, by each row's Program. */
+    countries: number;
+};
+
+export function stephensiTimelineFigures(
+    rows: readonly ProgressStephensi[],
+    periodMonths: readonly string[],
+    month: string,
+    districtKey: string | null,
+    countryOf: ReadonlyMap<number, string>,
+): StephensiTimelineFigures {
+    const months = sumStephensiMonths(periodMonths, rows, districtKey);
+    const areas = new Set<string>();
+    const countries = new Set<string>();
+    for (const row of rows)
+        for (const district of row.districts) {
+            if (districtKey !== null && district.key !== districtKey) continue;
+            const found = district.monthly.some(
+                entry => entry.month <= month && entry.specimens > 0,
+            );
+            if (!found) continue;
+            // "District not recorded" is no area of its own.
+            if (!district.key.endsWith(':unknown')) areas.add(district.key);
+            const country = countryOf.get(row.programId);
+            if (country) countries.add(country);
+        }
+    return {
+        months,
+        added: months.find(row => row.month === month)?.count ?? 0,
+        areas: areas.size,
+        countries: countries.size,
+    };
+}

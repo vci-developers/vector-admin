@@ -287,7 +287,7 @@ describe('matchProgressDistrictBoundaries', () => {
         expect({ rows, boundaries }).toEqual(before);
     });
 
-    it('matches all eleven audited Uganda district names against the actual committed display polygons', () => {
+    it('matches all twelve audited Uganda district names against the actual committed display polygons', () => {
         const boundaries: Boundary[] = localGeography.districts.features.map(
             feature => ({
                 name: feature.properties.name,
@@ -301,6 +301,7 @@ describe('matchProgressDistrictBoundaries', () => {
             'Karenga',
             'Kitgum',
             'Koboko',
+            'Lira City',
             'Madi-Okollo',
             'Mayuge',
             'Namutumba',
@@ -314,7 +315,7 @@ describe('matchProgressDistrictBoundaries', () => {
             new Map([['Uganda', boundaries]]),
         );
 
-        expect(boundaries).toHaveLength(146);
+        expect(boundaries).toHaveLength(147);
         expect(result.unmatched).toEqual([]);
         expect(result.fills.map(fill => fill.district.name)).toEqual(names);
         const karenga = result.fills.find(

@@ -245,6 +245,35 @@ function simplifyGeometry(geometry) {
     };
 }
 
+/**
+ * The Ilemi Triangle is disputed (Kenya, South Sudan, Ethiopia). Natural Earth
+ * draws it inside Kenya, but the Turkana boundary stops at its southern line,
+ * leaving an empty sliver on the map. Kenya's outline here follows Turkana:
+ * vertices north of that line, between its ends, are dropped. Display only.
+ */
+const ILEMI = { west: 34.39, east: 35.6, south: 4.621 };
+function withoutIlemiTriangle({ country, geometry }) {
+    if (country !== 'Kenya') return geometry;
+    const inTriangle = ([x, y]) =>
+        x > ILEMI.west && x < ILEMI.east && y > ILEMI.south;
+    let dropped = 0;
+    const polygons = (
+        geometry.type === 'Polygon'
+            ? [geometry.coordinates]
+            : geometry.coordinates
+    ).map(polygon =>
+        polygon.map(ring => {
+            const kept = ring.filter(point => !inTriangle(point));
+            dropped += ring.length - kept.length;
+            return kept;
+        }),
+    );
+    assert(dropped > 0, 'Kenya outline no longer has the Ilemi Triangle');
+    return geometry.type === 'Polygon'
+        ? { type: 'Polygon', coordinates: polygons[0] }
+        : { type: 'MultiPolygon', coordinates: polygons };
+}
+
 const output = {
     toleranceDegrees: TOLERANCE,
     source: 'Derived locally from committed OpenStreetMap / Natural Earth geography and curated public reporting-area sources; display only',
@@ -256,7 +285,7 @@ const output = {
     },
     outlines: countries.outlines.map(country => ({
         country: country.country,
-        geometry: simplifyGeometry(country.geometry),
+        geometry: simplifyGeometry(withoutIlemiTriangle(country)),
     })),
     districts: {
         type: 'FeatureCollection',
