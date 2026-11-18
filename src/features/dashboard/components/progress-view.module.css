@@ -1227,7 +1227,7 @@
     opacity: 0.45;
 }
 
-/* Hover marks the row's swatch and lifts a faded row, leaving the share bar be. */
+/* Hover rings the row's swatch in its own colour and lifts a faded row, leaving the share bar be. */
 .speciesFocus .speciesSwatch {
     transition: box-shadow 150ms ease;
 }
@@ -1235,7 +1235,7 @@
 .speciesFocus:hover .speciesSwatch {
     box-shadow:
         0 0 0 2px var(--card),
-        0 0 0 4px color-mix(in srgb, var(--primary) 80%, transparent);
+        0 0 0 4px var(--swatch);
 }
 
 /* Replaces the swatch on the focused row, in the same space. */

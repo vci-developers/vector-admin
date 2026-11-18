@@ -165,7 +165,11 @@ export default function ProgressSpeciesBreakdown({
                                             <span
                                                 aria-hidden="true"
                                                 className={styles.speciesSwatch}
-                                                style={{ background: swatch }}
+                                                style={{
+                                                    background: swatch,
+                                                    ['--swatch' as string]:
+                                                        swatch,
+                                                }}
                                             />
                                         ))}
                                     {row.name ? (
